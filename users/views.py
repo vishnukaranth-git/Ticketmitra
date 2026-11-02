@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -264,11 +265,16 @@ def home(request):
 
         'friday_cycle_label': f"Friday Release Cycle ({cycle_info['current_friday'].strftime('%b %d')} – {cycle_info['cycle_end'].strftime('%b %d, %Y')})",
 
-        'is_friday_cycle': cycle_info['is_friday'],
-        'trending_booking_open': trending_booking_open,
-        'upcoming_anticipated': upcoming_anticipated,
-        'total_trending_open': categorized_data['total_trending_open'],
-        'total_upcoming': categorized_data['total_upcoming'],
+        'is_friday_cycle': cycle_info['is_friday'],
+
+        'trending_booking_open': trending_booking_open,
+
+        'upcoming_anticipated': upcoming_anticipated,
+
+        'total_trending_open': categorized_data['total_trending_open'],
+
+        'total_upcoming': categorized_data['total_upcoming'],
+
         'total_now_showing': categorized_data['total_now_showing'],
         'now_showing_movies': now_showing_movies,
         'released_this_week_movies': released_this_week_movies,
@@ -315,15 +321,34 @@ def register(request):
 
 
 def login_view(request):
+    if request.user.is_authenticated:
+        next_url = request.GET.get('next') or request.POST.get('next') or '/'
+        return redirect(next_url)
+
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
+        post_data = request.POST.copy()
+        raw_username = post_data.get('username', '').strip()
+        if '@' in raw_username:
+            try:
+                user_match = User.objects.filter(email__iexact=raw_username).first()
+                if user_match:
+                    post_data['username'] = user_match.username
+            except Exception:
+                pass
+
+        form = AuthenticationForm(request, data=post_data)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('home')
+            next_url = request.GET.get('next') or request.POST.get('next') or '/'
+            return redirect(next_url)
     else:
         form = AuthenticationForm()
-    return render(request, 'users/login.html', {'form': form})
+
+    return render(request, 'users/login.html', {
+        'form': form,
+        'next': request.GET.get('next', ''),
+    })
 
 
 def logout_view(request):
