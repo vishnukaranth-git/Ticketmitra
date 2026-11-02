@@ -1,81 +1,400 @@
-{% extends "admin/base_site.html" %}
-{% load i18n static %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Sign In | TicketMitra Operations</title>
 
-{% block bodyclass %}{{ block.super }} login{% endblock %}
+  <!-- Google Fonts: Playfair Display (headings) + DM Sans (interface) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 
-{% block nav-global %}{% endblock %}
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-{% block content_title %}{% endblock %}
+  <style>
+    :root {
+      --tm-midnight-navy:    #10243A;
+      --tm-deep-navy:        #0B192B;
+      --tm-surface:          #162238;
+      --tm-surface-elevated: #1B2940;
+      --tm-crimson:          #D61F45;
+      --tm-crimson-hover:    #A91535;
+      --tm-warm-ivory:       #F2E9DC;
+      --tm-text-muted:       #C8BBAA;
+      --tm-brass:            #B58A5A;
+      --tm-border:           rgba(226, 211, 193, 0.16);
+      --tm-border-strong:    rgba(226, 211, 193, 0.28);
+      --tm-glass:            rgba(22, 34, 56, 0.88);
+      --tm-glow-crimson:     0 8px 24px rgba(214, 31, 69, 0.35);
+    }
 
-{% block breadcrumbs %}{% endblock %}
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-{% block content %}
-<div style="min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
-  <div class="tm-modal-card" style="max-width: 440px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);">
+    html, body {
+      min-height: 100vh;
+      width: 100%;
+      background-color: var(--tm-deep-navy);
+      background-image:
+        radial-gradient(ellipse at 88% 4%, rgba(214, 31, 69, 0.12), transparent 36rem),
+        radial-gradient(ellipse at 12% 96%, rgba(181, 138, 90, 0.08), transparent 32rem),
+        linear-gradient(180deg, rgba(11, 25, 43, 0.92), rgba(16, 36, 58, 0.96)),
+        url('/static/images/midnight_paper_texture.png');
+      background-attachment: fixed;
+      background-size: cover, cover, cover, auto;
+      background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+      color: var(--tm-warm-ivory);
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
 
-    <!-- Header -->
-    <div class="text-center p-4 border-bottom" style="border-color: var(--tm-border) !important; background: rgba(13, 18, 32, 0.7);">
-      <div class="tm-brand-logo-icon mx-auto mb-3" style="width: 50px; height: 50px; font-size: 24px;">
-        <i class="fas fa-film"></i>
+    .auth-container {
+      width: 100%;
+      max-width: 440px;
+      margin: auto;
+    }
+
+    .auth-card {
+      background: var(--tm-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--tm-border);
+      border-radius: 16px;
+      padding: 38px 34px 34px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+      animation: authFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes authFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Brand Header */
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand-emblem {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--tm-crimson), var(--tm-crimson-hover));
+      border: 1px solid rgba(226, 211, 193, 0.22);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--tm-warm-ivory);
+      font-size: 22px;
+      box-shadow: var(--tm-glow-crimson);
+      margin-bottom: 14px;
+    }
+
+    .brand-wordmark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 800;
+      font-size: 21px;
+      letter-spacing: 0.05em;
+      color: var(--tm-warm-ivory);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .brand-wordmark span {
+      color: var(--tm-crimson);
+    }
+
+    .brand-tag {
+      font-size: 10.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--tm-brass);
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .auth-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--tm-warm-ivory);
+      letter-spacing: -0.015em;
+      margin-bottom: 6px;
+    }
+
+    .auth-subtitle {
+      font-size: 13.5px;
+      color: var(--tm-text-muted);
+      line-height: 1.4;
+      margin-bottom: 0;
+    }
+
+    /* Alerts */
+    .auth-alert {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .alert-danger {
+      background: rgba(214, 31, 69, 0.14);
+      border: 1px solid rgba(214, 31, 69, 0.4);
+      color: #ff94a5;
+    }
+
+    .alert-warning {
+      background: rgba(217, 119, 6, 0.16);
+      border: 1px solid rgba(217, 119, 6, 0.45);
+      color: #fcd34d;
+    }
+
+    .alert-info, .alert-success {
+      background: rgba(45, 157, 102, 0.16);
+      border: 1px solid rgba(45, 157, 102, 0.45);
+      color: #86efac;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .form-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--tm-text-muted);
+      letter-spacing: 0.01em;
+    }
+
+    .forgot-link {
+      font-size: 12.5px;
+      color: var(--tm-brass);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .forgot-link:hover {
+      color: var(--tm-warm-ivory);
+      text-decoration: underline;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      background: rgba(27, 41, 64, 0.72);
+      border: 1px solid var(--tm-border);
+      border-radius: 8px;
+      color: var(--tm-warm-ivory);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .form-input::placeholder {
+      color: rgba(200, 187, 170, 0.45);
+    }
+
+    .form-input:focus {
+      border-color: var(--tm-crimson);
+      background: rgba(27, 41, 64, 0.95);
+      box-shadow: 0 0 0 3px rgba(214, 31, 69, 0.22);
+    }
+
+    /* Submit Button */
+    .auth-submit-btn {
+      width: 100%;
+      height: 46px;
+      margin-top: 8px;
+      background: var(--tm-crimson);
+      border: 1px solid var(--tm-crimson);
+      border-radius: 8px;
+      color: var(--tm-warm-ivory);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: var(--tm-glow-crimson);
+    }
+
+    .auth-submit-btn:hover {
+      background: var(--tm-crimson-hover);
+      border-color: var(--tm-crimson-hover);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(214, 31, 69, 0.48);
+    }
+
+    .auth-submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .auth-submit-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(214, 31, 69, 0.4);
+    }
+
+    /* Footer Note */
+    .auth-footer {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--tm-border-subtle);
+      text-align: center;
+      font-size: 11.5px;
+      color: var(--tm-text-muted);
+      letter-spacing: 0.03em;
+    }
+
+    @media (max-width: 480px) {
+      .auth-card {
+        padding: 28px 20px 24px;
+        border-radius: 14px;
+      }
+      .auth-title {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="auth-card">
+
+    <!-- Brand & Title Header -->
+    <div class="brand-header">
+      <div class="brand-emblem" aria-hidden="true">
+        <i class="fas fa-ticket-alt"></i>
       </div>
-      <h2 class="tm-brand-title mb-1" style="font-size: 22px;">TICKET<span style="color: var(--tm-primary);">MITRA</span></h2>
-      <div class="tm-brand-subtitle mb-3" style="font-size: 11px;">CINEMA OPERATIONS CENTER</div>
-      <div class="d-flex justify-content-center" style="gap: 10px;">
-        <a href="/login/" class="btn font-weight-bold text-white" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--tm-border); border-radius: 8px; padding: 6px 16px; font-size: 12px; text-decoration: none;">
-          <i class="fas fa-user mr-1"></i> USER LOGIN
-        </a>
-        <a href="/admin/login/" class="btn font-weight-bold text-white" style="background: var(--tm-crimson); border: none; border-radius: 8px; padding: 6px 16px; font-size: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4);">
-          <i class="fas fa-shield-alt mr-1"></i> ADMIN LOGIN
-        </a>
-      </div>
+      <div class="brand-wordmark">TICKET<span>MITRA</span></div>
+      <div class="brand-tag">Operations Center</div>
+      <h1 class="auth-title">Admin Sign In</h1>
+      <p class="auth-subtitle">Sign in to manage cinema operations.</p>
     </div>
 
-    <!-- Login Form -->
-    <div class="p-4">
-      {% if form.errors and not form.non_field_errors %}
-        <div class="alert alert-danger small p-3 rounded mb-3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--tm-danger); color: #fca5a5;">
-          <i class="fas fa-exclamation-triangle mr-1"></i> Please correct the error below.
+    <!-- Django Messages -->
+    {% if messages %}
+      {% for message in messages %}
+        <div class="auth-alert alert-{{ message.tags|default:'danger' }}" role="alert">
+          <i class="fas fa-info-circle" style="margin-top: 2px;"></i>
+          <div>{{ message }}</div>
         </div>
-      {% endif %}
+      {% endfor %}
+    {% endif %}
 
-      {% if form.non_field_errors %}
-        {% for error in form.non_field_errors %}
-          <div class="alert alert-danger small p-3 rounded mb-3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--tm-danger); color: #fca5a5;">
-            <i class="fas fa-exclamation-triangle mr-1"></i> {{ error }}
-          </div>
-        {% endfor %}
-      {% endif %}
-
-      {% if user.is_authenticated %}
-        <div class="alert alert-warning small p-3 rounded mb-3" style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--tm-warning); color: #fcd34d;">
-          <i class="fas fa-lock mr-1"></i> You are authenticated as <strong>{{ user.get_username }}</strong>, but are not authorized to access the operations dashboard.
+    <!-- Django Form Non-Field Errors -->
+    {% if form.non_field_errors %}
+      {% for error in form.non_field_errors %}
+        <div class="auth-alert alert-danger" role="alert">
+          <i class="fas fa-exclamation-triangle" style="margin-top: 2px;"></i>
+          <div>{{ error }}</div>
         </div>
-      {% endif %}
+      {% endfor %}
+    {% endif %}
 
-      <form action="{% url 'admin_login' %}" method="post" id="login-form">
-        {% csrf_token %}
-        <div class="form-group mb-3">
-          <label class="font-weight-bold text-muted small mb-1">Admin Username or Email</label>
-          <input type="text" name="username" autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username" class="form-control w-100" placeholder="Enter admin username" style="background: var(--tm-elevated) !important; color: #fff !important; border: 1px solid var(--tm-border) !important; padding: 10px 14px; border-radius: 8px;">
+    <!-- Field Errors Fallback -->
+    {% if form.errors and not form.non_field_errors %}
+      <div class="auth-alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle" style="margin-top: 2px;"></i>
+        <div>Invalid administrator credentials. Please check your credentials and try again.</div>
+      </div>
+    {% endif %}
+
+    <!-- Authentication Form -->
+    <form action="{% url 'admin_login' %}" method="post" id="adminLoginForm" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next|default:'/admin/dashboard/' }}">
+
+      <!-- Email / Username Field -->
+      <div class="form-group">
+        <label for="id_username" class="form-label">Email address</label>
+        <input 
+          type="text" 
+          name="username" 
+          id="id_username" 
+          class="form-input" 
+          placeholder="name@cinema.com" 
+          autocomplete="username" 
+          autocapitalize="none" 
+          spellcheck="false" 
+          required 
+          autofocus
+        >
+      </div>
+
+      <!-- Password Field with Forgot Password Link -->
+      <div class="form-group">
+        <div class="form-label-row">
+          <label for="id_password" class="form-label">Password</label>
+          {% url 'password_reset' as pwd_reset_url %}
+          {% if pwd_reset_url %}
+            <a href="{{ pwd_reset_url }}" class="forgot-link">Forgot password?</a>
+          {% endif %}
         </div>
+        <input 
+          type="password" 
+          name="password" 
+          id="id_password" 
+          class="form-input" 
+          placeholder="••••••••••••" 
+          autocomplete="current-password" 
+          required
+        >
+      </div>
 
-        <div class="form-group mb-4">
-          <label class="font-weight-bold text-muted small mb-1">Admin Password</label>
-          <input type="password" name="password" autocomplete="current-password" required id="id_password" class="form-control w-100" placeholder="Enter password" style="background: var(--tm-elevated) !important; color: #fff !important; border: 1px solid var(--tm-border) !important; padding: 10px 14px; border-radius: 8px;">
-          <input type="hidden" name="next" value="{{ next|default:'/admin/dashboard/' }}">
-        </div>
+      <!-- Submit Button -->
+      <button type="submit" class="auth-submit-btn">
+        <i class="fas fa-lock" style="font-size: 13px;" aria-hidden="true"></i>
+        <span>Sign In</span>
+      </button>
+    </form>
 
-        <button type="submit" class="tm-btn tm-btn-primary w-100 py-3 justify-content-center font-weight-bold" style="font-size: 14px; border-radius: 8px;">
-          <i class="fas fa-sign-in-alt mr-2"></i> Admin Login
-        </button>
-      </form>
-    </div>
-
-    <!-- Footer -->
-    <div class="text-center p-3 border-top" style="border-color: var(--tm-border) !important; background: rgba(7, 11, 20, 0.4); font-size: 12px; color: var(--tm-text-muted);">
-      Protected Cinema Administration Console &bull; TicketMitra
+    <div class="auth-footer">
+      Protected Cinema Operations &bull; Authorized Personnel Only
     </div>
 
   </div>
 </div>
-{% endblock %}
+
+</body>
+</html>

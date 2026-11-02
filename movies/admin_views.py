@@ -244,7 +244,7 @@ def dashboard_stats_context():
     }
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def theater_detail_view(request, theater_id):
     """Premium theater management view with screen cards and stats."""
     theater = get_object_or_404(Theater.objects.select_related('movie', 'screen'), id=theater_id)
@@ -300,7 +300,7 @@ def theater_detail_view(request, theater_id):
     return render(request, 'admin/theater_detail.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def screen_detail_view(request, screen_id):
     """Detailed screen management page."""
     screen = get_object_or_404(Screen, id=screen_id)
@@ -329,7 +329,7 @@ def screen_detail_view(request, screen_id):
     return render(request, 'admin/screen_detail.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def visual_seat_map_view(request, theater_id=None, screen_id=None):
     """
     Visual seat-map management interface.
@@ -481,7 +481,7 @@ def visual_seat_map_view(request, theater_id=None, screen_id=None):
     return render(request, 'admin/visual_seat_map.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def seat_action_api(request):
     """
     Handles admin seat operations directly on screens and showtimes:
@@ -869,7 +869,7 @@ def seat_action_api(request):
     return JsonResponse({'success': False, 'error': f'Unknown action: {action}'}, status=400)
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def bulk_add_seats_view(request):
     """
     Bulk adds seats (e.g. Rows A to E, 6 seats per row).
@@ -1429,7 +1429,7 @@ def export_analytics_csv(request):
     return response
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def global_search_view(request):
     """
     Unified admin search across Movies, Users, Theaters, Screens, Seats, Bookings, Payments, Reservations.
@@ -1491,7 +1491,7 @@ def global_search_view(request):
     return render(request, 'admin/global_search.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='/admin/login/')
 def quick_booking_view(request):
     """
     Controlled admin 'BOOK NOW' test flow:
@@ -1544,6 +1544,13 @@ def admin_login_view(request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         user = authenticate(request, username=username, password=password)
+        if user is None and username:
+            try:
+                matched_user = User.objects.filter(email__iexact=username).first()
+                if matched_user:
+                    user = authenticate(request, username=matched_user.username, password=password)
+            except Exception:
+                pass
         if user is not None:
             is_staff = getattr(user, 'is_staff', False)
             is_superuser = getattr(user, 'is_superuser', False)
