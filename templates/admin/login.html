@@ -376,13 +376,13 @@
 
       <!-- Email / Username Field -->
       <div class="form-group">
-        <label for="id_username" class="form-label">Email address</label>
+        <label for="id_username" class="form-label">Username</label>
         <input 
           type="text" 
           name="username" 
           id="id_username" 
           class="form-input" 
-          placeholder="admin@cinema.com" 
+          placeholder="Enter admin username" 
           autocomplete="username" 
           autocapitalize="none" 
           spellcheck="false" 
@@ -394,7 +394,7 @@
       <!-- Password Field with Forgot Password Link and Eye Toggle -->
       <div class="form-group">
         <div class="form-label-row">
-          <label for="id_password" class="form-label">Password</label>
+          <label for="id_password" class="form-label">Secret Key</label>
           {% url 'password_reset' as pwd_reset_url %}
           {% if pwd_reset_url %}
             <a href="{{ pwd_reset_url }}" class="forgot-link">Forgot password?</a>
@@ -403,8 +403,8 @@
         <div class="input-wrapper">
           <input 
             type="password" 
-            name="password" 
-            id="id_password" 
+            name="secret_key" 
+            id="id_secret_key" 
             class="form-input has-toggle" 
             placeholder="••••••••••••" 
             autocomplete="current-password" 
@@ -433,7 +433,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('togglePasswordBtnAdmin');
-    const pwdInput = document.getElementById('id_password');
+    const pwdInput = document.getElementById('id_secret_key');
     const toggleIcon = document.getElementById('togglePasswordIconAdmin');
 
     if (toggleBtn && pwdInput && toggleIcon) {

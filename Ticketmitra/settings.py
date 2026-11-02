@@ -201,3 +201,6 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'TicketMitra <tickets@ticketmitra.com>')
+
+# Operations Admin Secret Key
+ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "TM_ADMIN_2026").strip()

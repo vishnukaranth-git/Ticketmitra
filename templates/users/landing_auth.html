@@ -1,0 +1,1053 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TicketMitra - Experience Blockbuster Cinema</title>
+
+  <!-- Google Fonts: Playfair Display + DM Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --midnight-navy: #10243A;
+      --deep-navy: #0B192B;
+      --surface: #162238;
+      --surface-elevated: #1B2940;
+      --crimson: #D61F45;
+      --crimson-hover: #B71838;
+      --warm-ivory: #F2E9DC;
+      --muted-text: #C8BBAA;
+      --dim-text: #8E9BAE;
+      --brass: #B58A5A;
+      --border-subtle: rgba(226, 211, 193, 0.16);
+      --border-focus: rgba(214, 31, 69, 0.5);
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--deep-navy);
+      background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(22, 34, 56, 0.6) 0%, transparent 70%),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 12px);
+      color: var(--warm-ivory);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Brand Bar */
+    .landing-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(11,25,43,0.92) 0%, rgba(11,25,43,0.3) 70%, transparent 100%);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--warm-ivory);
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--crimson) 0%, #8A122C 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(214, 31, 69, 0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .brand-mark svg, .brand-mark i {
+      color: #fff;
+      font-size: 1.2rem;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--warm-ivory);
+    }
+
+    .brand-subtitle {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--brass);
+      font-weight: 600;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(22, 34, 56, 0.7);
+      border: 1px solid var(--border-subtle);
+      padding: 0.4rem 0.85rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      color: var(--muted-text);
+    }
+
+    .header-badge .dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10B981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10B981;
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Container */
+    .landing-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Hero Video Section */
+    .hero-container {
+      position: relative;
+      width: 100%;
+      min-height: 60vh;
+      max-height: 68vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      box-shadow: inset 0 -40px 60px rgba(11,25,43,0.9);
+    }
+
+    .hero-video-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .hero-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.82;
+      filter: saturate(1.1) contrast(1.05);
+      transition: filter 0.3s ease;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at center, rgba(11, 25, 43, 0.25) 0%, rgba(11, 25, 43, 0.75) 75%, rgba(11, 25, 43, 0.98) 100%),
+                  linear-gradient(180deg, rgba(11, 25, 43, 0.5) 0%, rgba(11, 25, 43, 0.2) 40%, rgba(11, 25, 43, 0.9) 88%, #0B192B 100%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      max-width: 860px;
+      padding: 6rem 1.5rem 3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(214, 31, 69, 0.18);
+      border: 1px solid rgba(214, 31, 69, 0.45);
+      color: #FFA4B5;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      padding: 0.35rem 0.9rem;
+      border-radius: 30px;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.025em;
+      color: var(--warm-ivory);
+      text-shadow: 0 4px 24px rgba(0,0,0,0.85);
+      margin-bottom: 1rem;
+    }
+
+    .hero-title span {
+      background: linear-gradient(120deg, #F2E9DC 30%, #B58A5A 85%, #E5A967 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+      color: var(--muted-text);
+      max-width: 650px;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+    }
+
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: center;
+    }
+
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.8rem;
+      background: rgba(16, 36, 58, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--warm-ivory);
+      backdrop-filter: blur(6px);
+    }
+
+    .hero-pill i {
+      color: var(--brass);
+    }
+
+    /* Video Player Interactive Controls */
+    .video-controls {
+      position: absolute;
+      bottom: 1.25rem;
+      right: 1.75rem;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .btn-video-control {
+      background: rgba(16, 36, 58, 0.75);
+      border: 1px solid var(--border-subtle);
+      color: var(--warm-ivory);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.45rem 0.9rem;
+      border-radius: 24px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+
+    .btn-video-control:hover {
+      background: rgba(214, 31, 69, 0.25);
+      border-color: var(--crimson);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    /* Auth Portal Section */
+    .auth-section {
+      position: relative;
+      z-index: 20;
+      width: 100%;
+      max-width: 520px;
+      margin: -2.5rem auto 4rem;
+      padding: 0 1.25rem;
+    }
+
+    .auth-card {
+      background: rgba(22, 34, 56, 0.88);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .auth-card:hover {
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(214, 31, 69, 0.25);
+    }
+
+    /* Portal Tabs */
+    .portal-tabs {
+      display: flex;
+      background: rgba(11, 25, 43, 0.9);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.4rem;
+      gap: 0.4rem;
+    }
+
+    .portal-tab-btn {
+      flex: 1;
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: var(--dim-text);
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: all 0.25s ease;
+    }
+
+    .portal-tab-btn i {
+      font-size: 1rem;
+      transition: color 0.25s ease;
+    }
+
+    .portal-tab-btn:hover {
+      color: var(--warm-ivory);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .portal-tab-btn.active {
+      color: var(--warm-ivory);
+      background: var(--surface);
+      border-color: var(--border-subtle);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    }
+
+    .portal-tab-btn.tab-user.active {
+      color: #fff;
+      border-bottom: 2px solid var(--crimson);
+    }
+
+    .portal-tab-btn.tab-user.active i {
+      color: var(--crimson);
+    }
+
+    .portal-tab-btn.tab-admin.active {
+      color: #fff;
+      border-bottom: 2px solid var(--brass);
+    }
+
+    .portal-tab-btn.tab-admin.active i {
+      color: var(--brass);
+    }
+
+    /* Card Body */
+    .auth-body {
+      padding: 2rem 2rem 2.25rem;
+    }
+
+    .panel-header {
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+
+    .panel-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      margin-bottom: 0.65rem;
+    }
+
+    .panel-badge.user-badge {
+      background: rgba(214, 31, 69, 0.15);
+      color: #FFA4B5;
+      border: 1px solid rgba(214, 31, 69, 0.3);
+    }
+
+    .panel-badge.admin-badge {
+      background: rgba(181, 138, 90, 0.15);
+      color: #E2C092;
+      border: 1px solid rgba(181, 138, 90, 0.3);
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--warm-ivory);
+      letter-spacing: -0.01em;
+      margin-bottom: 0.35rem;
+    }
+
+    .panel-desc {
+      font-size: 0.88rem;
+      color: var(--muted-text);
+      line-height: 1.5;
+    }
+
+    /* Form Fields */
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--warm-ivory);
+      letter-spacing: 0.02em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .label-link {
+      font-size: 0.78rem;
+      color: var(--crimson);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .label-link:hover {
+      color: #FFA4B5;
+      text-decoration: underline;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 1rem;
+      color: var(--dim-text);
+      font-size: 0.95rem;
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 48px;
+      padding: 0 1rem 0 2.85rem;
+      background: rgba(11, 25, 43, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      color: var(--warm-ivory);
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-input::placeholder {
+      color: #6C7A8F;
+    }
+
+    .form-input:focus {
+      border-color: var(--crimson);
+      background: rgba(11, 25, 43, 0.95);
+      box-shadow: 0 0 0 3px rgba(214, 31, 69, 0.18);
+    }
+
+    .form-input.admin-input:focus {
+      border-color: var(--brass);
+      box-shadow: 0 0 0 3px rgba(181, 138, 90, 0.2);
+    }
+
+    .input-wrapper:focus-within .input-icon {
+      color: var(--warm-ivory);
+    }
+
+    .btn-toggle-visibility {
+      position: absolute;
+      right: 0.85rem;
+      background: transparent;
+      border: none;
+      color: var(--dim-text);
+      cursor: pointer;
+      padding: 0.4rem;
+      font-size: 0.9rem;
+      transition: color 0.2s ease;
+    }
+
+    .btn-toggle-visibility:hover {
+      color: var(--warm-ivory);
+    }
+
+    .field-hint {
+      font-size: 0.75rem;
+      color: var(--dim-text);
+      margin-top: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* Submit Button */
+    .btn-submit {
+      width: 100%;
+      height: 50px;
+      margin-top: 0.5rem;
+      background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-hover) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: #FFFFFF;
+      font-family: var(--font-body);
+      font-size: 0.96rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      box-shadow: 0 8px 20px rgba(214, 31, 69, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 26px rgba(214, 31, 69, 0.5);
+      background: linear-gradient(135deg, #E0274D 0%, #9C132F 100%);
+    }
+
+    .btn-submit.btn-submit-admin {
+      background: linear-gradient(135deg, #B58A5A 0%, #8A6436 100%);
+      box-shadow: 0 8px 20px rgba(181, 138, 90, 0.35);
+    }
+
+    .btn-submit.btn-submit-admin:hover {
+      box-shadow: 0 12px 26px rgba(181, 138, 90, 0.5);
+      background: linear-gradient(135deg, #C79A68 0%, #755227 100%);
+    }
+
+    .panel-footer-meta {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--dim-text);
+    }
+
+    .panel-footer-meta a {
+      color: var(--warm-ivory);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s ease;
+    }
+
+    .panel-footer-meta a:hover {
+      color: var(--crimson);
+      text-decoration: underline;
+    }
+
+    .security-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      background: rgba(11, 25, 43, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.76rem;
+      color: var(--dim-text);
+      line-height: 1.45;
+      margin-top: 0.5rem;
+    }
+
+    .security-notice i {
+      color: var(--brass);
+      font-size: 0.85rem;
+      margin-top: 0.1rem;
+    }
+
+    /* Alerts */
+    .alerts-container {
+      margin-bottom: 1.25rem;
+    }
+
+    .auth-alert {
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .auth-alert.alert-error {
+      background: rgba(214, 31, 69, 0.18);
+      border: 1px solid rgba(214, 31, 69, 0.4);
+      color: #FFB3C2;
+    }
+
+    .auth-alert.alert-success {
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #A7F3D0;
+    }
+
+    .auth-alert.alert-info {
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #BFDBFE;
+    }
+
+    /* Footer */
+    .landing-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--dim-text);
+      background: rgba(11, 25, 43, 0.8);
+    }
+
+    /* Tab Switch Visibility */
+    .auth-panel {
+      display: none;
+    }
+
+    .auth-panel.active {
+      display: block;
+      animation: fadeIn 0.25s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      .landing-header {
+        padding: 1rem;
+      }
+      .hero-content {
+        padding: 5rem 1rem 2rem;
+      }
+      .auth-section {
+        margin-top: -1.5rem;
+      }
+      .auth-body {
+        padding: 1.5rem 1.25rem;
+      }
+      .video-controls {
+        bottom: 0.75rem;
+        right: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation / Brand Bar -->
+  <header class="landing-header">
+    <a href="/" class="brand-logo">
+      <div class="brand-mark">
+        <i class="fas fa-ticket-alt"></i>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">TicketMitra</span>
+        <span class="brand-subtitle">Cinema Experience</span>
+      </div>
+    </a>
+    <div class="header-badge">
+      <span class="dot"></span>
+      <span>Live Cinema Network</span>
+    </div>
+  </header>
+
+  <main class="landing-main">
+    <!-- Hero Section with Background Video -->
+    <section class="hero-container" aria-label="Cinema Trailer Hero">
+      <div class="hero-video-wrapper">
+        <video id="heroVideo" class="hero-video" autoplay muted loop playsinline preload="auto">
+          <source src="{% static 'videos/ticketmitra_hero.mp4' %}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <div class="hero-overlay"></div>
+      </div>
+
+      <!-- Hero Cinematic Title & Subtitle -->
+      <div class="hero-content">
+        <div class="hero-tag">
+          <i class="fas fa-film"></i>
+          <span>Official Theatrical Release</span>
+        </div>
+        <h1 class="hero-title">
+          Your Movie. Your Seat.<br>
+          <span>Your Experience.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Immerse yourself in India's premier cinema booking platform. Reserve your favourite seats across multiplexes in IMAX, 4DX, and Dolby Atmos.
+        </p>
+        <div class="hero-pills">
+          <span class="hero-pill"><i class="fas fa-cube"></i> IMAX with Laser</span>
+          <span class="hero-pill"><i class="fas fa-wind"></i> 4DX Motion</span>
+          <span class="hero-pill"><i class="fas fa-volume-high"></i> Dolby Atmos 7.1</span>
+          <span class="hero-pill"><i class="fas fa-crown"></i> VIP Gold Recliners</span>
+        </div>
+      </div>
+
+      <!-- Video Control Buttons -->
+      <div class="video-controls">
+        <button type="button" id="btnTogglePlay" class="btn-video-control" title="Play or pause video">
+          <i class="fas fa-pause"></i>
+          <span id="lblPlayState">Pause</span>
+        </button>
+        <button type="button" id="btnToggleMute" class="btn-video-control" title="Mute or unmute audio">
+          <i class="fas fa-volume-mute"></i>
+          <span id="lblMuteState">Unmute</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Dual Authentication Section -->
+    <section class="auth-section" aria-label="Authentication Portal">
+      <div class="auth-card">
+        
+        <!-- Portal Selector Tabs -->
+        <div class="portal-tabs" role="tablist">
+          <button type="button" id="tabUserBtn" class="portal-tab-btn tab-user active" role="tab" aria-selected="true" onclick="switchPortal('user')">
+            <i class="fas fa-user-circle"></i>
+            <span>User Panel</span>
+          </button>
+          <button type="button" id="tabAdminBtn" class="portal-tab-btn tab-admin" role="tab" aria-selected="false" onclick="switchPortal('admin')">
+            <i class="fas fa-shield-halved"></i>
+            <span>Admin Panel</span>
+          </button>
+        </div>
+
+        <div class="auth-body">
+          <!-- Global System Messages & Errors -->
+          {% if messages %}
+            <div class="alerts-container">
+              {% for msg in messages %}
+                <div class="auth-alert {% if msg.tags == 'error' %}alert-error{% elif msg.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+                  <i class="fas {% if msg.tags == 'error' %}fa-circle-exclamation{% elif msg.tags == 'success' %}fa-circle-check{% else %}fa-circle-info{% endif %}"></i>
+                  <span>{{ msg }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% if form and form.errors %}
+            <div class="alerts-container">
+              {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                  <div class="auth-alert alert-error">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <span>{{ error }}</span>
+                  </div>
+                {% endfor %}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <!-- ================= 1. USER PANEL ================= -->
+          <div id="userPanel" class="auth-panel active">
+            <div class="panel-header">
+              <div class="panel-badge user-badge">
+                <i class="fas fa-ticket-alt"></i> Audience Sign In
+              </div>
+              <h2 class="panel-title">Welcome Back</h2>
+              <p class="panel-desc">Sign in with your email and password to book tickets and manage reservations.</p>
+            </div>
+
+            <form action="{% url 'login' %}" method="POST" class="auth-form" id="userLoginForm">
+              {% csrf_token %}
+              {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+              {% endif %}
+
+              <div class="form-group">
+                <label for="userEmail" class="form-label">Email Address</label>
+                <div class="input-wrapper">
+                  <i class="fas fa-envelope input-icon"></i>
+                  <input 
+                    type="email" 
+                    id="userEmail" 
+                    name="username" 
+                    class="form-input" 
+                    placeholder="name@example.com" 
+                    required 
+                    autocomplete="email"
+                  >
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="form-label">
+                  <label for="userPassword">Password</label>
+                  <a href="{% url 'password_reset' %}" class="label-link">Forgot password?</a>
+                </div>
+                <div class="input-wrapper">
+                  <i class="fas fa-lock input-icon"></i>
+                  <input 
+                    type="password" 
+                    id="userPassword" 
+                    name="password" 
+                    class="form-input" 
+                    placeholder="Enter your password" 
+                    required 
+                    autocomplete="current-password"
+                  >
+                  <button type="button" class="btn-toggle-visibility" onclick="togglePasswordVisibility('userPassword', this)" aria-label="Toggle password">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn-submit">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>Sign In</span>
+              </button>
+            </form>
+
+            <div class="panel-footer-meta">
+              Don't have an account? <a href="{% url 'register' %}">Create Account</a>
+            </div>
+          </div>
+
+          <!-- ================= 2. ADMIN PANEL ================= -->
+          <div id="adminPanel" class="auth-panel">
+            <div class="panel-header">
+              <div class="panel-badge admin-badge">
+                <i class="fas fa-shield-alt"></i> Cinema Operations
+              </div>
+              <h2 class="panel-title">Operations Sign In</h2>
+              <p class="panel-desc">Authorized cinema staff only. Sign in to manage screens, showtimes, and bookings.</p>
+            </div>
+
+            <form action="{% url 'admin_login' %}" method="POST" class="auth-form" id="adminLoginForm">
+              {% csrf_token %}
+              <input type="hidden" name="from_landing" value="1">
+              <input type="hidden" name="next" value="{{ next|default:'/admin/dashboard/' }}">
+
+              <div class="form-group">
+                <label for="adminUsername" class="form-label">Username</label>
+                <div class="input-wrapper">
+                  <i class="fas fa-user-shield input-icon"></i>
+                  <input 
+                    type="text" 
+                    id="adminUsername" 
+                    name="username" 
+                    class="form-input admin-input" 
+                    placeholder="Administrator username" 
+                    required 
+                    autocomplete="username"
+                  >
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="adminSecretKey" class="form-label">Secret Key</label>
+                <div class="input-wrapper">
+                  <i class="fas fa-key input-icon"></i>
+                  <input 
+                    type="password" 
+                    id="adminSecretKey" 
+                    name="secret_key" 
+                    class="form-input admin-input" 
+                    placeholder="Enter secret key" 
+                    required 
+                    autocomplete="current-password"
+                  >
+                  <button type="button" class="btn-toggle-visibility" onclick="togglePasswordVisibility('adminSecretKey', this)" aria-label="Toggle secret key">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
+                <div class="field-hint">
+                  <i class="fas fa-info-circle"></i> Enter your operations password or system secret key
+                </div>
+              </div>
+
+              <button type="submit" class="btn-submit btn-submit-admin">
+                <i class="fas fa-shield-halved"></i>
+                <span>Admin Sign In</span>
+              </button>
+
+              <div class="security-notice">
+                <i class="fas fa-lock"></i>
+                <span>Restricted zone: Access is monitored and logged for operational auditing.</span>
+              </div>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <p>&copy; 2026 TicketMitra Cinema Management & Booking System. All rights reserved.</p>
+  </footer>
+
+  <!-- Interactivity & Video Handler -->
+  <script>
+    // Tab switching logic
+    function switchPortal(type) {
+      const userTab = document.getElementById('tabUserBtn');
+      const adminTab = document.getElementById('tabAdminBtn');
+      const userPanel = document.getElementById('userPanel');
+      const adminPanel = document.getElementById('adminPanel');
+
+      if (type === 'admin') {
+        userTab.classList.remove('active');
+        userTab.setAttribute('aria-selected', 'false');
+        adminTab.classList.add('active');
+        adminTab.setAttribute('aria-selected', 'true');
+
+        userPanel.classList.remove('active');
+        adminPanel.classList.add('active');
+
+        // Focus first admin input
+        setTimeout(() => {
+          const inp = document.getElementById('adminUsername');
+          if (inp) inp.focus();
+        }, 100);
+      } else {
+        adminTab.classList.remove('active');
+        adminTab.setAttribute('aria-selected', 'false');
+        userTab.classList.add('active');
+        userTab.setAttribute('aria-selected', 'true');
+
+        adminPanel.classList.remove('active');
+        userPanel.classList.add('active');
+
+        // Focus first user input
+        setTimeout(() => {
+          const inp = document.getElementById('userEmail');
+          if (inp) inp.focus();
+        }, 100);
+      }
+    }
+
+    // Toggle password eye icon
+    function togglePasswordVisibility(fieldId, btn) {
+      const field = document.getElementById(fieldId);
+      const icon = btn.querySelector('i');
+      if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    // Video Audio & Playback Controls
+    document.addEventListener('DOMContentLoaded', function () {
+      const video = document.getElementById('heroVideo');
+      const btnTogglePlay = document.getElementById('btnTogglePlay');
+      const btnToggleMute = document.getElementById('btnToggleMute');
+      const lblPlayState = document.getElementById('lblPlayState');
+      const lblMuteState = document.getElementById('lblMuteState');
+
+      if (video && btnTogglePlay) {
+        btnTogglePlay.addEventListener('click', function () {
+          if (video.paused) {
+            video.play();
+            btnTogglePlay.querySelector('i').className = 'fas fa-pause';
+            lblPlayState.textContent = 'Pause';
+          } else {
+            video.pause();
+            btnTogglePlay.querySelector('i').className = 'fas fa-play';
+            lblPlayState.textContent = 'Play';
+          }
+        });
+      }
+
+      if (video && btnToggleMute) {
+        btnToggleMute.addEventListener('click', function () {
+          if (video.muted) {
+            video.muted = false;
+            btnToggleMute.querySelector('i').className = 'fas fa-volume-high';
+            lblMuteState.textContent = 'Mute';
+          } else {
+            video.muted = true;
+            btnToggleMute.querySelector('i').className = 'fas fa-volume-mute';
+            lblMuteState.textContent = 'Unmute';
+          }
+        });
+      }
+
+      // Check URL parameters or active_tab from context
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const hash = window.location.hash;
+
+      if (tabParam === 'admin' || hash === '#admin' || '{{ active_tab }}' === 'admin') {
+        switchPortal('admin');
+      }
+    });
+  </script>
+</body>
+</html>

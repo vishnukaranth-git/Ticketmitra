@@ -17,6 +17,15 @@ from .forms import UserRegisterForm, UserUpdateForm
 
 
 def home(request):
+    if not request.user.is_authenticated:
+        form = AuthenticationForm()
+        active_tab = request.GET.get('tab', 'user')
+        return render(request, 'users/landing_auth.html', {
+            'form': form,
+            'active_tab': active_tab,
+            'next': request.GET.get('next', '/'),
+        })
+
     today = timezone.now().date()
     now = timezone.now()
 
@@ -342,11 +351,14 @@ def login_view(request):
             login(request, user)
             next_url = request.GET.get('next') or request.POST.get('next') or '/'
             return redirect(next_url)
+        else:
+            messages.error(request, 'Invalid email address or password. Please try again.')
     else:
         form = AuthenticationForm()
 
-    return render(request, 'users/login.html', {
+    return render(request, 'users/landing_auth.html', {
         'form': form,
+        'active_tab': 'user',
         'next': request.GET.get('next', ''),
     })
 

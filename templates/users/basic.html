@@ -842,11 +842,7 @@
           <!-- User Menu / Login / Register / Staff Admin -->
           {% if user.is_authenticated %}
             <div class="d-flex align-items-center" style="gap: 8px;">
-              {% if user.is_staff or user.is_superuser %}
-              <a href="/admin/dashboard/" class="btn btn-sm btn-outline-danger py-1 px-3 d-inline-flex align-items-center" style="font-size: 12px; border-radius: 20px; font-weight: 600; gap: 5px;" title="Operations Admin Dashboard">
-                <i class="fas fa-shield-alt"></i> Admin
-              </a>
-              {% endif %}
+
 
               <div class="dropdown">
                 <button class="user-dropdown-btn" type="button" id="userMenuBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{ user.username }}">
@@ -867,16 +863,7 @@
                   <a class="dropdown-item" href="{% url 'payment_history' %}">
                     <i class="fas fa-receipt mr-2 text-success"></i> Payment History
                   </a>
-                  {% if user.is_staff or user.is_superuser %}
-                  <div class="dropdown-divider"></div>
-                  <div class="dropdown-header text-uppercase" style="font-size: 10px; color: var(--muted-parchment, #C8BBAA); letter-spacing: 0.05em;">Staff Console</div>
-                  <a class="dropdown-item" href="/admin/dashboard/">
-                    <i class="fas fa-cog mr-2 text-warning"></i> Operations Panel
-                  </a>
-                  <a class="dropdown-item" href="/admin/sys/">
-                    <i class="fas fa-database mr-2 text-info"></i> Django Admin
-                  </a>
-                  {% endif %}
+
                   <div class="dropdown-divider"></div>
                   <form method="POST" action="{% url 'logout' %}" class="m-0 p-0">
                     {% csrf_token %}
