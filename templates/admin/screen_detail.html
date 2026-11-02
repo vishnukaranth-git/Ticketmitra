@@ -1,0 +1,122 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- Screen Header -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:movies_screen_changelist' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Screens</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">{{ screen.name }}</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-tv text-info"></i>
+        <span>{{ screen.theater_name }} — {{ screen.name }}</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Type: <span class="tm-badge tm-badge-blue">{{ screen.screen_type }}</span> |
+        Capacity: <strong class="text-white">{{ screen.capacity }} Seats</strong> |
+        Status: {% if screen.active %}<span class="tm-badge tm-badge-success">Active</span>{% else %}<span class="tm-badge tm-badge-danger">Inactive</span>{% endif %}
+      </p>
+    </div>
+
+    <div class="d-flex align-items-center" style="gap: 10px;">
+      <a href="{% url 'admin_manage_seats_screen' screen.id %}" class="tm-btn tm-btn-primary">
+        <i class="fas fa-chair"></i> Manage Visual Seats
+      </a>
+      <a href="{% url 'admin:movies_screen_change' screen.id %}" class="tm-btn tm-btn-ghost">
+        <i class="fas fa-edit"></i> Edit Screen
+      </a>
+    </div>
+  </div>
+
+  <!-- Screen Seat Stats -->
+  <div class="tm-metrics-grid mb-4">
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Capacity</div>
+        <div class="tm-metric-icon-box blue"><i class="fas fa-users"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ screen.capacity }}</div>
+      <div class="tm-metric-subtext">{{ total_seats }} seats created in DB</div>
+    </div>
+
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Available</div>
+        <div class="tm-metric-icon-box green"><i class="fas fa-check-circle"></i></div>
+      </div>
+      <div class="tm-metric-value text-success">{{ available }}</div>
+      <div class="tm-metric-subtext positive">Free to book</div>
+    </div>
+
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Reserved</div>
+        <div class="tm-metric-icon-box orange"><i class="fas fa-stopwatch"></i></div>
+      </div>
+      <div class="tm-metric-value text-warning">{{ reserved }}</div>
+      <div class="tm-metric-subtext warning">Active 2-min holds</div>
+    </div>
+
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Booked</div>
+        <div class="tm-metric-icon-box red"><i class="fas fa-ticket-alt"></i></div>
+      </div>
+      <div class="tm-metric-value text-danger">{{ booked }}</div>
+      <div class="tm-metric-subtext">Confirmed tickets</div>
+    </div>
+  </div>
+
+  <!-- Screen Showtimes -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="far fa-clock text-warning"></i>
+        <span>Recent & Upcoming Showtimes on this Screen</span>
+      </div>
+      <a href="{% url 'admin:movies_theater_add' %}" class="tm-btn tm-btn-ghost" style="font-size: 11px;">
+        <i class="fas fa-plus"></i> Add Showtime
+      </a>
+    </div>
+    <div class="tm-panel-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0" style="color: var(--tm-text);">
+          <thead>
+            <tr style="background: var(--tm-elevated); color: var(--tm-text-muted); font-size: 11.5px; text-transform: uppercase;">
+              <th class="p-3">Movie</th>
+              <th class="p-3">Showtime</th>
+              <th class="p-3">Status</th>
+              <th class="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for st in showtimes %}
+              <tr style="border-bottom: 1px solid var(--tm-border);">
+                <td class="p-3 font-weight-bold text-white">{{ st.movie.get_display_title }}</td>
+                <td class="p-3 text-muted">{{ st.time|date:"M d, Y - h:i A" }}</td>
+                <td class="p-3">
+                  {% if st.active %}<span class="tm-badge tm-badge-success">Active</span>{% else %}<span class="tm-badge tm-badge-danger">Inactive</span>{% endif %}
+                </td>
+                <td class="p-3 text-right">
+                  <a href="{% url 'admin_manage_seats_theater' st.id %}" class="tm-btn tm-btn-secondary py-1 px-2" style="font-size: 11px;">
+                    <i class="fas fa-chair"></i> Seats
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="text-center p-4 text-muted">No showtimes found for this screen.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

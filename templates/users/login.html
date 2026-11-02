@@ -1,0 +1,126 @@
+{% extends "users/basic.html" %}
+{% block title %}Sign In - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .auth-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 20px;
+    padding: 35px 30px;
+    box-shadow: var(--shadow-card);
+  }
+  .auth-input-group {
+    background: var(--surface-elevated);
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    transition: all 0.25s ease;
+  }
+  .auth-input-group:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px rgba(220, 38, 61, 0.2);
+  }
+  .auth-input-addon {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+  }
+  .auth-input-group input {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    padding: 12px 14px 12px 0;
+    width: 100%;
+    outline: none !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="auth-card">
+        <div class="text-center mb-4">
+          <div class="brand-emblem mx-auto mb-3" style="width: 48px; height: 48px;">
+            <i class="fas fa-ticket-alt fa-lg"></i>
+          </div>
+          <h2 class="h4 font-weight-bold text-white mb-1">Welcome Back</h2>
+          <p class="text-secondary small mb-3">Sign in to your TicketMitra account to book seats</p>
+
+          <!-- Auth Mode Toggle -->
+          <div class="d-flex justify-content-center mb-4" style="gap: 10px;">
+            <a href="{% url 'login' %}" class="btn font-weight-bold text-white" style="background: var(--color-primary); border-radius: 8px; padding: 8px 24px; font-size: 13px; text-decoration: none; box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4);">
+              <i class="fas fa-sign-in-alt mr-1"></i> Sign In
+            </a>
+            <a href="{% url 'register' %}" class="btn font-weight-bold text-white" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--surface-border); border-radius: 8px; padding: 8px 24px; font-size: 13px; text-decoration: none;">
+              <i class="fas fa-user-plus mr-1"></i> Register
+            </a>
+          </div>
+        </div>
+
+        <form method="POST" action="{% url 'login' %}">
+          {% csrf_token %}
+          <!-- Username Input -->
+          <div class="mb-3">
+            <label for="{{ form.username.id_for_label }}" class="text-secondary small font-weight-bold mb-1 d-block">Username</label>
+            <div class="auth-input-group">
+              <span class="auth-input-addon"><i class="fas fa-user"></i></span>
+              {{ form.username }}
+            </div>
+          </div>
+
+          <!-- Password Input -->
+          <div class="mb-4">
+            <label for="{{ form.password.id_for_label }}" class="text-secondary small font-weight-bold mb-1 d-block">Password</label>
+            <div class="auth-input-group">
+              <span class="auth-input-addon"><i class="fas fa-lock"></i></span>
+              {{ form.password }}
+              <button class="btn btn-link text-muted pr-3" type="button" id="togglePassword" style="text-decoration: none;">
+                <i class="fas fa-eye" id="toggleIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-cinematic-primary w-100 py-3 justify-content-center font-weight-bold mb-3" style="font-size: 15px;">
+            <i class="fas fa-sign-in-alt mr-2"></i> Sign In to TicketMitra
+          </button>
+        </form>
+
+        <div class="text-center pt-3 border-top" style="border-color: var(--surface-border) !important;">
+          <a href="{% url 'password_reset' %}" class="text-muted small">Forgot your password?</a>
+          <p class="text-secondary small mt-2 mb-0">
+            Don't have an account? <a href="{% url 'register' %}" class="font-weight-bold" style="color: var(--color-primary);">Register Now</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordField = document.getElementById('{{ form.password.id_for_label }}');
+    const toggleIcon = document.getElementById('toggleIcon');
+
+    if (togglePassword && passwordField) {
+      togglePassword.addEventListener('click', function() {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        toggleIcon.classList.toggle('fa-eye');
+        toggleIcon.classList.toggle('fa-eye-slash');
+      });
+    }
+  });
+</script>
+{% endblock %}

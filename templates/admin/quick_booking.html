@@ -1,0 +1,85 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- Header -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Admin Test Booking</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-ticket-alt text-danger"></i>
+        <span>Controlled Admin Booking Flow</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Test the end-to-end booking process. Follows all 2-minute seat reservation holds, Stripe Payment Element checks, and atomic seat locks.
+      </p>
+    </div>
+  </div>
+
+  <!-- Booking Flow Steps Container -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-list-ol text-info"></i>
+        <span>Step 1: Select Movie & Showtime</span>
+      </div>
+    </div>
+    <div class="tm-panel-body">
+      <!-- Step 1: Movie Picker -->
+      <div class="form-group mb-4">
+        <label class="font-weight-bold text-white mb-2">1. Choose Movie</label>
+        <div class="row" style="display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px;">
+          {% for m in movies %}
+            <div style="flex: 0 0 140px;">
+              <a href="?movie_id={{ m.id }}" style="text-decoration: none;">
+                <div class="p-2 rounded text-center" style="background: var(--tm-elevated); border: 2px solid {% if selected_movie and selected_movie.id == m.id %}var(--tm-primary){% else %}var(--tm-border){% endif %}; transition: all 0.2s;">
+                  <img src="{{ m.get_poster_url }}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 6px; margin-bottom: 8px;">
+                  <div class="font-weight-bold text-white small" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.get_display_title }}</div>
+                </div>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Step 2: Showtime Picker -->
+      {% if selected_movie %}
+        <div class="form-group mb-4">
+          <label class="font-weight-bold text-white mb-2">2. Choose Showtime for {{ selected_movie.get_display_title }}</label>
+          <div class="row" style="display: flex; gap: 14px; flex-wrap: wrap;">
+            {% for st in showtimes %}
+              <div style="flex: 1; min-width: 240px;">
+                <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+                  <div class="font-weight-bold text-white mb-1">{{ st.name }}</div>
+                  <div class="small text-muted mb-2">
+                    <i class="fas fa-tv text-info mr-1"></i> {{ st.screen.name|default:"Screen 1" }} ({{ st.screen.screen_type|default:"IMAX" }})
+                  </div>
+                  <div class="small text-muted mb-3">
+                    <i class="far fa-clock text-warning mr-1"></i> {{ st.time|date:"M d, Y - h:i A" }}
+                  </div>
+                  <a href="{% url 'book_seats' st.id %}" target="_blank" class="tm-btn tm-btn-primary w-100 justify-content-center">
+                    <i class="fas fa-chair mr-1"></i> Select Seats & Book
+                  </a>
+                </div>
+              </div>
+            {% empty %}
+              <div class="p-3 text-muted">No active showtimes scheduled for this movie. Please schedule a showtime first.</div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-info small" style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--tm-blue); color: #93c5fd;">
+          <i class="fas fa-info-circle mr-1"></i> Click any movie poster above to view available showtimes and launch the visual seat selection.
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

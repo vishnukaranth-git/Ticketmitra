@@ -1,0 +1,136 @@
+{% extends "users/basic.html" %}
+{% block title %}Payment History - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .table-payment-custom {
+    color: #fff;
+    margin-bottom: 0;
+  }
+  .table-payment-custom th {
+    background: transparent;
+    border-color: var(--surface-border) !important;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 14px 18px;
+  }
+  .table-payment-custom td {
+    border-color: var(--surface-border) !important;
+    vertical-align: middle;
+    padding: 16px 18px;
+    font-size: 13px;
+  }
+  .table-container-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 12px;">
+    <div>
+      <h1 class="h3 font-weight-bold text-white mb-1"><i class="fas fa-receipt text-info mr-2"></i>Payment History</h1>
+      <p class="text-secondary small mb-0">Complete transaction log for all your cinema ticket orders</p>
+    </div>
+    <div>
+      <a href="{% url 'my_bookings' %}" class="btn btn-sm btn-outline-light">
+        <i class="fas fa-ticket-alt mr-1"></i> My Bookings
+      </a>
+    </div>
+  </div>
+
+  <div class="table-container-card">
+    <div class="table-responsive">
+      <table class="table table-payment-custom">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Order / Movie</th>
+            <th>Amount</th>
+            <th>Provider</th>
+            <th>Payment ID</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td>
+              <div class="text-white">{{ p.created_at|date:"M d, Y" }}</div>
+              <small class="text-muted">{{ p.created_at|date:"h:i A" }}</small>
+            </td>
+            <td>
+              {% if p.booking %}
+                <div class="font-weight-bold text-white">{{ p.booking.movie.get_display_title }}</div>
+                <small class="text-muted">{{ p.booking.theater.name }}</small>
+              {% elif p.reservation %}
+                <div class="font-weight-bold text-white">{{ p.reservation.theater.movie.get_display_title }}</div>
+                <small class="text-muted">{{ p.reservation.theater.name }}</small>
+              {% else %}
+                <div class="text-muted">Order {{ p.order_id|truncatechars:18 }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <strong class="text-white font-monospace">₹{{ p.amount|floatformat:2 }}</strong>
+            </td>
+            <td>
+              <span class="badge badge-dark border" style="background: rgba(1, 180, 228, 0.15); border-color: rgba(1, 180, 228, 0.35); color: #01b4e4; font-size: 11px;">
+                {{ p.provider }}
+              </span>
+            </td>
+            <td>
+              <small class="font-monospace text-secondary">{{ p.payment_id|default:"Pending" }}</small>
+            </td>
+            <td>
+              {% if p.status == 'SUCCESS' %}
+                <span class="badge badge-success px-2 py-1"><i class="fas fa-check-circle mr-1"></i> SUCCESS</span>
+              {% elif p.status == 'FAILED' %}
+                <span class="badge badge-danger px-2 py-1" title="{{ p.failure_reason }}"><i class="fas fa-times-circle mr-1"></i> FAILED</span>
+              {% elif p.status == 'CANCELLED' %}
+                <span class="badge badge-warning px-2 py-1"><i class="fas fa-ban mr-1"></i> CANCELLED</span>
+              {% elif p.status == 'REFUNDED' %}
+                <span class="badge badge-info px-2 py-1">REFUNDED</span>
+              {% else %}
+                <span class="badge badge-secondary px-2 py-1">{{ p.status }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.booking %}
+                <a href="{% url 'booking_ticket' p.booking.id %}" class="btn btn-sm btn-outline-info" style="font-size: 11px;">
+                  View Ticket
+                </a>
+              {% elif p.status == 'CREATED' or p.status == 'PENDING' %}
+                {% if p.reservation and p.reservation.is_active %}
+                  <a href="{% url 'checkout' p.reservation.id %}" class="btn btn-sm btn-cinematic-primary" style="font-size: 11px;">
+                    Resume Pay
+                  </a>
+                {% else %}
+                  <span class="text-muted small">Expired</span>
+                {% endif %}
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="fas fa-receipt fa-2x mb-2 d-block text-secondary"></i>
+              No payment transactions found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

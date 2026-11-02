@@ -1,0 +1,571 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- Header -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Pricing Management</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-tags text-danger"></i>
+        <span>Weekly &amp; Date-Based Ticket Pricing</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Configure flexible date-range pricing rules, seat category tiers, weekend/weekday surcharges, bulk update future showtimes, and promotional coupons.
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center" style="gap: 10px;">
+      <button type="button" class="tm-btn tm-btn-primary" onclick="tmOpenModal('modalCreatePlan')">
+        <i class="fas fa-plus-circle mr-1"></i> Create Pricing Plan
+      </button>
+      <button type="button" class="tm-btn tm-btn-secondary" onclick="tmOpenModal('modalCreateCoupon')">
+        <i class="fas fa-ticket-alt mr-1"></i> New Coupon Code
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(214, 31, 69, 0.15); color: #EF4444;">
+          <i class="fas fa-calendar-alt"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">{{ plans.count }}</div>
+          <div class="tm-stat-label">Configured Pricing Plans</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(34, 197, 94, 0.15); color: #22C55E;">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">
+            {% with active_plans=plans|dictsortreversed:"is_active" %}
+              {{ plans|length }}
+            {% endwith %}
+          </div>
+          <div class="tm-stat-label">Active Pricing Rules</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6;">
+          <i class="fas fa-percentage"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">{{ coupons.count }}</div>
+          <div class="tm-stat-label">Active Coupon Codes</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B;">
+          <i class="fas fa-history"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">{{ history.count }}</div>
+          <div class="tm-stat-label">Price Audit Records</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: PRICING PLANS TABLE -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-calendar-check text-danger"></i>
+        <span>Date-Based &amp; Weekly Pricing Plans</span>
+      </div>
+      <div class="small text-muted">
+        Example: Week 1 (Regular ₹180, Recliner ₹350) &bull; Week 2 (Regular ₹200, Recliner ₹400)
+      </div>
+    </div>
+    <div class="tm-panel-body p-0">
+      {% if plans %}
+        <div class="table-responsive">
+          <table class="tm-data-table">
+            <thead>
+              <tr>
+                <th>Plan Name &amp; Target</th>
+                <th>Date Window</th>
+                <th>Days / Format</th>
+                <th>Category Pricing Tiers</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in plans %}
+                <tr>
+                  <td>
+                    <strong class="text-white">{{ p.name }}</strong>
+                    <div class="small text-muted mt-1">
+                      {% if p.theatre_name %}
+                        <i class="fas fa-building mr-1"></i> {{ p.theatre_name }}
+                      {% else %}
+                        <i class="fas fa-globe mr-1"></i> All Partner Cinemas
+                      {% endif %}
+                      {% if p.movie %}
+                        &bull; <i class="fas fa-film ml-1 mr-1"></i> {{ p.movie.get_display_title }}
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge" style="background: rgba(255,255,255,0.08); color: #F3F4F6; font-size: 11px;">
+                      {{ p.start_date|date:"M d, Y" }} &rarr; {{ p.end_date|date:"M d, Y" }}
+                    </span>
+                    <div class="small text-muted mt-1">
+                      {% if p.end_date < today %}
+                        <span class="text-muted">Expired</span>
+                      {% elif p.start_date <= today and p.end_date >= today %}
+                        <span class="text-success font-weight-bold">Active Current Week</span>
+                      {% else %}
+                        <span class="text-info">Upcoming Schedule</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge badge-secondary" style="font-size: 11px;">{{ p.get_day_type_display }}</span>
+                    <div class="small text-muted mt-1">{{ p.screen_type }}</div>
+                  </td>
+                  <td>
+                    <div class="d-flex flex-wrap" style="gap: 6px;">
+                      <span class="badge" style="background: #1e293b; color: #94a3b8; border: 1px solid #334155;">
+                        REG: <strong class="text-white">₹{{ p.category_prices.REGULAR|default:p.base_price }}</strong>
+                      </span>
+                      <span class="badge" style="background: #1e293b; color: #60a5fa; border: 1px solid #2563eb;">
+                        PREM: <strong class="text-white">₹{{ p.category_prices.PREMIUM|default:p.base_price }}</strong>
+                      </span>
+                      <span class="badge" style="background: #1e293b; color: #f59e0b; border: 1px solid #d97706;">
+                        RECL: <strong class="text-white">₹{{ p.category_prices.RECLINER|default:p.base_price }}</strong>
+                      </span>
+                      <span class="badge" style="background: #1e293b; color: #ec4899; border: 1px solid #db2777;">
+                        VIP: <strong class="text-white">₹{{ p.category_prices.VIP|default:p.base_price }}</strong>
+                      </span>
+                      <span class="badge" style="background: #1e293b; color: #10b981; border: 1px solid #059669;">
+                        ACC: <strong class="text-white">₹{{ p.category_prices.ACCESSIBLE|default:p.base_price }}</strong>
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {% if p.is_active %}
+                      <span class="tm-badge tm-badge-success"><i class="fas fa-check-circle mr-1"></i>Active</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-muted">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-right">
+                    <div class="d-flex justify-content-end align-items-center" style="gap: 6px;">
+                      <form method="post" style="display: inline;" onsubmit="return confirm('Bulk apply this pricing plan to all future matching showtimes in {{ p.start_date }} to {{ p.end_date }}? Past showtimes and existing bookings will NEVER be altered.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="bulk_apply_plan">
+                        <input type="hidden" name="plan_id" value="{{ p.id }}">
+                        <button type="submit" class="tm-btn-sm tm-btn-ghost text-info" title="Bulk Apply to Showtimes in date range">
+                          <i class="fas fa-sync-alt mr-1"></i> Apply
+                        </button>
+                      </form>
+
+                      <button type="button" class="tm-btn-sm tm-btn-ghost text-light"
+                              onclick="openEditPlanModal('{{ p.id }}', '{{ p.name|escapejs }}', '{{ p.theatre_name|escapejs }}', '{{ p.screen_type }}', '{{ p.movie_id|default:'' }}', '{{ p.start_date|date:'Y-m-d' }}', '{{ p.end_date|date:'Y-m-d' }}', '{{ p.day_type }}', '{{ p.base_price }}', '{{ p.category_prices.REGULAR|default:p.base_price }}', '{{ p.category_prices.PREMIUM|default:p.base_price }}', '{{ p.category_prices.RECLINER|default:p.base_price }}', '{{ p.category_prices.VIP|default:p.base_price }}', '{{ p.category_prices.ACCESSIBLE|default:p.base_price }}')"
+                              title="Edit Plan">
+                        <i class="fas fa-edit"></i>
+                      </button>
+
+                      <form method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="toggle_plan">
+                        <input type="hidden" name="plan_id" value="{{ p.id }}">
+                        <button type="submit" class="tm-btn-sm tm-btn-ghost {% if p.is_active %}text-warning{% else %}text-success{% endif %}" title="Toggle Active">
+                          <i class="fas {% if p.is_active %}fa-pause-circle{% else %}fa-play-circle{% endif %}"></i>
+                        </button>
+                      </form>
+
+                      <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete pricing plan: {{ p.name }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_plan">
+                        <input type="hidden" name="plan_id" value="{{ p.id }}">
+                        <button type="submit" class="tm-btn-sm tm-btn-ghost text-danger" title="Delete Plan">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-5 text-center text-muted">
+          <i class="fas fa-tags fa-3x mb-3" style="color: #64748b;"></i>
+          <h4 class="text-white">No Date-Based Pricing Plans Configured</h4>
+          <p>Create Week 1, Week 2, or festival pricing plans to automatically set category prices for showtimes.</p>
+          <button type="button" class="tm-btn tm-btn-primary" onclick="tmOpenModal('modalCreatePlan')">
+            <i class="fas fa-plus"></i> Create First Plan
+          </button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- SECTION 2: PROMOTIONAL COUPONS -->
+    <div class="col-lg-6 mb-4">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-percentage text-warning"></i>
+            <span>Promotional Coupons &amp; Discounts</span>
+          </div>
+          <button type="button" class="tm-btn-sm tm-btn-primary" onclick="tmOpenModal('modalCreateCoupon')">
+            <i class="fas fa-plus"></i> Add
+          </button>
+        </div>
+        <div class="tm-panel-body p-0">
+          {% if coupons %}
+            <div class="table-responsive">
+              <table class="tm-data-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Discount</th>
+                    <th>Valid Dates</th>
+                    <th>Usage</th>
+                    <th>Status</th>
+                    <th class="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in coupons %}
+                    <tr>
+                      <td>
+                        <strong class="text-warning">{{ c.code }}</strong>
+                        {% if c.description %}<div class="small text-muted">{{ c.description }}</div>{% endif %}
+                      </td>
+                      <td>
+                        {% if c.discount_type == 'PERCENTAGE' %}
+                          <span class="badge badge-info">{{ c.discount_value }}% OFF</span>
+                          {% if c.max_discount %}<div class="small text-muted">Max ₹{{ c.max_discount }}</div>{% endif %}
+                        {% else %}
+                          <span class="badge badge-success">₹{{ c.discount_value }} FLAT</span>
+                        {% endif %}
+                      </td>
+                      <td class="small text-muted">
+                        {{ c.valid_from|date:"M d" }} &rarr; {{ c.valid_to|date:"M d, Y" }}
+                      </td>
+                      <td class="small">
+                        <span class="text-white">{{ c.times_used }}</span> / {{ c.usage_limit }}
+                      </td>
+                      <td>
+                        {% if c.active %}
+                          <span class="tm-badge tm-badge-success">Active</span>
+                        {% else %}
+                          <span class="tm-badge tm-badge-muted">Off</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-right">
+                        <form method="post" style="display: inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="toggle_coupon">
+                          <input type="hidden" name="coupon_id" value="{{ c.id }}">
+                          <button type="submit" class="tm-btn-sm tm-btn-ghost text-light" title="Toggle">
+                            <i class="fas fa-power-off"></i>
+                          </button>
+                        </form>
+                        <form method="post" style="display: inline;" onsubmit="return confirm('Delete coupon {{ c.code }}?');">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="delete_coupon">
+                          <input type="hidden" name="coupon_id" value="{{ c.id }}">
+                          <button type="submit" class="tm-btn-sm tm-btn-ghost text-danger" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-4 text-center text-muted">
+              <p>No active coupon codes. Create discounts like MITRA20 or WEEKEND50.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: PRICING AUDIT TRAIL -->
+    <div class="col-lg-6 mb-4">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-history text-info"></i>
+            <span>Price Change History &amp; Audit Log</span>
+          </div>
+          <span class="small text-muted">Latest 25 actions</span>
+        </div>
+        <div class="tm-panel-body p-0" style="max-height: 400px; overflow-y: auto;">
+          {% if history %}
+            <div class="table-responsive">
+              <table class="tm-data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Action</th>
+                    <th>Changed By</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for h in history %}
+                    <tr>
+                      <td class="small text-muted" style="white-space: nowrap;">
+                        {{ h.created_at|date:"M d, H:i" }}
+                      </td>
+                      <td>
+                        <span class="badge" style="background: rgba(255,255,255,0.08); color: #60a5fa; font-size: 10px;">
+                          {{ h.action }}
+                        </span>
+                      </td>
+                      <td class="small text-white">
+                        {{ h.changed_by.username|default:"System" }}
+                      </td>
+                      <td class="small text-muted">
+                        {{ h.details|truncatechars:45 }}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-4 text-center text-muted">
+              <p>No pricing changes recorded yet.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: CREATE / EDIT PRICING PLAN -->
+<div class="tm-modal-backdrop" id="modalCreatePlan">
+  <div class="tm-modal-card" style="max-width: 650px;">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title" id="planModalTitle"><i class="fas fa-calendar-plus text-danger mr-2"></i> Create Pricing Plan</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="tmCloseModal('modalCreatePlan')">&times;</button>
+    </div>
+    <form method="post" id="formPlan">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="planFormAction" value="create_plan">
+      <input type="hidden" name="plan_id" id="planFormId" value="">
+
+      <div class="tm-modal-body">
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Plan Name *</label>
+          <input type="text" class="form-control" name="name" id="planName" placeholder="e.g. Week 1 - Nov 02 to Nov 08 Standard Release" required>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Start Date *</label>
+            <input type="date" class="form-control" name="start_date" id="planStartDate" value="{{ today|date:'Y-m-d' }}" required>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">End Date *</label>
+            <input type="date" class="form-control" name="end_date" id="planEndDate" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Target Theatre</label>
+            <select class="form-control" name="theatre_name" id="planTheatre">
+              <option value="">All Partner Theatres</option>
+              {% for th in all_theatres %}
+                <option value="{{ th.name }}">{{ th.name }} ({{ th.city }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Screen Format</label>
+            <select class="form-control" name="screen_type" id="planScreenType">
+              <option value="ALL">All Screen Formats</option>
+              {% for st_val, st_lbl in screen_types %}
+                <option value="{{ st_val }}">{{ st_lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Day of Week Rule</label>
+            <select class="form-control" name="day_type" id="planDayType">
+              <option value="ALL">All Days</option>
+              <option value="WEEKDAY">Weekday (Monday - Thursday)</option>
+              <option value="WEEKEND">Weekend (Friday - Sunday)</option>
+            </select>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Movie Override (Optional)</label>
+            <select class="form-control" name="movie_id" id="planMovie">
+              <option value="">Apply to all movies</option>
+              {% for mv in all_movies %}
+                <option value="{{ mv.id }}">{{ mv.get_display_title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.08);">
+        <label class="small text-white font-weight-bold mb-2">Category Ticket Pricing (₹ INR)</label>
+
+        <div class="row">
+          <div class="col-md-4 form-group mb-2">
+            <label class="small text-muted">Regular Seat (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="price_regular" id="planPriceReg" value="180.00" required>
+          </div>
+          <div class="col-md-4 form-group mb-2">
+            <label class="small text-muted">Premium Seat (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="price_premium" id="planPricePrem" value="250.00" required>
+          </div>
+          <div class="col-md-4 form-group mb-2">
+            <label class="small text-muted">Recliner Seat (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="price_recliner" id="planPriceRecl" value="350.00" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted">VIP / Lounger (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="price_vip" id="planPriceVip" value="450.00" required>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted">Accessible Seat (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="price_accessible" id="planPriceAcc" value="150.00" required>
+          </div>
+        </div>
+
+        <div class="form-check mt-2">
+          <input type="checkbox" class="form-check-input" id="bulkApplyNow" name="bulk_apply_now" value="1" checked>
+          <label class="form-check-label small text-info" for="bulkApplyNow">
+            Immediately bulk apply this pricing to all future matching showtimes in this date range (existing bookings remain untouched).
+          </label>
+        </div>
+      </div>
+
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmCloseModal('modalCreatePlan')">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary" id="btnSubmitPlan"><i class="fas fa-save mr-1"></i> Save Pricing Plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: CREATE COUPON -->
+<div class="tm-modal-backdrop" id="modalCreateCoupon">
+  <div class="tm-modal-card" style="max-width: 500px;">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title"><i class="fas fa-percentage text-warning mr-2"></i> Add Coupon Code</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="tmCloseModal('modalCreateCoupon')">&times;</button>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_coupon">
+
+      <div class="tm-modal-body">
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Coupon Code *</label>
+          <input type="text" class="form-control text-uppercase" name="code" placeholder="e.g. MITRA25" required>
+        </div>
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Description</label>
+          <input type="text" class="form-control" name="description" placeholder="e.g. 25% festive discount on all weekend shows">
+        </div>
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Discount Type</label>
+            <select class="form-control" name="discount_type">
+              <option value="PERCENTAGE">Percentage (%)</option>
+              <option value="FLAT">Flat Amount (₹)</option>
+            </select>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Discount Value *</label>
+            <input type="number" step="0.01" class="form-control" name="discount_value" value="20.00" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Valid From</label>
+            <input type="date" class="form-control" name="valid_from" value="{{ today|date:'Y-m-d' }}" required>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Valid Until</label>
+            <input type="date" class="form-control" name="valid_to" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Minimum Order (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="min_amount" value="0.00">
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Max Discount Cap (₹)</label>
+            <input type="number" step="0.01" class="form-control" name="max_discount" placeholder="No limit">
+          </div>
+        </div>
+        <div class="form-group mb-2">
+          <label class="small text-muted font-weight-bold">Usage Limit</label>
+          <input type="number" class="form-control" name="usage_limit" value="100">
+        </div>
+      </div>
+
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmCloseModal('modalCreateCoupon')">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary"><i class="fas fa-check mr-1"></i> Save Coupon</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditPlanModal(id, name, theatre, screenType, movieId, startDate, endDate, dayType, basePrice, reg, prem, recl, vip, acc) {
+  document.getElementById('planModalTitle').innerHTML = '<i class="fas fa-edit text-danger mr-2"></i> Edit Pricing Plan';
+  document.getElementById('planFormAction').value = 'edit_plan';
+  document.getElementById('planFormId').value = id;
+  document.getElementById('planName').value = name;
+  document.getElementById('planStartDate').value = startDate;
+  document.getElementById('planEndDate').value = endDate;
+  document.getElementById('planTheatre').value = theatre;
+  document.getElementById('planScreenType').value = screenType;
+  document.getElementById('planDayType').value = dayType;
+  document.getElementById('planMovie').value = movieId;
+  document.getElementById('planPriceReg').value = reg;
+  document.getElementById('planPricePrem').value = prem;
+  document.getElementById('planPriceRecl').value = recl;
+  document.getElementById('planPriceVip').value = vip;
+  document.getElementById('planPriceAcc').value = acc;
+  document.getElementById('btnSubmitPlan').innerHTML = '<i class="fas fa-save mr-1"></i> Update Pricing Plan';
+  tmOpenModal('modalCreatePlan');
+}
+</script>
+{% endblock %}
+

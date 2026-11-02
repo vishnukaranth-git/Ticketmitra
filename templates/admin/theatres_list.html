@@ -1,0 +1,440 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Cinema Theatre Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Cinema Management</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-building text-warning"></i>
+        <span>Theatre Complex Management</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Manage multiplex venues, auditoriums, coordinates, operating hours, and operational statuses across cities.
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center" style="gap: 10px;">
+      <button type="button" class="tm-btn tm-btn-primary" onclick="openAddTheatreModal()">
+        <i class="fas fa-plus-circle mr-1"></i> + Add Theatre
+      </button>
+    </div>
+  </div>
+
+  <!-- SUMMARY STATS -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B;">
+          <i class="fas fa-building"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">{{ total_count }}</div>
+          <div class="tm-stat-label">Total Theatres</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(34, 197, 94, 0.15); color: #22C55E;">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">
+            {% with active_cnt=0 %}
+              {{ total_count }}
+            {% endwith %}
+          </div>
+          <div class="tm-stat-label">Active Complexes</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6;">
+          <i class="fas fa-tv"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">
+            {% with total_sc=0 %}
+              {% for itm in theatres_data %}{% if forloop.first %}{{ itm.screens_count }}{% endif %}{% endfor %}
+            {% endwith %}
+            Active
+          </div>
+          <div class="tm-stat-label">Auditorium Screens</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="tm-stat-card">
+        <div class="tm-stat-icon" style="background: rgba(214, 31, 69, 0.15); color: #EF4444;">
+          <i class="fas fa-chair"></i>
+        </div>
+        <div>
+          <div class="tm-stat-value">30km</div>
+          <div class="tm-stat-label">Geo Radius Support</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH & STATUS FILTERS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/theatres/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="flex: 1; min-width: 250px;">
+          <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Search theatre name, code, address, city..." class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 14px; font-size: 13.5px;">
+        </div>
+        <div style="min-width: 170px;">
+          <select name="status" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Statuses</option>
+            <option value="ACTIVE" {% if request.GET.status == 'ACTIVE' %}selected{% endif %}>Active</option>
+            <option value="INACTIVE" {% if request.GET.status == 'INACTIVE' %}selected{% endif %}>Inactive</option>
+            <option value="CLOSED" {% if request.GET.status == 'CLOSED' %}selected{% endif %}>Temporarily Closed</option>
+          </select>
+        </div>
+        <button type="submit" class="tm-btn tm-btn-primary py-2 px-3">
+          <i class="fas fa-search mr-1"></i> Search
+        </button>
+        {% if request.GET.q or request.GET.status %}
+          <a href="/admin/theatres/" class="tm-btn tm-btn-ghost py-2 px-3">Reset</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- THEATRES LIST TABLE & CARDS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-list text-warning"></i>
+        <span>Configured Theatre Complexes</span>
+      </div>
+      <div class="small text-muted">{{ total_count }} Venues Registered</div>
+    </div>
+    <div class="tm-panel-body p-0">
+      {% if theatres_data %}
+        <div class="table-responsive">
+          <table class="tm-data-table">
+            <thead>
+              <tr>
+                <th>Theatre Name &amp; Code</th>
+                <th>Location / Address</th>
+                <th>Status</th>
+                <th>Screens &amp; Capacity</th>
+                <th>Today's Shows</th>
+                <th>Hours &amp; Contact</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in theatres_data %}
+                <tr>
+                  <!-- Name & Code -->
+                  <td>
+                    <div class="font-weight-bold text-white mb-1" style="font-size: 15px;">
+                      {{ item.venue.name }}
+                    </div>
+                    {% if item.venue.theatre_code %}
+                      <span class="badge" style="background: #1e293b; color: #60a5fa; border: 1px solid #2563eb; font-size: 10px;">
+                        CODE: {{ item.venue.theatre_code }}
+                      </span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Location -->
+                  <td>
+                    <div class="text-white small">
+                      <i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ item.venue.city }}, {{ item.venue.state }}
+                    </div>
+                    <div class="text-muted small mt-1">
+                      {{ item.venue.address|default:"Prime multiplex location"|truncatechars:35 }}
+                    </div>
+                    {% if item.venue.latitude and item.venue.longitude %}
+                      <div class="text-info small mt-1" style="font-size: 11px;">
+                        <i class="fas fa-crosshairs mr-1"></i> {{ item.venue.latitude|floatformat:4 }}, {{ item.venue.longitude|floatformat:4 }}
+                      </div>
+                    {% endif %}
+                  </td>
+
+                  <!-- Status -->
+                  <td>
+                    {% if item.venue.status == 'ACTIVE' or item.venue.active %}
+                      <span class="tm-badge tm-badge-success"><i class="fas fa-check-circle mr-1"></i>ACTIVE</span>
+                    {% elif item.venue.status == 'CLOSED' %}
+                      <span class="tm-badge tm-badge-warning"><i class="fas fa-door-closed mr-1"></i>TEMP CLOSED</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-muted"><i class="fas fa-ban mr-1"></i>INACTIVE</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Screens & Capacity -->
+                  <td>
+                    <div class="text-white font-weight-bold">
+                      <i class="fas fa-tv text-info mr-1"></i> {{ item.screens_count }} Screen{{ item.screens_count|pluralize }}
+                    </div>
+                    <div class="text-muted small mt-1">
+                      <i class="fas fa-chair text-success mr-1"></i> {{ item.seats_count }} Total Seats
+                    </div>
+                  </td>
+
+                  <!-- Shows Today -->
+                  <td>
+                    <span class="badge badge-secondary" style="font-size: 11px;">
+                      {{ item.today_shows }} show{{ item.today_shows|pluralize }}
+                    </span>
+                  </td>
+
+                  <!-- Hours & Contact -->
+                  <td>
+                    <div class="small text-white">
+                      <i class="far fa-clock text-info mr-1"></i>
+                      {% if item.venue.opens_at and item.venue.closes_at %}
+                        {{ item.venue.opens_at|time:"h:i A" }} &ndash; {{ item.venue.closes_at|time:"h:i A" }}
+                      {% else %}
+                        09:00 AM &ndash; 11:30 PM
+                      {% endif %}
+                    </div>
+                    {% if item.venue.contact_number %}
+                      <div class="small text-muted mt-1">
+                        <i class="fas fa-phone-alt text-success mr-1"></i> {{ item.venue.contact_number }}
+                      </div>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="text-right">
+                    <div class="d-flex justify-content-end align-items-center" style="gap: 6px;">
+                      <a href="/admin/screens/?theatre={{ item.venue.name|urlencode }}" class="tm-btn-sm tm-btn-ghost text-info" title="Manage Screens">
+                        <i class="fas fa-tv mr-1"></i> Screens
+                      </a>
+                      <a href="/admin/seats/?theatre={{ item.venue.name|urlencode }}" class="tm-btn-sm tm-btn-ghost text-success" title="Manage 3D/2D Seats">
+                        <i class="fas fa-chair mr-1"></i> Seats
+                      </a>
+                      <button type="button" class="tm-btn-sm tm-btn-ghost text-light"
+                              onclick="openEditTheatreModal('{{ item.venue.id }}', '{{ item.venue.name|escapejs }}', '{{ item.venue.theatre_code|default:''|escapejs }}', '{{ item.venue.address|default:''|escapejs }}', '{{ item.venue.city|escapejs }}', '{{ item.venue.state|escapejs }}', '{{ item.venue.pincode|default:''|escapejs }}', '{{ item.venue.latitude|default:'' }}', '{{ item.venue.longitude|default:'' }}', '{{ item.venue.contact_number|default:''|escapejs }}', '{{ item.venue.description|default:''|escapejs }}', '{{ item.venue.status }}', {{ item.venue.active|yesno:'true,false' }}, '{{ item.venue.opens_at|time:'H:i'|default:'' }}', '{{ item.venue.closes_at|time:'H:i'|default:'' }}')"
+                              title="Edit Theatre">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <form method="POST" action="/admin/theatres/" style="margin: 0; display: inline;" onsubmit="return confirm('Toggle status for theatre: {{ item.venue.name }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="toggle_theatre">
+                        <input type="hidden" name="theatre_id" value="{{ item.venue.id }}">
+                        <button type="submit" class="tm-btn-sm tm-btn-ghost {% if item.venue.active %}text-warning{% else %}text-success{% endif %}" title="Toggle Active Status">
+                          <i class="fas {% if item.venue.active %}fa-power-off{% else %}fa-check-circle{% endif %}"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-5 text-center text-muted">
+          <i class="fas fa-building fa-3x mb-3" style="color: #64748b;"></i>
+          <h4 class="text-white">No Theatre Complexes Found</h4>
+          <p>No theatre records matched the search criteria.</p>
+          <button type="button" class="tm-btn tm-btn-primary" onclick="openAddTheatreModal()">
+            <i class="fas fa-plus mr-1"></i> Add Theatre
+          </button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- STRUCTURED ADD / EDIT THEATRE MODAL (4 SECTIONS) -->
+<div class="tm-modal-backdrop" id="theatreModal">
+  <div class="tm-modal-card" style="max-width: 680px; max-height: 92vh; overflow-y: auto;">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title" id="theatreModalTitle"><i class="fas fa-building text-warning mr-2"></i> Add Theatre Complex</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="closeTheatreModal()">&times;</button>
+    </div>
+    <form method="POST" action="/admin/theatres/" id="theatreForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="theatreFormAction" value="add_theatre">
+      <input type="hidden" name="theatre_id" id="theatreFormId" value="">
+
+      <div class="tm-modal-body">
+
+        <!-- SECTION 1: BASIC INFORMATION -->
+        <div class="mb-4">
+          <h5 class="text-warning font-weight-bold mb-3" style="font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="fas fa-info-circle mr-1"></i> 1. Basic Theatre Information
+          </h5>
+          <div class="row">
+            <div class="col-md-7 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Theatre Complex Name *</label>
+              <input type="text" name="name" id="fieldTheatreName" required placeholder="e.g. PVR Forum Mall Koramangala" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+            <div class="col-md-5 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Unique Theatre Code</label>
+              <input type="text" name="theatre_code" id="fieldTheatreCode" placeholder="e.g. BLR-PVR-02" class="form-control text-uppercase" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Operational Status *</label>
+              <select name="status" id="fieldTheatreStatus" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+                <option value="ACTIVE">Active &amp; Operational</option>
+                <option value="INACTIVE">Inactive / Hidden</option>
+                <option value="CLOSED">Temporarily Closed (Renovation/Maintenance)</option>
+              </select>
+            </div>
+            <div class="col-md-6 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Description / Overview</label>
+              <input type="text" name="description" id="fieldTheatreDesc" placeholder="Multiplex destination with 4K projection..." class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+          </div>
+        </div>
+
+        <hr style="border-color: rgba(255, 255, 255, 0.08);">
+
+        <!-- SECTION 2: ADDRESS & LOCATION -->
+        <div class="mb-4">
+          <h5 class="text-info font-weight-bold mb-3" style="font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="fas fa-map-marked-alt mr-1"></i> 2. Address &amp; Location Coordinates
+          </h5>
+          <div class="form-group mb-3">
+            <label class="small text-muted font-weight-bold">Complete Street Address / Mall Location *</label>
+            <input type="text" name="address" id="fieldTheatreAddress" required placeholder="e.g. 21, Hosur Road, Koramangala" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          </div>
+          <div class="row">
+            <div class="col-md-5 form-group mb-3">
+              <label class="small text-muted font-weight-bold">City *</label>
+              <input type="text" name="city" id="fieldTheatreCity" value="Bengaluru" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+            <div class="col-md-4 form-group mb-3">
+              <label class="small text-muted font-weight-bold">State</label>
+              <input type="text" name="state" id="fieldTheatreState" value="Karnataka" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+            <div class="col-md-3 form-group mb-3">
+              <label class="small text-muted font-weight-bold">PIN Code</label>
+              <input type="text" name="pincode" id="fieldTheatrePincode" placeholder="560095" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 form-group mb-2">
+              <label class="small text-muted font-weight-bold">Latitude (for 30km radius API)</label>
+              <input type="number" step="0.000001" name="latitude" id="fieldTheatreLat" placeholder="e.g. 12.9352" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+            <div class="col-md-6 form-group mb-2">
+              <label class="small text-muted font-weight-bold">Longitude</label>
+              <input type="number" step="0.000001" name="longitude" id="fieldTheatreLon" placeholder="e.g. 77.6245" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+          </div>
+        </div>
+
+        <hr style="border-color: rgba(255, 255, 255, 0.08);">
+
+        <!-- SECTION 3: CONTACT DETAILS -->
+        <div class="mb-4">
+          <h5 class="text-success font-weight-bold mb-3" style="font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="fas fa-phone-alt mr-1"></i> 3. Contact Details
+          </h5>
+          <div class="form-group mb-2">
+            <label class="small text-muted font-weight-bold">Official Booking / Helpdesk Phone Number</label>
+            <input type="text" name="contact_number" id="fieldTheatreContact" placeholder="+91 80 4123 4567" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          </div>
+        </div>
+
+        <hr style="border-color: rgba(255, 255, 255, 0.08);">
+
+        <!-- SECTION 4: OPERATIONAL SETTINGS -->
+        <div class="mb-3">
+          <h5 class="text-danger font-weight-bold mb-3" style="font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="far fa-clock mr-1"></i> 4. Operational Settings &amp; Hours
+          </h5>
+          <div class="row">
+            <div class="col-md-6 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Daily Opening Time</label>
+              <input type="time" name="opens_at" id="fieldTheatreOpens" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+            <div class="col-md-6 form-group mb-3">
+              <label class="small text-muted font-weight-bold">Daily Closing Time</label>
+              <input type="time" name="closes_at" id="fieldTheatreCloses" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            </div>
+          </div>
+
+          <div class="form-check mt-2">
+            <input type="checkbox" name="active" id="fieldTheatreActive" class="form-check-input" checked>
+            <label class="form-check-label text-white small" for="fieldTheatreActive">
+              Publish and make discoverable on TicketMitra customer booking site
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeTheatreModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary" id="btnSubmitTheatre">
+          <i class="fas fa-save mr-1"></i> Save Theatre
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddTheatreModal() {
+  document.getElementById('theatreModalTitle').innerHTML = '<i class="fas fa-plus-circle text-warning mr-2"></i> Add Theatre Complex';
+  document.getElementById('theatreFormAction').value = 'add_theatre';
+  document.getElementById('theatreFormId').value = '';
+  document.getElementById('fieldTheatreName').value = '';
+  document.getElementById('fieldTheatreCode').value = '';
+  document.getElementById('fieldTheatreAddress').value = '';
+  document.getElementById('fieldTheatreCity').value = 'Bengaluru';
+  document.getElementById('fieldTheatreState').value = 'Karnataka';
+  document.getElementById('fieldTheatrePincode').value = '';
+  document.getElementById('fieldTheatreLat').value = '';
+  document.getElementById('fieldTheatreLon').value = '';
+  document.getElementById('fieldTheatreContact').value = '';
+  document.getElementById('fieldTheatreDesc').value = '';
+  document.getElementById('fieldTheatreStatus').value = 'ACTIVE';
+  document.getElementById('fieldTheatreOpens').value = '09:00';
+  document.getElementById('fieldTheatreCloses').value = '23:30';
+  document.getElementById('fieldTheatreActive').checked = true;
+  document.getElementById('btnSubmitTheatre').innerHTML = '<i class="fas fa-plus-circle mr-1"></i> Create Theatre';
+  document.getElementById('theatreModal').style.display = 'flex';
+}
+
+function openEditTheatreModal(id, name, code, address, city, state, pincode, lat, lon, contact, desc, status, active, opens, closes) {
+  document.getElementById('theatreModalTitle').innerHTML = '<i class="fas fa-edit text-info mr-2"></i> Edit Theatre Complex';
+  document.getElementById('theatreFormAction').value = 'edit_theatre';
+  document.getElementById('theatreFormId').value = id;
+  document.getElementById('fieldTheatreName').value = name;
+  document.getElementById('fieldTheatreCode').value = code || '';
+  document.getElementById('fieldTheatreAddress').value = address || '';
+  document.getElementById('fieldTheatreCity').value = city || 'Bengaluru';
+  document.getElementById('fieldTheatreState').value = state || 'Karnataka';
+  document.getElementById('fieldTheatrePincode').value = pincode || '';
+  document.getElementById('fieldTheatreLat').value = lat || '';
+  document.getElementById('fieldTheatreLon').value = lon || '';
+  document.getElementById('fieldTheatreContact').value = contact || '';
+  document.getElementById('fieldTheatreDesc').value = desc || '';
+  document.getElementById('fieldTheatreStatus').value = status || (active ? 'ACTIVE' : 'INACTIVE');
+  document.getElementById('fieldTheatreOpens').value = opens || '09:00';
+  document.getElementById('fieldTheatreCloses').value = closes || '23:30';
+  document.getElementById('fieldTheatreActive').checked = active;
+  document.getElementById('btnSubmitTheatre').innerHTML = '<i class="fas fa-save mr-1"></i> Update Theatre';
+  document.getElementById('theatreModal').style.display = 'flex';
+}
+
+function closeTheatreModal() {
+  document.getElementById('theatreModal').style.display = 'none';
+}
+</script>
+{% endblock %}

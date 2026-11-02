@@ -1,0 +1,1335 @@
+{% extends "users/basic.html" %}
+{% block title %}{{ movie.get_display_title }} - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ==================================================
+     CINEMATIC MOVIE DETAIL HERO
+     ================================================== */
+  .detail-hero-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 520px;
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    margin-top: -86px;
+    padding-top: 116px;
+    padding-bottom: 50px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
+  }
+  .detail-hero-backdrop {
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(to bottom, rgba(16, 24, 39, 0.45) 0%, rgba(16, 24, 39, 0.75) 55%, transparent 100%),
+      linear-gradient(to right, rgba(16, 24, 39, 0.94) 0%, rgba(16, 24, 39, 0.75) 45%, rgba(16, 24, 39, 0.35) 75%, transparent 100%);
+    z-index: 1;
+  }
+  .detail-ambient-glow {
+    position: absolute;
+    bottom: -40px;
+    left: 15%;
+    width: 450px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(220, 38, 61, 0.18) 0%, rgba(220, 38, 61, 0.05) 60%, transparent 80%);
+    filter: blur(60px);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .detail-poster-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+    z-index: 2;
+  }
+  .detail-poster-img {
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .detail-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+
+  /* Ratings Card Strip */
+  .ratings-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 18px 0;
+  }
+  .rating-box {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .rating-box.tmdb {
+    border-color: rgba(53, 183, 121, 0.35); /* success green for TMDB */
+  }
+  .rating-box.ticketmitra {
+    border-color: rgba(220, 38, 61, 0.3); /* crimson for TicketMitra */
+  }
+
+  /* Tags & Pills */
+  .badge-cert-pill {
+    border: 1px solid var(--warmstone-border);
+    color: var(--warmstone);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 6px;
+  }
+  .badge-genre-pill {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--surface-border);
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* Dark Surface Cards */
+  .cinematic-surface-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Seamless Editorial Card — Midnight Publication Theme */
+  .editorial-ivory-card {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 6px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(10, 16, 28, 0.35);
+    color: var(--warm-ivory, #F2E9DC);
+    position: relative;
+  }
+  .editorial-ivory-card .section-heading-detail {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--warm-ivory, #F2E9DC);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+  }
+  .editorial-ivory-card .section-heading-detail::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: var(--crimson, #D61F45);
+    border-radius: 2px;
+  }
+  .editorial-ivory-card p,
+  .editorial-ivory-card .synopsis-text {
+    color: var(--warm-ivory, #F2E9DC) !important;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.8;
+    font-weight: 500;
+  }
+  .editorial-ivory-card .cast-member-card {
+    flex: 0 0 130px;
+    text-align: center;
+    transition: transform 0.25s ease;
+  }
+  .editorial-ivory-card .cast-member-card:hover {
+    transform: translateY(-4px);
+  }
+  .editorial-ivory-card .cast-avatar-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 10px;
+    border: 2px solid var(--border-subtle, rgba(226, 211, 193, 0.25));
+    box-shadow: 0 4px 12px rgba(16, 24, 39, 0.15);
+    display: block;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .editorial-ivory-card .cast-member-card:hover .cast-avatar-circle {
+    border-color: var(--crimson, #D61F45);
+    transform: scale(1.05);
+  }
+  .editorial-ivory-card .cast-name {
+    color: var(--warm-ivory, #F2E9DC) !important;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+  }
+  .editorial-ivory-card .cast-character {
+    color: var(--muted-parchment, #C8BBAA) !important;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  /* Crimson Velvet Textured Callout (Reference 4) */
+  .editorial-crimson-callout {
+    background-color: #8C0B20;
+    background-image: linear-gradient(135deg, rgba(16, 24, 39, 0.35) 0%, rgba(140, 11, 32, 0.15) 50%, rgba(10, 16, 28, 0.4) 100%), url('/static/images/crimson_texture.jpg');
+    background-repeat: repeat;
+    background-size: 600px auto;
+    border: 1px solid rgba(226, 211, 193, 0.22);
+    border-radius: 6px;
+    padding: 20px 28px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    box-shadow: 0 8px 24px rgba(10, 16, 28, 0.5);
+  }
+  .editorial-crimson-callout .callout-text h5 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #F2E9DC;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+  }
+  .editorial-crimson-callout .callout-text p {
+    font-family: 'DM Sans', sans-serif;
+    color: #F2E9DC;
+    opacity: 0.92;
+    font-size: 12.5px;
+    margin: 0;
+  }
+  .editorial-crimson-callout .btn-callout-book {
+    background: #F2E9DC;
+    color: #101827 !important;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 8px 18px;
+    border-radius: 4px;
+    border: 1px solid #B58A5A;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+  .editorial-crimson-callout .btn-callout-book:hover {
+    background: #FFFFFF;
+    color: #D61F45 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Editorial Panel — Seamless Midnight Publication Aesthetic */
+  .editorial-crimson-section {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 8px;
+    padding: 26px 30px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 30px rgba(10, 16, 28, 0.5);
+    color: var(--warm-ivory, #F2E9DC);
+    position: relative;
+  }
+  .editorial-crimson-section .section-heading-detail {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--warm-ivory, #F2E9DC);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+  }
+  .editorial-crimson-section .section-heading-detail::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: var(--crimson, #D61F45);
+    border-radius: 2px;
+  }
+  .editorial-crimson-section .theater-item-card {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 8px;
+  }
+  .editorial-crimson-section .review-item-card {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 8px;
+  }
+
+  .section-heading-detail {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-heading-detail::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: var(--gradient-accent);
+    border-radius: 2px;
+  }
+
+  /* Cast Carousel Track */
+  .cast-carousel-track {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: none;
+  }
+  .cast-carousel-track::-webkit-scrollbar {
+    display: none;
+  }
+  .cast-member-card {
+    flex: 0 0 130px;
+    text-align: center;
+    transition: transform 0.25s ease;
+  }
+  .cast-member-card:hover {
+    transform: translateY(-5px);
+  }
+  .cast-avatar-circle {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 10px;
+    border: 2px solid var(--surface-border);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    display: block;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .cast-member-card:hover .cast-avatar-circle {
+    border-color: var(--color-primary);
+    transform: scale(1.05);
+  }
+
+  /* Theater & Showtime Cards */
+  .theater-item-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .theater-item-card:hover {
+    border-color: rgba(220, 38, 61, 0.25);
+    transform: translateY(-2px);
+  }
+  .theater-amenity-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--surface-border-subtle);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Reviews */
+  .verified-badge-custom {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: var(--status-success);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .review-item-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+  }
+  .star-gold {
+    color: var(--status-warning);
+  }
+  .star-gray {
+    color: #2e384d;
+  }
+
+  /* Star Rating Interactive Selector */
+  .star-rating-select {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .star-rating-select input {
+    display: none;
+  }
+  .star-rating-select label {
+    font-size: 28px;
+    color: var(--surface-elevated);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .star-rating-select input:checked ~ label,
+  .star-rating-select label:hover,
+  .star-rating-select label:hover ~ label {
+    color: var(--status-warning);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 1. CINEMATIC BACKDROP HERO -->
+<section class="detail-hero-wrapper" style="background-image: url('{{ movie.get_backdrop_url }}');">
+  <div class="detail-hero-backdrop"></div>
+  <div class="detail-ambient-glow"></div>
+
+  <div class="container position-relative" style="z-index: 2;">
+    <div class="row align-items-center">
+      <!-- Poster -->
+      <div class="col-md-4 col-lg-3 text-center text-md-left mb-4 mb-md-0">
+        <div class="detail-poster-card d-inline-block">
+          <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="detail-poster-img">
+        </div>
+      </div>
+
+      <!-- Main Metadata -->
+      <div class="col-md-8 col-lg-9">
+        <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
+          {% if movie.dynamic_release_status == 'NOW_SHOWING' %}
+            <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-film mr-1"></i>NOW SHOWING</span>
+          {% elif movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
+            <span class="badge" style="background: rgba(214, 31, 69, 0.25); color: #ff4d6d; border: 1px solid rgba(214, 31, 69, 0.5); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-ticket-alt mr-1"></i>ADVANCE BOOKING OPEN</span>
+          {% elif movie.dynamic_release_status == 'COMING_SOON' %}
+            <span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="far fa-calendar-alt mr-1"></i>COMING SOON</span>
+          {% elif movie.dynamic_release_status == 'OTT_ONLY' %}
+            <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-tv mr-1"></i>STREAMING ONLY</span>
+          {% else %}
+            <span class="badge" style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-history mr-1"></i>THEATRICAL RUN ENDED</span>
+          {% endif %}
+          {% if movie.age_certification %}
+            <span class="badge-cert-pill">{{ movie.age_certification }}</span>
+          {% endif %}
+          {% if movie.get_runtime_display %}
+            <span class="text-muted small"><i class="far fa-clock mr-1"></i>{{ movie.get_runtime_display }}</span>
+          {% endif %}
+          {% if movie.release_date %}
+            <span class="text-muted small"><i class="far fa-calendar-alt mr-1"></i>{{ movie.release_date|date:"M d, Y" }}</span>
+          {% endif %}
+        </div>
+
+        <h1 class="detail-title">{{ movie.get_display_title }}</h1>
+
+        {% if movie.original_title and movie.original_title != movie.get_display_title %}
+          <p class="text-muted mb-2"><small>Original Title: <em>{{ movie.original_title }}</em></small></p>
+        {% endif %}
+
+        <!-- Genres & Languages -->
+        <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px;">
+          {% for g in movie.genres.all %}
+            <span class="badge-genre-pill">{{ g.name }}</span>
+          {% empty %}
+            {% if movie.genres %}
+              <span class="badge-genre-pill">Feature Film</span>
+            {% endif %}
+          {% endfor %}
+          {% for lang in movie.languages.all %}
+            <span class="badge-genre-pill" style="border-color: rgba(59, 130, 246, 0.3); color: #93c5fd;">{{ lang.name }}</span>
+          {% endfor %}
+        </div>
+
+        <!-- Ratings Strip (Separated TMDB & Ticketmitra) -->
+        <div class="ratings-strip">
+          <!-- Ticketmitra Rating -->
+          <div class="rating-box ticketmitra">
+            <i class="fas fa-star fa-2x" style="color: var(--color-energy);"></i>
+            <div>
+              <div class="font-weight-bold text-white" style="font-size: 16px;">
+                {% if avg_user_rating %}
+                  <span id="movieHeroAverage">{{ avg_user_rating }}</span> <span class="text-muted" style="font-size: 12px;">/ 5</span>
+                {% else %}
+                  <span class="text-muted" id="movieHeroAverage">No reviews yet</span> <span id="movieHeroAverageScale" class="text-muted d-none" style="font-size: 12px;">/ 5</span>
+                {% endif %}
+              </div>
+              <small class="text-muted" id="movieHeroReviewLabel" style="font-size: 11px;">Ticketmitra Rating ({{ user_review_count }} review{{ user_review_count|pluralize }})</small>
+            </div>
+          </div>
+
+          <!-- TMDB Rating -->
+          {% if movie.tmdb_rating and movie.tmdb_rating > 0 %}
+          <div class="rating-box tmdb">
+            <i class="fas fa-film fa-2x" style="color: var(--color-interactive);"></i>
+            <div>
+              <div class="font-weight-bold text-white" style="font-size: 16px;">
+                {{ movie.tmdb_rating }} <span class="text-muted" style="font-size: 12px;">/ 10</span>
+              </div>
+              <small class="text-muted" style="font-size: 11px;">TMDB Rating ({{ movie.vote_count }} votes)</small>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Action CTAs -->
+        <div class="d-flex flex-wrap align-items-center mt-4" style="gap: 12px;">
+          {% if movie.dynamic_release_status == 'NOW_SHOWING' %}
+            <a href="#theatersSection" class="btn-cinematic-primary">
+              <i class="fas fa-ticket-alt"></i> Book Tickets
+            </a>
+          {% elif movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
+            <a href="#theatersSection" class="btn-cinematic-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid rgba(56, 189, 248, 0.4);">
+              <i class="fas fa-calendar-check"></i> Advance Booking
+            </a>
+          {% elif movie.dynamic_release_status == 'COMING_SOON' %}
+            <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
+              <i class="fas fa-clock text-warning"></i> Coming Soon {% if movie.release_date %}(Releasing {{ movie.release_date|date:"d M Y" }}){% endif %}
+            </button>
+          {% elif movie.dynamic_release_status == 'OTT_ONLY' %}
+            <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
+              <i class="fas fa-tv text-info"></i> Streaming Only (No Theatrical Shows)
+            </button>
+          {% elif movie.dynamic_release_status == 'RELEASE_ENDED' %}
+            <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
+              <i class="fas fa-film text-muted"></i> Theatrical Run Ended
+            </button>
+          {% else %}
+            <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
+              <i class="fas fa-info-circle text-muted"></i> Release Date TBA
+            </button>
+          {% endif %}
+          {% if movie.get_trailer_embed_url %}
+            <button class="btn-cinematic-secondary" data-toggle="modal" data-target="#trailerModal">
+              <i class="fab fa-youtube text-danger"></i> Watch Trailer
+            </button>
+          {% endif %}
+          {% if user.is_staff %}
+            <button class="btn-cinematic-ghost" data-toggle="modal" data-target="#editTrailerModal" title="Update YouTube Trailer URL">
+              <i class="fas fa-link text-warning mr-1"></i> Set Trailer URL
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRAILER MODAL -->
+{% if movie.get_trailer_embed_url %}
+<div class="modal fade" id="trailerModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content modal-content-cinematic">
+      <div class="modal-header border-0 pb-2 d-flex justify-content-between align-items-center">
+        <h5 class="modal-title font-weight-bold text-white mb-0">{{ movie.get_display_title }} - Official Trailer</h5>
+        <div class="d-flex align-items-center" style="gap: 12px;">
+          {% if movie.get_youtube_watch_url %}
+            <a href="{{ movie.get_youtube_watch_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-danger" style="font-size: 11px; border-radius: 6px;">
+              <i class="fab fa-youtube mr-1"></i> Open on YouTube
+            </a>
+          {% endif %}
+          <button type="button" class="close text-white ml-0" data-dismiss="modal" aria-label="Close" onclick="stopTrailerVideo()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body p-0 pt-2">
+        <div class="embed-responsive embed-responsive-16by9">
+          <iframe
+            id="trailerIframe"
+            class="embed-responsive-item"
+            src="{{ movie.get_trailer_embed_url }}"
+            data-src="{{ movie.get_trailer_embed_url }}"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- EDIT TRAILER URL MODAL (FOR ADMIN/STAFF) -->
+{% if user.is_staff %}
+<div class="modal fade" id="editTrailerModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content modal-content-cinematic">
+      <form method="POST" action="{% url 'update_trailer' movie.id %}">
+        {% csrf_token %}
+        <div class="modal-header border-0">
+          <h5 class="modal-title font-weight-bold text-white">Set YouTube Trailer URL</h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body pt-0">
+          <p class="text-secondary small mb-3">
+            Paste any YouTube video link (e.g. <code>https://www.youtube.com/watch?v=...</code> or <code>https://youtu.be/...</code>). TicketMitra will automatically configure it to play right here.
+          </p>
+          <div class="form-group mb-0">
+            <label class="text-secondary small font-weight-bold">YouTube URL</label>
+            <input
+              type="url"
+              name="trailer_url"
+              class="form-control"
+              value="{{ movie.trailer_url|default:'' }}"
+              placeholder="https://www.youtube.com/watch?v=..."
+              style="background: var(--surface-card); color: #fff; border-color: var(--surface-border);"
+              required
+            />
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-cinematic-primary py-1 px-3">Save Trailer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- MAIN DETAILS CONTENT -->
+<div class="container py-4">
+
+  <!-- AI CURATORIAL ANALYSIS & VERDICT (Powered by Groq) -->
+  {% if movie.ai_verdict or movie.ai_analysis %}
+  <div class="editorial-ivory-card" style="border-left: 4px solid var(--crimson, #D61F45); background: linear-gradient(135deg, rgba(214, 31, 69, 0.08), rgba(21, 28, 48, 0.6));">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap: 10px;">
+      <div class="d-flex align-items-center" style="gap: 10px;">
+        <span class="badge" style="background: var(--crimson, #D61F45); color: #fff; padding: 6px 12px; font-weight: 800; border-radius: 6px; letter-spacing: 0.05em;">
+          <i class="fas fa-brain mr-1"></i> AI CRITICAL VERDICT
+        </span>
+        <span class="small font-weight-bold" style="color: var(--antique-brass, #B58A5A); letter-spacing: 0.08em; text-transform: uppercase;">
+          Curated via Groq Intelligence
+        </span>
+      </div>
+      {% if movie.ai_analysis.theatrical_recommendation %}
+        <span class="badge" style="border: 1px solid rgba(245, 158, 11, 0.4); color: #F59E0B; background: rgba(245, 158, 11, 0.1); padding: 6px 12px; border-radius: 6px; font-weight: 700;">
+          <i class="fas fa-certificate mr-1"></i> {{ movie.ai_analysis.theatrical_recommendation }}
+        </span>
+      {% endif %}
+    </div>
+
+    <blockquote class="mb-3" style="font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--warm-ivory, #F2E9DC); font-style: italic; border-left: none; padding-left: 0;">
+      “{{ movie.ai_verdict|default:movie.ai_analysis.verdict }}”
+    </blockquote>
+
+    {% if movie.ai_analysis.audience_fit %}
+      <div class="mb-3 small" style="color: var(--muted-parchment, #C8BBAA);">
+        <strong style="color: #fff;"><i class="fas fa-users mr-1 text-danger"></i> Target Audience:</strong> {{ movie.ai_analysis.audience_fit }}
+      </div>
+    {% endif %}
+
+    {% if movie.ai_analysis.highlights %}
+      <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
+        {% for hl in movie.ai_analysis.highlights %}
+          <span class="badge" style="background: rgba(226, 211, 193, 0.12); color: var(--warm-ivory, #F2E9DC); border: 1px solid rgba(226, 211, 193, 0.2); padding: 5px 10px; border-radius: 4px; font-size: 11.5px; font-weight: 600;">
+            <i class="fas fa-sparkles mr-1 text-warning"></i> {{ hl }}
+          </span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- 1. ABOUT THE MOVIE (Warm Ivory Textured Section - Reference 3) -->
+  <div class="editorial-ivory-card">
+    <div class="section-heading-detail">About the Movie</div>
+    <p class="mb-0 synopsis-text">
+      {{ movie.description|default:"No synopsis available for this title." }}
+    </p>
+  </div>
+
+  <!-- 2. CAST CAROUSEL (Warm Ivory Textured Section - Reference 3) -->
+  {% if movie.cast_members.all %}
+  <div class="editorial-ivory-card">
+    <div class="section-heading-detail">Cast & Characters</div>
+    <div class="cast-carousel-track">
+      {% for cast in movie.cast_members.all %}
+      <div class="cast-member-card">
+        <img src="{{ cast.get_profile_url }}" alt="{{ cast.name }}" class="cast-avatar-circle" loading="lazy">
+        <div class="cast-name text-truncate small" title="{{ cast.name }}">{{ cast.name }}</div>
+        {% if cast.character %}
+          <small class="cast-character text-truncate d-block" title="{{ cast.character }}">{{ cast.character }}</small>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% elif movie.cast %}
+  <div class="editorial-ivory-card">
+    <div class="section-heading-detail">Cast</div>
+    <p class="mb-0 synopsis-text"><i class="fas fa-users mr-2" style="color: #D61F45;"></i>{{ movie.cast }}</p>
+  </div>
+  {% endif %}
+
+  <!-- 3. AVAILABLE THEATERS & SHOWTIMES NEAR YOU (Crimson Velvet Texture - Reference 4) -->
+  <div class="editorial-crimson-section" id="theatersSection">
+    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap: 10px;">
+      <div>
+        <div class="section-heading-detail mb-1">Nearby Theaters & Showtimes</div>
+        <div class="text-secondary small d-flex align-items-center flex-wrap" style="gap: 6px;">
+          <i class="fas fa-map-marker-alt text-danger"></i>
+          <span>Showing cinemas within <strong class="text-white">{{ radius_km|default:"30" }} km</strong> of <strong class="text-white">{{ user_location.city|default:"Bengaluru" }}</strong></span>
+          <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 ml-2" onclick="openLocationModal()" style="font-size: 11px; border-radius: 6px;">
+            Change Location
+          </button>
+        </div>
+      </div>
+      <a href="{% url 'theater_list' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">Full Schedule</a>
+    </div>
+
+    {% if nearby_theaters %}
+      <div class="row">
+        {% for th in nearby_theaters %}
+        <div class="col-12 mb-4">
+          <div class="theater-item-card p-4" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px;">
+            <!-- Venue Header -->
+            <div class="d-flex justify-content-between align-items-start flex-wrap mb-3" style="gap: 10px;">
+              <div>
+                <h4 class="font-weight-bold text-white mb-1" style="font-size: 18px;">{{ th.name }}</h4>
+                <div class="text-muted small">
+                  <i class="fas fa-map-pin mr-1 text-danger"></i> {{ th.address|default:th.location }}
+                </div>
+              </div>
+              <div class="d-flex align-items-center" style="gap: 8px;">
+                {% if th.distance is not None %}
+                  <span class="badge badge-primary px-3 py-2" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700; font-size: 12px; border-radius: 8px;">
+                    <i class="fas fa-location-arrow mr-1"></i> {{ th.distance_display }}
+                  </span>
+                {% endif %}
+                <span class="badge badge-dark px-2 py-2 border" style="border-color: rgba(255,255,255,0.1) !important; color: var(--text-secondary); font-size: 11px;">
+                  {{ th.screens_list|length }} Screen{{ th.screens_list|length|pluralize }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Active Screens for this Venue -->
+            <div class="row pt-2 border-top" style="border-color: rgba(255, 255, 255, 0.06) !important;">
+              {% for sc in th.screens_list %}
+              <div class="col-md-6 mb-3">
+                <div class="p-3 rounded" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.08);">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                      <span class="font-weight-bold text-white mr-2">{{ sc.name }}</span>
+                      <span class="badge" style="background: rgba(230, 57, 70, 0.2); border: 1px solid #e63946; color: #ff8a93; font-size: 10px;">{{ sc.screen_type }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Showtimes under this screen -->
+                  <div class="d-flex flex-wrap" style="gap: 8px;">
+                    {% for st in sc.showtimes %}
+                    <div class="p-2 rounded d-flex flex-column justify-content-between" style="background: transparent; border: 1px solid rgba(255,255,255,0.12); min-width: 130px;">
+                      <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="text-white" style="font-size: 13px;"><i class="far fa-clock text-info mr-1"></i>{{ st.time_formatted }}</strong>
+                        <span class="text-muted small">From ₹{{ st.ticket_prices.REGULAR|default:st.price|floatformat:0 }}</span>
+                      </div>
+                      <div class="small mb-2" style="font-size: 11px;">
+                        <span class="text-success"><i class="fas fa-circle mr-1" style="font-size: 6px;"></i>Avail: {{ st.available_seats }}</span>
+                      </div>
+                      <a href="{% url 'book_seats' st.theater_id %}" class="btn-cinematic-primary text-center py-1 px-2" style="font-size: 11px; justify-content: center;">
+                        <i class="fas fa-ticket-alt mr-1"></i> Book Now
+                      </a>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <!-- Fallback when no theaters found within 30 km -->
+      <div class="text-center py-5 rounded" style="background: transparent; border: 1px dashed rgba(255, 255, 255, 0.15);">
+        <i class="fas fa-map-marked-alt fa-3x text-warning mb-3"></i>
+        <h4 class="text-white mb-2">No Theatres Found Within {{ radius_km|default:"30" }} km</h4>
+        <p class="text-muted mb-4" style="max-width: 500px; margin: 0 auto 20px;">
+          There are currently no active cinema screens playing <strong>{{ movie.get_display_title }}</strong> within {{ radius_km|default:"30" }} km of your location. You can expand your search radius or choose another city.
+        </p>
+        <div class="d-flex justify-content-center flex-wrap" style="gap: 10px;">
+          <a href="?radius=50#theatersSection" class="btn btn-outline-warning btn-sm px-3 py-2">
+            <i class="fas fa-expand-arrows-alt mr-1"></i> Increase to 50 km
+          </a>
+          <a href="?radius=100#theatersSection" class="btn btn-outline-warning btn-sm px-3 py-2">
+            <i class="fas fa-expand-arrows-alt mr-1"></i> Increase to 100 km
+          </a>
+          <button type="button" class="btn btn-outline-info btn-sm px-3 py-2" onclick="openLocationModal()">
+            <i class="fas fa-city mr-1"></i> Change Location
+          </button>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if movie.theaters.all %}
+    <div class="mt-4 pt-3 border-top" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+      <div class="text-secondary small font-weight-bold mb-2">
+        <i class="fas fa-building mr-1 text-info"></i> All Cinema Venues for this Movie:
+      </div>
+      <div class="d-flex flex-wrap" style="gap: 8px;">
+        {% for t in movie.theaters.all %}
+          <span class="badge badge-dark border py-1 px-2" style="border-color: rgba(255,255,255,0.1) !important; color: var(--text-secondary); font-size: 11px;">
+            {{ t.name }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 4. REVIEWS & RATINGS (Crimson Velvet Texture - Reference 4) -->
+  <div class="editorial-crimson-section">
+    <div class="d-flex justify-content-between align-items-center flex-wrap mb-4">
+      <div>
+        <div class="section-heading-detail mb-1">Audience Reviews & Ratings</div>
+        <div class="d-flex align-items-center" style="gap: 10px;">
+          <span class="h4 font-weight-bold text-white mb-0">
+            ★ <span id="movieReviewAverage">{% if avg_user_rating %}{{ avg_user_rating }}{% else %}No reviews yet{% endif %}</span> <small id="movieReviewAverageScale" class="text-muted{% if not avg_user_rating %} d-none{% endif %}">/ 5</small>
+          </span>
+          <span class="text-muted small" id="movieReviewCountLabel">({{ user_review_count }} verified attendee{{ user_review_count|pluralize }})</span>
+        </div>
+      </div>
+
+      {% if user.is_authenticated %}
+        {% if existing_user_review %}
+          <button class="btn-cinematic-secondary py-1 px-3 mt-2 mt-md-0" style="font-size: 13px;" data-toggle="modal" data-target="#editReviewModal">
+            <i class="fas fa-edit mr-1"></i> Edit Your Review
+          </button>
+        {% elif can_review %}
+          <button class="btn-cinematic-primary py-1 px-3 mt-2 mt-md-0" id="writeReviewButton" data-review-cta type="button" style="font-size: 13px;" data-toggle="modal" data-target="#addReviewModal">
+            <i class="fas fa-pen mr-1"></i> Write a Review
+          </button>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Review Eligibility Banners -->
+    {% if not user.is_authenticated %}
+      <div class="alert-cinematic alert-info mb-4">
+        <i class="fas fa-info-circle mr-2 text-info"></i> Want to share your thoughts? <a href="{% url 'login' %}?next={{ request.path }}">Login</a> to write a review. Only viewers checked in by cinema staff can submit ratings.
+      </div>
+    {% elif existing_user_review %}
+      <div class="alert-cinematic alert-success d-flex justify-content-between align-items-center flex-wrap mb-4">
+        <div class="mb-2 mb-md-0">
+          <i class="fas fa-check-circle mr-2 text-success"></i> You have already reviewed this movie. Your review remains yours to edit.
+        </div>
+        <div>
+          <button class="btn btn-sm btn-outline-light mr-2" data-toggle="modal" data-target="#editReviewModal"><i class="fas fa-edit mr-1"></i>Edit</button>
+          <form method="POST" action="{% url 'delete_review' existing_user_review.id %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete your review?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash-alt mr-1"></i>Delete</button>
+          </form>
+        </div>
+      </div>
+    {% elif can_review %}
+      <div class="alert-cinematic alert-info d-flex justify-content-between align-items-center flex-wrap mb-4">
+        <div class="mb-2 mb-md-0">
+        <i class="fas fa-ticket-alt mr-2 text-info"></i> Cinema staff verified your check-in. Share your experience with other moviegoers.
+        </div>
+        <button class="btn-cinematic-primary py-1 px-3" data-review-cta type="button" style="font-size: 12px;" data-toggle="modal" data-target="#addReviewModal">
+          <i class="fas fa-pen mr-1"></i> Write Review
+        </button>
+      </div>
+    {% elif has_past_unchecked_booking %}
+      <div class="alert-cinematic alert-warning mb-4">
+        <i class="fas fa-user-check mr-2 text-warning"></i> Your show has ended, but cinema staff must verify your ticket check-in before you can review this movie.
+      </div>
+    {% elif has_future_booking %}
+      <div class="alert-cinematic alert-warning mb-4">
+        <i class="fas fa-clock mr-2 text-warning"></i> You have an upcoming booking. After the show, cinema staff must verify your check-in before you can review.
+      </div>
+    {% else %}
+      <div class="alert-cinematic alert-info mb-4">
+        <i class="fas fa-shield-alt mr-2 text-info"></i> <strong>Verified Attendee Policy:</strong> Only viewers with a confirmed booking and staff-verified cinema check-in can submit reviews.
+      </div>
+    {% endif %}
+
+    <!-- Reviews List -->
+    <div id="movieReviewList">
+    {% for review in reviews %}
+    <div class="review-item-card" data-review-id="{{ review.id }}">
+      <div class="d-flex justify-content-between align-items-start flex-wrap">
+        <div>
+          <div class="d-flex align-items-center" style="gap: 8px;">
+            <div class="user-avatar-initial" style="width: 30px; height: 30px; font-size: 13px;">
+              {{ review.user.username|make_list|first|upper }}
+            </div>
+            <div>
+              <strong class="text-white">{{ review.user.username }}</strong>
+              {% if review.is_verified_viewer %}
+                <span class="verified-badge-custom ml-1" title="User booked tickets and watched this movie">
+                  <i class="fas fa-check-circle"></i> Verified Viewer
+                </span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="mt-2 mb-2" data-review-stars>
+            {% for i in "12345" %}
+              {% if forloop.counter <= review.rating %}
+                <i class="fas fa-star star-gold"></i>
+              {% else %}
+                <i class="fas fa-star star-gray"></i>
+              {% endif %}
+            {% endfor %}
+            <small class="text-muted ml-2" data-review-date>{{ review.created_at|date:"F d, Y" }}</small>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div>
+          {% if user == review.user %}
+            <button class="btn btn-sm btn-link text-info p-0 mr-3" data-toggle="modal" data-target="#editReviewModal">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <form method="POST" action="{% url 'delete_review' review.id %}" class="d-inline" onsubmit="return confirm('Delete this review?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                <i class="fas fa-trash-alt"></i> Delete
+              </button>
+            </form>
+          {% elif user.is_authenticated %}
+            <button class="btn btn-sm btn-link text-muted p-0" data-toggle="modal" data-target="#reportModal-{{ review.id }}">
+              <i class="far fa-flag mr-1"></i> Report
+            </button>
+
+            <!-- Report Modal -->
+            <div class="modal fade" id="reportModal-{{ review.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content modal-content-cinematic">
+                  <form method="POST" action="{% url 'report_review' review.id %}">
+                    {% csrf_token %}
+                    <div class="modal-header border-0">
+                      <h5 class="modal-title font-weight-bold text-white">Report Review</h5>
+                      <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                      </button>
+                    </div>
+                    <div class="modal-body pt-0">
+                      <p class="text-muted small">Please tell us why this review violates guidelines:</p>
+                      <div class="form-group">
+                        <textarea name="reason" rows="3" class="form-control" style="background: var(--surface-card); color: #fff; border-color: var(--surface-border);" placeholder="Spam, inappropriate content, spoilers, etc." required></textarea>
+                      </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                      <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                      <button type="submit" class="btn-cinematic-primary py-1 px-3" style="font-size: 13px;">Submit Report</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <p class="text-secondary mb-0 mt-2" data-review-text style="line-height: 1.6; font-size: 14px;">{{ review.review_text }}</p>
+    </div>
+    {% empty %}
+    <div class="text-center py-4 text-muted reviews-empty-state">
+      <i class="far fa-comment-dots fa-3x mb-2 text-secondary"></i>
+      <p>No reviews yet for {{ movie.get_display_title }}. Be the first verified viewer to review!</p>
+    </div>
+    {% endfor %}
+    </div>
+  </div>
+
+  <!-- ADD REVIEW MODAL -->
+  {% if can_review and not existing_user_review %}
+  <div class="modal fade" id="addReviewModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content modal-content-cinematic">
+        <form method="POST" action="{% url 'add_review' movie.id %}" id="addReviewForm" data-review-mode="add">
+          {% csrf_token %}
+          <div class="modal-header border-0">
+            <h5 class="modal-title font-weight-bold text-white" id="addReviewModalTitle">Rate & Review {{ movie.get_display_title }}</h5>
+            <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body pt-0">
+            <div class="alert alert-danger d-none" data-review-feedback role="alert"></div>
+            <div class="form-group mb-3">
+              <label class="text-secondary small font-weight-bold d-block">Your Rating</label>
+              <div class="star-rating-select">
+                <input type="radio" id="star5" name="rating" value="5" required /><label for="star5" title="5 stars"><i class="fas fa-star"></i></label>
+                <input type="radio" id="star4" name="rating" value="4" /><label for="star4" title="4 stars"><i class="fas fa-star"></i></label>
+                <input type="radio" id="star3" name="rating" value="3" /><label for="star3" title="3 stars"><i class="fas fa-star"></i></label>
+                <input type="radio" id="star2" name="rating" value="2" /><label for="star2" title="2 stars"><i class="fas fa-star"></i></label>
+                <input type="radio" id="star1" name="rating" value="1" /><label for="star1" title="1 star"><i class="fas fa-star"></i></label>
+              </div>
+            </div>
+            <div class="form-group mb-0">
+              <label class="text-secondary small font-weight-bold">Your Review</label>
+              <textarea name="review_text" rows="4" class="form-control" style="background: var(--surface-card); color: #fff; border-color: var(--surface-border);" placeholder="What did you think of the story, acting, and visuals?" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn-cinematic-primary py-1 px-3" data-review-submit>Submit Review</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- EDIT REVIEW MODAL -->
+  {% if existing_user_review %}
+  <div class="modal fade" id="editReviewModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content modal-content-cinematic">
+        <form method="POST" action="{% url 'edit_review' existing_user_review.id %}" id="editReviewForm" data-review-mode="edit">
+          {% csrf_token %}
+          <div class="modal-header border-0">
+            <h5 class="modal-title font-weight-bold text-white">Edit Your Review</h5>
+            <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body pt-0">
+            <div class="alert alert-danger d-none" data-review-feedback role="alert"></div>
+            <div class="form-group mb-3">
+              <label class="text-secondary small font-weight-bold d-block">Your Rating</label>
+              <div class="star-rating-select">
+                <input type="radio" id="edit_star5" name="rating" value="5" {% if existing_user_review.rating == 5 %}checked{% endif %} required /><label for="edit_star5"><i class="fas fa-star"></i></label>
+                <input type="radio" id="edit_star4" name="rating" value="4" {% if existing_user_review.rating == 4 %}checked{% endif %} /><label for="edit_star4"><i class="fas fa-star"></i></label>
+                <input type="radio" id="edit_star3" name="rating" value="3" {% if existing_user_review.rating == 3 %}checked{% endif %} /><label for="edit_star3"><i class="fas fa-star"></i></label>
+                <input type="radio" id="edit_star2" name="rating" value="2" {% if existing_user_review.rating == 2 %}checked{% endif %} /><label for="edit_star2"><i class="fas fa-star"></i></label>
+                <input type="radio" id="edit_star1" name="rating" value="1" {% if existing_user_review.rating == 1 %}checked{% endif %} /><label for="edit_star1"><i class="fas fa-star"></i></label>
+              </div>
+            </div>
+            <div class="form-group mb-0">
+              <label class="text-secondary small font-weight-bold">Your Review</label>
+              <textarea name="review_text" rows="4" class="form-control" style="background: var(--surface-card); color: #fff; border-color: var(--surface-border);" required>{{ existing_user_review.review_text }}</textarea>
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn-cinematic-primary py-1 px-3">Update Review</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 5. SIMILAR MOVIES CAROUSEL -->
+  {% if similar_movies %}
+  <div class="section-container mt-4">
+    <div class="section-heading-detail">Similar Movies</div>
+    <div class="d-flex" style="gap: 16px; overflow-x: auto; padding-bottom: 15px;">
+      {% for sim in similar_movies %}
+      <div style="flex: 0 0 190px; width: 190px;">
+        <a href="{% url 'movie_detail' sim.id %}" class="text-decoration-none">
+          <div class="movie-card" style="width: 100%; height: 320px;">
+            <div class="movie-poster-wrap">
+              <img src="{{ sim.get_poster_url }}" alt="{{ sim.get_display_title }}" class="movie-card-img" loading="lazy">
+              <div class="movie-card-overlay">
+                <div class="movie-card-title">{{ sim.get_display_title }}</div>
+                <div class="movie-card-meta">
+                  <i class="fas fa-star text-warning mr-1"></i>{% if sim.rating %}{{ sim.rating }}{% elif sim.tmdb_rating %}{{ sim.tmdb_rating }}{% else %}No rating{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if trending_movies %}
+  <div class="section-container mt-4">
+    <div class="section-heading-detail">Trending Movies</div>
+    <div class="d-flex" style="gap:16px;overflow-x:auto;padding-bottom:15px;">
+      {% for item in trending_movies %}
+      <div style="flex:0 0 190px;width:190px;">
+        <a href="{% url 'movie_detail' item.id %}" class="text-decoration-none">
+          <div class="movie-card" style="width:100%;height:320px;"><div class="movie-poster-wrap">
+            <img src="{{ item.get_poster_url }}" alt="{{ item.get_display_title }}" class="movie-card-img" loading="lazy">
+            <div class="movie-card-overlay"><div class="movie-card-title">{{ item.get_display_title }}</div><div class="movie-card-meta"><i class="fas fa-star text-warning mr-1"></i>{% if item.rating %}{{ item.rating }}{% elif item.tmdb_rating %}{{ item.tmdb_rating }}{% else %}No rating{% endif %}</div></div>
+          </div></div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recently_released %}
+  <div class="section-container mt-4">
+    <div class="section-heading-detail">Recently Released</div>
+    <div class="d-flex" style="gap:16px;overflow-x:auto;padding-bottom:15px;">
+      {% for item in recently_released %}
+      <div style="flex:0 0 190px;width:190px;">
+        <a href="{% url 'movie_detail' item.id %}" class="text-decoration-none">
+          <div class="movie-card" style="width:100%;height:320px;"><div class="movie-poster-wrap">
+            <img src="{{ item.get_poster_url }}" alt="{{ item.get_display_title }}" class="movie-card-img" loading="lazy">
+            <div class="movie-card-overlay"><div class="movie-card-title">{{ item.get_display_title }}</div><div class="movie-card-meta">{{ item.release_date|date:"M j, Y" }} · {% if item.rating %}{{ item.rating }}{% elif item.tmdb_rating %}{{ item.tmdb_rating }}{% else %}No rating{% endif %}</div></div>
+          </div></div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function updateMovieReviewSummary(review) {
+    const average = review.average_rating === null ? null : Number(review.average_rating).toFixed(1);
+    ['movieHeroAverage', 'movieReviewAverage'].forEach(function (id) {
+      const node = document.getElementById(id);
+      if (!node) return;
+      node.textContent = average === null ? 'No reviews yet' : average;
+    });
+    ['movieHeroAverageScale', 'movieReviewAverageScale'].forEach(function (id) {
+      const node = document.getElementById(id);
+      if (node) node.classList.toggle('d-none', average === null);
+    });
+    const heroLabel = document.getElementById('movieHeroReviewLabel');
+    if (heroLabel) heroLabel.textContent = `TicketMitra Rating (${review.review_count} review${review.review_count === 1 ? '' : 's'})`;
+    const sectionLabel = document.getElementById('movieReviewCountLabel');
+    if (sectionLabel) sectionLabel.textContent = `(${review.review_count} verified attendee${review.review_count === 1 ? '' : 's'})`;
+  }
+
+  function buildReviewCard(review, csrfToken) {
+    const card = document.createElement('div');
+    card.className = 'review-item-card';
+    card.dataset.reviewId = review.id;
+
+    const header = document.createElement('div');
+    header.className = 'd-flex justify-content-between align-items-start flex-wrap';
+    const authorWrap = document.createElement('div');
+    const authorLine = document.createElement('div');
+    authorLine.className = 'd-flex align-items-center';
+    authorLine.style.gap = '8px';
+    const avatar = document.createElement('div');
+    avatar.className = 'user-avatar-initial';
+    avatar.style.cssText = 'width:30px;height:30px;font-size:13px;';
+    avatar.textContent = (review.username || '?').charAt(0).toUpperCase();
+    const author = document.createElement('strong');
+    author.className = 'text-white';
+    author.textContent = review.username;
+    const authorDetails = document.createElement('div');
+    authorDetails.append(author);
+    if (review.is_verified_viewer) {
+      const verified = document.createElement('span');
+      verified.className = 'verified-badge-custom ml-1';
+      verified.title = 'User booked tickets and watched this movie';
+      verified.innerHTML = '<i class="fas fa-check-circle"></i> Verified Viewer';
+      authorDetails.append(verified);
+    }
+    authorLine.append(avatar, authorDetails);
+    authorWrap.append(authorLine);
+
+    const starsLine = document.createElement('div');
+    starsLine.className = 'mt-2 mb-2';
+    starsLine.dataset.reviewStars = '';
+    for (let i = 1; i <= 5; i += 1) {
+      const star = document.createElement('i');
+      star.className = `fas fa-star ${i <= review.rating ? 'star-gold' : 'star-gray'}`;
+      starsLine.append(star);
+    }
+    const reviewDate = document.createElement('small');
+    reviewDate.className = 'text-muted ml-2';
+    reviewDate.dataset.reviewDate = '';
+    reviewDate.textContent = review.created_at;
+    starsLine.append(reviewDate);
+    authorWrap.append(starsLine);
+
+    const actions = document.createElement('div');
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'btn btn-sm btn-link text-info p-0 mr-3';
+    edit.dataset.reviewEdit = 'true';
+    edit.dataset.reviewId = review.id;
+    edit.dataset.editUrl = review.edit_url;
+    edit.textContent = 'Edit';
+    actions.append(edit);
+
+    const deleteForm = document.createElement('form');
+    deleteForm.method = 'POST';
+    deleteForm.action = review.delete_url;
+    deleteForm.className = 'd-inline';
+    deleteForm.onsubmit = function () { return window.confirm('Delete this review?'); };
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken'; csrf.value = csrfToken;
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'submit';
+    deleteButton.className = 'btn btn-sm btn-link text-danger p-0';
+    deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i> Delete';
+    deleteForm.append(csrf, deleteButton);
+    actions.append(deleteForm);
+
+    header.append(authorWrap, actions);
+    const text = document.createElement('p');
+    text.className = 'text-secondary mb-0 mt-2';
+    text.dataset.reviewText = '';
+    text.style.cssText = 'line-height:1.6;font-size:14px;';
+    text.textContent = review.review_text;
+    card.append(header, text);
+    return card;
+  }
+
+  function updateReviewCard(card, review) {
+    if (!card) return;
+    card.dataset.reviewId = review.id;
+    const text = card.querySelector('[data-review-text]');
+    if (text) text.textContent = review.review_text;
+    const date = card.querySelector('[data-review-date]');
+    if (date) date.textContent = review.created_at;
+    const stars = card.querySelector('[data-review-stars]');
+    if (stars) {
+      stars.querySelectorAll('i').forEach(function (star, index) {
+        star.className = `fas fa-star ${index < review.rating ? 'star-gold' : 'star-gray'}`;
+      });
+    }
+  }
+
+  function showReviewFeedback(form, message) {
+    const feedback = form.querySelector('[data-review-feedback]');
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.classList.remove('d-none');
+  }
+
+  document.querySelectorAll('#addReviewForm, #editReviewForm').forEach(function (form) {
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = form.querySelector('[data-review-submit]') || form.querySelector('[type="submit"]');
+      const feedback = form.querySelector('[data-review-feedback]');
+      if (feedback) { feedback.textContent = ''; feedback.classList.add('d-none'); }
+      if (submitButton) { submitButton.disabled = true; submitButton.dataset.originalLabel = submitButton.textContent; submitButton.textContent = 'Saving…'; }
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save this review.');
+
+        const review = result.review;
+        const reviewList = document.getElementById('movieReviewList');
+        const currentCard = reviewList && reviewList.querySelector(`[data-review-id="${review.id}"]`);
+        if (currentCard) {
+          updateReviewCard(currentCard, review);
+        } else if (reviewList) {
+          const empty = reviewList.querySelector('.reviews-empty-state');
+          if (empty) empty.remove();
+          reviewList.prepend(buildReviewCard(review, form.querySelector('[name="csrfmiddlewaretoken"]').value));
+        }
+        updateMovieReviewSummary(review);
+
+        form.action = review.edit_url;
+        form.dataset.reviewMode = 'edit';
+        form.dataset.reviewId = review.id;
+        const title = form.querySelector('.modal-title');
+        if (title) title.textContent = 'Edit Your Review';
+        if (submitButton) submitButton.textContent = 'Update Review';
+        document.querySelectorAll('[data-review-cta]').forEach(function (button) {
+          button.innerHTML = '<i class="fas fa-edit mr-1"></i> Edit Your Review';
+          button.dataset.target = '#addReviewModal';
+        });
+        const modal = form.closest('.modal');
+        if (window.jQuery && modal) window.jQuery(modal).modal('hide');
+      } catch (error) {
+        showReviewFeedback(form, error.message || 'A network error prevented saving. Please try again.');
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+        if (submitButton && form.dataset.reviewMode !== 'edit') submitButton.textContent = submitButton.dataset.originalLabel || 'Submit Review';
+      }
+    });
+  });
+
+  document.addEventListener('click', function (event) {
+    const editButton = event.target.closest('[data-review-edit]');
+    if (!editButton) return;
+    const form = document.getElementById('editReviewForm') || document.getElementById('addReviewForm');
+    if (!form) return;
+    event.preventDefault();
+    form.action = editButton.dataset.editUrl;
+    form.dataset.reviewMode = 'edit';
+    form.dataset.reviewId = editButton.dataset.reviewId;
+    const rating = editButton.closest('[data-review-id]')?.querySelectorAll('[data-review-stars] i.star-gold').length || 0;
+    const text = editButton.closest('[data-review-id]')?.querySelector('[data-review-text]')?.textContent || '';
+    const selected = form.querySelector(`[name="rating"][value="${rating}"]`);
+    if (selected) selected.checked = true;
+    const reviewText = form.querySelector('[name="review_text"]');
+    if (reviewText) reviewText.value = text;
+    const title = form.querySelector('.modal-title');
+    if (title) title.textContent = 'Edit Your Review';
+    const submit = form.querySelector('[data-review-submit]') || form.querySelector('[type="submit"]');
+    if (submit) submit.textContent = 'Update Review';
+    if (window.jQuery) window.jQuery(form.closest('.modal')).modal('show');
+  });
+
+  $('#trailerModal').on('show.bs.modal', function () {
+    const iframe = document.getElementById('trailerIframe');
+    if (iframe) {
+      let currentSrc = iframe.getAttribute('data-src') || iframe.src;
+      // Convert youtube-nocookie to standard youtube.com embed
+      currentSrc = currentSrc.replace('youtube-nocookie.com', 'youtube.com');
+      // Pass origin to allow YouTube to verify embed origin and bypass Error 153
+      if (currentSrc.indexOf('origin=') === -1) {
+        currentSrc += (currentSrc.indexOf('?') === -1 ? '?' : '&') + 'enablejsapi=1&origin=' + encodeURIComponent(window.location.origin);
+      }
+      iframe.src = currentSrc;
+    }
+  });
+
+  function stopTrailerVideo() {
+    const iframe = document.getElementById('trailerIframe');
+    if (iframe) {
+      iframe.src = '';
+    }
+  }
+
+  $('#trailerModal').on('hidden.bs.modal', stopTrailerVideo);
+</script>
+{% endblock %}

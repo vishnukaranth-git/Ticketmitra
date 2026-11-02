@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | TicketMitra Operations{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <!-- Google Fonts: Playfair Display (display) + DM Sans (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome 5 & 6 Compatibility -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- TicketMitra Dark Cinema Admin Stylesheet -->
+  <link rel="stylesheet" href="/static/admin/css/ticketmitra_admin.css?v=4.0">
+
+  <!-- TicketMitra Admin JS -->
+  <script src="/static/admin/js/ticketmitra_admin.js" defer></script>
+{% endblock %}

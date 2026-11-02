@@ -1,0 +1,215 @@
+{% extends "users/basic.html" %}
+{% block title %}My Profile & Bookings - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .profile-surface-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 24px;
+  }
+  .profile-avatar-large {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: var(--gradient-accent);
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    box-shadow: var(--shadow-glow-red);
+  }
+  .booking-ticket-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  .booking-ticket-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--gradient-accent);
+  }
+  .booking-ticket-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(220, 38, 61, 0.3);
+  }
+  .profile-form-input input {
+    background: var(--surface-elevated) !important;
+    border: 1px solid var(--surface-border) !important;
+    color: #fff !important;
+    border-radius: 10px;
+    padding: 10px 14px;
+    width: 100%;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .profile-form-input input:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 16px rgba(220, 38, 61, 0.25) !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row">
+    <!-- User Avatar & Quick Info -->
+    <div class="col-lg-4 mb-4">
+      <div class="profile-surface-card text-center">
+        <div class="profile-avatar-large">
+          {{ user.username|make_list|first|upper }}
+        </div>
+        <h2 class="h4 font-weight-bold text-white mb-1">{{ user.username }}</h2>
+        <p class="text-secondary small mb-3">{{ user.email|default:"Registered Cinema Member" }}</p>
+        <div class="d-inline-flex align-items-center py-1 px-3 rounded mb-3" style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--status-success); font-size: 12px; font-weight: 700;">
+          <i class="fas fa-check-circle mr-1"></i> Verified Account
+        </div>
+        <div class="pt-3 border-top" style="border-color: var(--surface-border) !important;">
+          <a href="{% url 'password_reset' %}" class="btn-cinematic-ghost w-100 justify-content-center">
+            <i class="fas fa-key mr-2"></i> Reset Password
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Edit & Bookings -->
+    <div class="col-lg-8">
+      <!-- Edit Profile -->
+      <div class="profile-surface-card mb-4">
+        <h3 class="h5 font-weight-bold text-white mb-3">
+          <i class="fas fa-user-edit mr-2" style="color: var(--color-interactive);"></i> Update Profile Details
+        </h3>
+        <form method="POST">
+          {% csrf_token %}
+          {% for field in u_form %}
+            <div class="mb-3 profile-form-input">
+              <label for="{{ field.id_for_label }}" class="text-secondary small font-weight-bold mb-1 d-block">
+                {{ field.label }}
+              </label>
+              {{ field.errors }}
+              {{ field }}
+              {% if field.help_text %}
+                <small class="text-muted d-block mt-1">{{ field.help_text }}</small>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <button class="btn-cinematic-primary mt-2" type="submit">
+            <i class="fas fa-save mr-1"></i> Save Changes
+          </button>
+        </form>
+      </div>
+
+      <!-- Booking History -->
+      <div class="profile-surface-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h5 font-weight-bold text-white mb-0">
+            <i class="fas fa-ticket-alt mr-2" style="color: var(--color-primary);"></i> My Ticket History
+          </h3>
+          <span class="badge badge-dark border" style="background: var(--surface-elevated); border-color: var(--surface-border) !important; color: var(--text-secondary);">
+            {{ bookings.count }} Booking{{ bookings.count|pluralize }}
+          </span>
+        </div>
+
+        {% if bookings %}
+          <div class="row">
+            {% for booking in bookings %}
+            <div class="col-md-6 mb-3">
+              <div class="booking-ticket-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                  <h5 class="font-weight-bold text-white mb-1">{{ booking.movie.get_display_title }}</h5>
+                  <p class="text-secondary small mb-2">
+                    <i class="fas fa-film text-info mr-1"></i> {{ booking.theater.name }}<br>
+                    <i class="fas fa-chair text-info mr-1"></i> Seat: <strong class="text-white">{{ booking.seat.seat_number }}</strong><br>
+                    <i class="far fa-clock text-info mr-1"></i> {{ booking.theater.time|date:"M d, Y - h:i A" }}
+                  </p>
+                  <span class="badge badge-dark border py-1 px-2" style="border-color: var(--surface-border) !important; color: var(--text-muted); font-size: 11px;">
+                    Booked on {{ booking.booked_at|date:"M d, Y" }}
+                  </span>
+                </div>
+                <div class="mt-3 pt-2 border-top d-flex" style="border-color: var(--surface-border) !important; gap: 8px;">
+                  <a href="{% url 'booking_ticket' booking.id %}" class="btn btn-sm btn-cinematic-primary flex-grow-1 justify-content-center" style="font-size: 12px;">
+                    <i class="fas fa-qrcode mr-1"></i> View Ticket
+                  </a>
+                  <a href="{% url 'movie_detail' booking.movie.id %}" class="btn btn-sm btn-cinematic-secondary flex-grow-1 justify-content-center" style="font-size: 12px;">
+                    <i class="fas fa-film mr-1"></i> Movie
+                  </a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-ticket-alt fa-3x mb-3 text-secondary"></i>
+            <h5 class="text-white">No Tickets Booked Yet</h5>
+            <p class="small text-muted">Your booked tickets and verified movie experiences will appear here.</p>
+            <a href="{% url 'movie_list' %}" class="btn-cinematic-primary mt-2">Browse Movies</a>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Recent Payments Section -->
+      {% if payments %}
+      <div class="profile-surface-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h5 font-weight-bold text-white mb-0">
+            <i class="fas fa-receipt mr-2" style="color: var(--color-interactive);"></i> Recent Transactions
+          </h3>
+          <a href="{% url 'payment_history' %}" class="text-muted small font-weight-bold">
+            View All <i class="fas fa-chevron-right ml-1"></i>
+          </a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-sm mb-0" style="background: transparent;">
+            <thead>
+              <tr class="text-secondary small">
+                <th>Date</th>
+                <th>Order / Details</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in payments %}
+              <tr>
+                <td class="small">{{ p.created_at|date:"M d, Y" }}</td>
+                <td class="small font-monospace text-white">{{ p.order_id|truncatechars:18 }}</td>
+                <td class="small font-weight-bold text-success">₹{{ p.amount|floatformat:2 }}</td>
+                <td>
+                  {% if p.status == 'SUCCESS' %}
+                    <span class="badge badge-success px-2 py-1" style="font-size: 10px;">SUCCESS</span>
+                  {% elif p.status == 'FAILED' %}
+                    <span class="badge badge-danger px-2 py-1" style="font-size: 10px;">FAILED</span>
+                  {% elif p.status == 'CANCELLED' %}
+                    <span class="badge badge-warning px-2 py-1" style="font-size: 10px;">CANCELLED</span>
+                  {% else %}
+                    <span class="badge badge-secondary px-2 py-1" style="font-size: 10px;">{{ p.status }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

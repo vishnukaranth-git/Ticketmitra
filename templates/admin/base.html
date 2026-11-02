@@ -1,0 +1,470 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en-us' }}" dir="{{ LANGUAGE_BIDI|yesno:'rtl,ltr,auto' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ title }} | TicketMitra Operations{% endblock %}</title>
+
+  <!-- Google Fonts: Playfair Display (display) + DM Sans (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Core Django Admin Stylesheet & Overrides -->
+  <link rel="stylesheet" href="{% static 'admin/css/ticketmitra_admin.css' %}?v=4.0">
+
+  <!-- Admin JS -->
+  <script src="{% static 'admin/js/ticketmitra_admin.js' %}" defer></script>
+
+  {% block extrahead %}{% endblock %}
+  {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+  <!-- Inline Cinematic Design System Tokens (Immediate Render) -->
+  <style>
+    :root {
+      --tm-midnight-navy:    #10243A;
+      --tm-deep-navy:        #0B192B;
+      --tm-surface:          #162238;
+      --tm-surface-elevated: #1B2940;
+      --tm-crimson:          #D61F45;
+      --tm-crimson-hover:    #A91535;
+      --tm-crimson-deep:     #A91535;
+      --tm-warm-ivory:       #F2E9DC;
+      --tm-text-muted:       #C8BBAA;
+      --tm-brass:            #B58A5A;
+      --tm-border:           rgba(226, 211, 193, 0.16);
+      --tm-border-strong:    rgba(226, 211, 193, 0.28);
+      --tm-border-subtle:    rgba(226, 211, 193, 0.08);
+      --tm-glass:            rgba(22, 34, 56, 0.76);
+      --tm-glass-raised:     rgba(27, 41, 64, 0.88);
+      --tm-glass-deep:       rgba(11, 25, 43, 0.90);
+      --tm-glass-hover:      rgba(226, 211, 193, 0.04);
+      --tm-glow-crimson:     0 8px 24px rgba(214, 31, 69, 0.35);
+
+      /* Backward Compatibility Aliases */
+      --tm-primary:          #D61F45;
+      --tm-primary-hover:    #A91535;
+      --tm-orange:           #B58A5A;
+      --tm-blue:             #3B82F6;
+      --tm-bg:               #0B192B;
+      --tm-bg-secondary:     #10243A;
+      --tm-card:             rgba(22, 34, 56, 0.76);
+      --tm-elevated:         #1B2940;
+      --tm-text:             #F2E9DC;
+      --tm-radius:           14px;
+      --tm-sidebar-width:    270px;
+      --tm-topbar-height:    70px;
+    }
+
+    html, body {
+      background-color: #0B192B !important;
+      background-image:
+        radial-gradient(ellipse at 88% 4%, rgba(214, 31, 69, 0.12), transparent 36rem),
+        radial-gradient(ellipse at 12% 96%, rgba(181, 138, 90, 0.08), transparent 32rem),
+        linear-gradient(180deg, rgba(11, 25, 43, 0.90), rgba(16, 36, 58, 0.94)),
+        url('/static/images/midnight_paper_texture.png') !important;
+      background-attachment: fixed !important;
+      background-size: cover, cover, cover, auto !important;
+      background-repeat: no-repeat, no-repeat, no-repeat, repeat !important;
+      color: #F2E9DC !important;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1, h2, h3, h4, h5, h6, .tm-heading, .tm-page-title, .tm-hero-title, .tm-brand-title, .tm-panel-title, .tm-metric-value, .tm-theater-name {
+      font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+      color: #F2E9DC !important;
+      letter-spacing: -0.015em;
+    }
+
+    .tm-brand-title {
+      font-family: 'Playfair Display', Georgia, serif !important;
+      font-weight: 800;
+      color: #F2E9DC !important;
+    }
+    .tm-brand-title span {
+      color: #D61F45 !important;
+    }
+    .tm-brand-subtitle {
+      color: #B58A5A !important;
+      font-family: 'DM Sans', sans-serif !important;
+      letter-spacing: 0.16em !important;
+      font-weight: 700 !important;
+    }
+
+    .tm-sidebar {
+      background: rgba(11, 25, 43, 0.92) !important;
+      backdrop-filter: blur(20px) !important;
+      -webkit-backdrop-filter: blur(20px) !important;
+      border-right: 1px solid rgba(226, 211, 193, 0.16) !important;
+    }
+    .tm-sidebar-brand {
+      background: rgba(16, 36, 58, 0.70) !important;
+      border-bottom: 1px solid rgba(226, 211, 193, 0.16) !important;
+    }
+    .tm-brand-logo-icon {
+      background: linear-gradient(135deg, #D61F45, #A91535) !important;
+      box-shadow: 0 4px 14px rgba(214, 31, 69, 0.35) !important;
+      border: 1px solid rgba(226, 211, 193, 0.2) !important;
+    }
+
+    .tm-nav-section-title {
+      color: #B58A5A !important;
+      font-family: 'DM Sans', sans-serif !important;
+      letter-spacing: 0.12em !important;
+      font-weight: 700 !important;
+    }
+    .tm-nav-item {
+      color: #C8BBAA !important;
+      font-family: 'DM Sans', sans-serif !important;
+    }
+    .tm-nav-item:hover {
+      color: #F2E9DC !important;
+      background: rgba(226, 211, 193, 0.06) !important;
+      border-color: rgba(226, 211, 193, 0.12) !important;
+    }
+    .tm-nav-item.active {
+      color: #F2E9DC !important;
+      background: rgba(214, 31, 69, 0.14) !important;
+      border: 1px solid rgba(214, 31, 69, 0.38) !important;
+    }
+    .tm-nav-item.active i {
+      color: #D61F45 !important;
+    }
+
+    .tm-topbar {
+      background: rgba(11, 25, 43, 0.88) !important;
+      backdrop-filter: blur(18px) !important;
+      border-bottom: 1px solid rgba(226, 211, 193, 0.16) !important;
+    }
+
+    .tm-dashboard-hero {
+      background: linear-gradient(135deg, rgba(22, 34, 56, 0.82), rgba(11, 25, 43, 0.88)),
+                  radial-gradient(ellipse at top right, rgba(214, 31, 69, 0.16), transparent 70%) !important;
+      border: 1px solid rgba(226, 211, 193, 0.16) !important;
+      backdrop-filter: blur(14px) !important;
+    }
+    .tm-dashboard-hero::before {
+      background: linear-gradient(to bottom, #D61F45, #B58A5A) !important;
+    }
+
+    .tm-panel-card, .tm-metric-card, .tm-stat-card, #changelist {
+      background: rgba(22, 34, 56, 0.76) !important;
+      border: 1px solid rgba(226, 211, 193, 0.16) !important;
+      backdrop-filter: blur(14px) !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+    }
+    .tm-panel-header, .results thead th, .tm-data-table thead th, table.table thead th {
+      background: rgba(27, 41, 64, 0.75) !important;
+      color: #B58A5A !important;
+      font-family: 'DM Sans', sans-serif !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.08em !important;
+      border-bottom: 1px solid rgba(226, 211, 193, 0.16) !important;
+    }
+    .results tbody tr:hover, .tm-data-table tbody tr:hover, table.table tbody tr:hover {
+      background: rgba(226, 211, 193, 0.04) !important;
+    }
+    .results td, .results th, .tm-data-table td, table.table td {
+      border-bottom: 1px solid rgba(226, 211, 193, 0.08) !important;
+      color: #F2E9DC !important;
+    }
+
+    .tm-btn-primary, .btn-primary {
+      background: #D61F45 !important;
+      border-color: #D61F45 !important;
+      color: #F2E9DC !important;
+      font-family: 'DM Sans', sans-serif !important;
+      box-shadow: 0 4px 14px rgba(214, 31, 69, 0.3) !important;
+    }
+    .tm-btn-primary:hover, .btn-primary:hover {
+      background: #A91535 !important;
+      border-color: #A91535 !important;
+      color: #fff !important;
+    }
+
+    .tm-btn-secondary, .btn-secondary {
+      background: rgba(181, 138, 90, 0.14) !important;
+      border: 1px solid rgba(181, 138, 90, 0.35) !important;
+      color: #F2E9DC !important;
+    }
+    .tm-btn-ghost {
+      background: rgba(226, 211, 193, 0.06) !important;
+      border: 1px solid rgba(226, 211, 193, 0.16) !important;
+      color: #F2E9DC !important;
+    }
+  </style>
+
+</head>
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}" data-admin-utc-offset="{% now 'Z' %}">
+
+<div class="tm-app-shell">
+
+  <!-- 1. FIXED CINEMA OPERATIONS SIDEBAR -->
+  <aside class="tm-sidebar" id="tmSidebar">
+    <!-- Brand Header -->
+    <a href="/admin/dashboard/" class="tm-sidebar-brand" style="text-decoration: none;">
+      <div class="tm-brand-logo-icon">
+        <i class="fas fa-ticket-alt"></i>
+      </div>
+      <div class="tm-brand-text">
+        <div class="tm-brand-title">TICKET<span>MITRA</span></div>
+        <div class="tm-brand-subtitle">OPERATIONS</div>
+      </div>
+    </a>
+
+    <!-- Navigation Menu -->
+    <div class="tm-sidebar-nav">
+
+      <!-- OVERVIEW -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">OVERVIEW</div>
+        <a href="/admin/dashboard/" class="tm-nav-item {% if request.path == '/admin/dashboard/' or request.path == '/admin/' %}active{% endif %}">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+      </div>
+
+      <!-- MOVIE MANAGEMENT -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">MOVIE MANAGEMENT</div>
+        <a href="/admin/movies/" class="tm-nav-item {% if '/admin/movies/' in request.path %}active{% endif %}">
+          <i class="fas fa-film"></i>
+          <span>Movies</span>
+        </a>
+      </div>
+
+      <!-- CINEMA MANAGEMENT -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">CINEMA MANAGEMENT</div>
+        <a href="/admin/theatres/" class="tm-nav-item {% if '/admin/theatres/' in request.path %}active{% endif %}">
+          <i class="fas fa-building"></i>
+          <span>Theatres</span>
+        </a>
+        <a href="/admin/screens/" class="tm-nav-item {% if '/admin/screens/' in request.path %}active{% endif %}">
+          <i class="fas fa-tv"></i>
+          <span>Screens</span>
+        </a>
+        <a href="/admin/seats/" class="tm-nav-item {% if '/admin/seats/' in request.path or '/admin/operations/manage-seats/' in request.path %}active{% endif %}">
+          <i class="fas fa-chair"></i>
+          <span>Seat Layout</span>
+        </a>
+        <a href="/admin/pricing/" class="tm-nav-item {% if '/admin/pricing/' in request.path %}active{% endif %}">
+          <i class="fas fa-tags"></i>
+          <span>Ticket Pricing</span>
+        </a>
+        <a href="/admin/showtimes/" class="tm-nav-item {% if '/admin/showtimes/' in request.path %}active{% endif %}">
+          <i class="far fa-clock"></i>
+          <span>Showtimes</span>
+        </a>
+      </div>
+
+      <!-- BOOKING MANAGEMENT -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">BOOKING MANAGEMENT</div>
+        <a href="/admin/bookings/" class="tm-nav-item {% if '/admin/bookings/' in request.path %}active{% endif %}">
+          <i class="fas fa-ticket-alt"></i>
+          <span>Bookings</span>
+        </a>
+        <a href="/admin/reservations/" class="tm-nav-item {% if '/admin/reservations/' in request.path %}active{% endif %}">
+          <i class="fas fa-stopwatch"></i>
+          <span>Seat Reservations</span>
+          {% if active_reservations and active_reservations > 0 %}
+            <span class="tm-nav-badge">{{ active_reservations }}</span>
+          {% endif %}
+        </a>
+        <a href="/admin/payments/" class="tm-nav-item {% if '/admin/payments/' in request.path %}active{% endif %}">
+          <i class="fab fa-stripe"></i>
+          <span>Payments</span>
+        </a>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">CUSTOMERS</div>
+        <a href="/admin/users/" class="tm-nav-item {% if '/admin/users/' in request.path %}active{% endif %}">
+          <i class="fas fa-users"></i>
+          <span>Users</span>
+        </a>
+        <a href="/admin/reviews/" class="tm-nav-item {% if '/admin/reviews/' in request.path %}active{% endif %}">
+          <i class="fas fa-star"></i>
+          <span>Reviews</span>
+        </a>
+        <a href="/admin/reports/" class="tm-nav-item {% if '/admin/reports/' in request.path %}active{% endif %}">
+          <i class="fas fa-flag"></i>
+          <span>Review Reports</span>
+        </a>
+      </div>
+
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">OPERATIONS</div>
+        <a href="/admin/activity/" class="tm-nav-item {% if '/admin/activity/' in request.path %}active{% endif %}"><i class="fas fa-clipboard-list"></i><span>Activity Log</span></a>
+      </div>
+
+      <!-- SYSTEM -->
+      <div class="tm-nav-section">
+        <div class="tm-nav-section-title">SYSTEM</div>
+        <a href="/admin/logout/" class="tm-nav-item text-danger" style="color: var(--tm-crimson);">
+          <i class="fas fa-sign-out-alt"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="tm-sidebar-footer">
+      <div><i class="fas fa-circle text-success mr-1" style="font-size: 8px;"></i> Live Cinema Operations</div>
+      <div class="font-weight-bold" style="color: var(--tm-primary);">v2.4</div>
+    </div>
+  </aside>
+
+  <!-- 2. MAIN CONTENT WRAPPER -->
+  <div class="tm-main-content">
+
+    <!-- TOP NAVBAR -->
+    <header class="tm-topbar">
+      <div class="tm-topbar-left">
+        <button type="button" class="tm-sidebar-toggle-btn" id="tmSidebarToggle" title="Toggle Navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="tm-page-title">{% block content_title %}{{ title|default:"TicketMitra Operations" }}{% endblock %}</h1>
+      </div>
+
+      <div class="tm-topbar-right">
+        <!-- Unified Global Search -->
+        <form action="{% url 'admin_global_search' %}" method="GET" class="tm-search-box">
+          <i class="fas fa-search tm-search-icon"></i>
+          <input type="text" name="q" class="tm-search-input" placeholder="Search movies, users, seats, payments..." value="{{ request.GET.q|default:'' }}">
+        </form>
+
+        <!-- View Customer-Facing Website -->
+        <a href="{% url 'home' %}" target="_blank" class="tm-btn-sm tm-btn-ghost text-light d-none d-sm-flex align-items-center" title="Open Customer Website in New Tab" style="gap: 6px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--tm-border);">
+          <i class="fas fa-external-link-alt text-muted" style="font-size: 11px;"></i>
+          <span style="font-size: 12px; font-weight: 500;">Customer Site</span>
+        </a>
+
+        <!-- Notifications Indicator & Dropdown -->
+        <div class="tm-notif-wrapper">
+          <button type="button" class="tm-notif-btn" id="tmNotifBtn" title="Alerts & Notifications">
+            <i class="far fa-bell"></i>
+            {% if admin_alerts %}
+              <span class="tm-notif-dot"></span>
+            {% endif %}
+          </button>
+
+          <div class="tm-notif-dropdown" id="tmNotifDropdown">
+            <div class="tm-notif-header">
+              <span class="text-white"><i class="fas fa-bell text-warning mr-1"></i> System Alerts</span>
+              <span class="tm-badge tm-badge-blue">{{ admin_alerts|length|default:1 }} Live</span>
+            </div>
+            <div class="tm-notif-list">
+              {% if admin_alerts %}
+                {% for alt in admin_alerts %}
+                  <div class="tm-notif-item">
+                    <i class="fas {{ alt.icon }} text-{{ alt.type }} mt-1"></i>
+                    <div>
+                      <div class="text-white">{{ alt.text }}</div>
+                      <small class="text-muted">Real-time status</small>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="tm-notif-item text-muted">
+                  <i class="fas fa-check-circle text-success mt-1"></i>
+                  <div>All systems operating normally. No critical alerts.</div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Menu -->
+        <div class="tm-user-menu">
+          <button type="button" class="tm-user-trigger" id="tmUserTrigger">
+            <div class="tm-user-avatar">
+              {{ request.user.username|slice:":1"|upper }}
+            </div>
+            <div class="tm-user-info d-none d-md-block">
+              <div class="tm-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+              <div class="tm-user-role-badge">{% if request.user.is_superuser %}Superuser{% elif request.user.is_staff %}Staff{% else %}Customer{% endif %}</div>
+            </div>
+            <i class="fas fa-chevron-down text-muted ml-1" style="font-size: 10px;"></i>
+          </button>
+
+          <div class="tm-user-dropdown" id="tmUserDropdown">
+            <a href="{% url 'profile' %}" target="_blank">
+              <i class="fas fa-user-circle"></i>
+              <span>My Profile</span>
+            </a>
+            <a href="{% url 'home' %}" target="_blank">
+              <i class="fas fa-ticket-alt"></i>
+              <span>TicketMitra Website</span>
+            </a>
+            <a href="/admin/dashboard/">
+              <i class="fas fa-chart-pie"></i>
+              <span>Dashboard</span>
+            </a>
+            <div class="tm-dropdown-divider"></div>
+            <a href="/admin/logout/" style="color: var(--tm-danger);">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Logout</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- BODY WRAPPER -->
+    <div class="tm-body-wrapper">
+
+      <!-- DJANGO MESSAGES BANNER -->
+      {% if messages %}
+        <div class="mb-4">
+          {% for message in messages %}
+            <div class="tm-badge tm-badge-{{ message.tags|default:'info' }} p-3 w-100 mb-2" style="font-size: 13px; text-transform: none; display: flex; align-items: center; border-radius: 8px;">
+              <i class="fas fa-info-circle mr-2"></i> {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <!-- OBJECT TOOLS (Add button etc in model pages) -->
+      {% block object-tools %}{% endblock %}
+
+      <!-- MAIN CONTENT -->
+      {% block content %}
+        {{ content }}
+      {% endblock %}
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// Prevent sidebar scrolling jumping on navigation
+(function() {
+  const sidebar = document.getElementById('tmSidebar');
+  if (sidebar) {
+    const saved = sessionStorage.getItem('tm_sidebar_scroll');
+    if (saved !== null) {
+      sidebar.scrollTop = parseInt(saved, 10);
+    }
+    sidebar.addEventListener('scroll', function() {
+      sessionStorage.setItem('tm_sidebar_scroll', sidebar.scrollTop);
+    }, { passive: true });
+    window.addEventListener('beforeunload', function() {
+      sessionStorage.setItem('tm_sidebar_scroll', sidebar.scrollTop);
+    });
+  }
+})();
+</script>
+</body>
+</html>

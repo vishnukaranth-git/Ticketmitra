@@ -1,0 +1,25 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+  {% if sync_all_tmdb_url %}
+  <li>
+    <a href="{{ sync_all_tmdb_url }}"
+       style="border-radius:8px;font-weight:600;padding:6px 14px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#86efac;text-decoration:none;margin-right:6px;display:inline-flex;align-items:center;gap:6px;"
+       onclick="return confirm('Fetch now-playing and upcoming movies from TMDB and update the database. This may take ~30 seconds. Continue?')">
+      🔄 Sync All from TMDB
+    </a>
+  </li>
+  {% endif %}
+  <li>
+    <a href="{% url 'admin:movies_movie_import_tmdb' %}"
+       style="border-radius:8px;font-weight:600;padding:6px 14px;background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd;text-decoration:none;margin-right:8px;display:inline-flex;align-items:center;gap:6px;">
+      <i class="fas fa-cloud-download-alt"></i> Search &amp; Import TMDB
+    </a>
+  </li>
+  <li>
+    <a href="{% url 'admin:movies_movie_add' %}" class="addlink" style="border-radius:8px;">
+      + Add Manually
+    </a>
+  </li>
+{% endblock %}

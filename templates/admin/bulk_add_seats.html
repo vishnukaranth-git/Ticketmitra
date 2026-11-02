@@ -1,0 +1,153 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin_manage_seats_default' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Visual Seat Map</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Bulk Add Seats</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-th text-success"></i>
+        <span>Bulk Add Seats</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Quickly generate multiple seating rows (e.g. A to E, 6 seats per row) with automatic duplicate protection.
+      </p>
+    </div>
+  </div>
+
+  <div class="row" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Form -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-sliders-h text-info"></i>
+            <span>Seating Configuration</span>
+          </div>
+        </div>
+        <div class="tm-panel-body">
+          <form method="POST" id="bulkForm">
+            {% csrf_token %}
+
+            <div class="form-group mb-3">
+              <label class="font-weight-bold text-muted small">Target Theater Showtime</label>
+              <select name="theater_id" class="form-control" id="selectTheater" required>
+                {% for th in theaters %}
+                  <option value="{{ th.id }}" {% if request.GET.theater_id == th.id|stringformat:"s" %}selected{% endif %}>
+                    {{ th.name }} ({{ th.movie.get_display_title|truncatechars:20 }})
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="row mb-3" style="display: flex; gap: 12px;">
+              <div style="flex: 1;">
+                <label class="font-weight-bold text-muted small">Start Row</label>
+                <input type="text" name="start_row" id="inputStartRow" class="form-control" value="A" maxlength="2" required oninput="updatePreview()">
+              </div>
+              <div style="flex: 1;">
+                <label class="font-weight-bold text-muted small">End Row</label>
+                <input type="text" name="end_row" id="inputEndRow" class="form-control" value="E" maxlength="2" required oninput="updatePreview()">
+              </div>
+            </div>
+
+            <div class="form-group mb-3">
+              <label class="font-weight-bold text-muted small">Seats per Row</label>
+              <input type="number" name="seats_per_row" id="inputSeatsPerRow" class="form-control" value="6" min="1" max="30" required oninput="updatePreview()">
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="font-weight-bold text-muted small">Seat Type</label>
+              <select name="seat_type" class="form-control">
+                <option value="REGULAR">Regular</option>
+                <option value="PREMIUM">Premium</option>
+                <option value="VIP">VIP</option>
+              </select>
+            </div>
+
+            <button type="submit" class="tm-btn tm-btn-primary w-100 py-3 justify-content-center font-weight-bold" style="font-size: 14px;">
+              <i class="fas fa-check-circle mr-2"></i> Create <span id="btnTotalCount">30</span> Seats in Database
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Preview -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-eye text-warning"></i>
+            <span>Live Grid Preview</span>
+          </div>
+          <span class="tm-badge tm-badge-blue" id="previewBadge">30 Seats</span>
+        </div>
+        <div class="tm-panel-body">
+          <div class="tm-seat-screen-display mb-4" style="max-width: 400px;">SCREEN</div>
+          <div id="previewGrid" class="text-center" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Generated dynamically by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function updatePreview() {
+    const startRow = (document.getElementById('inputStartRow').value || 'A').toUpperCase().charCodeAt(0);
+    const endRow = (document.getElementById('inputEndRow').value || 'E').toUpperCase().charCodeAt(0);
+    const seatsPerRow = parseInt(document.getElementById('inputSeatsPerRow').value) || 6;
+
+    const s = Math.min(startRow, endRow);
+    const e = Math.max(startRow, endRow);
+
+    const grid = document.getElementById('previewGrid');
+    grid.innerHTML = '';
+
+    let total = 0;
+    for (let r = s; r <= e; r++) {
+      const rowChar = String.fromCharCode(r);
+      const rowDiv = document.createElement('div');
+      rowDiv.style.display = 'flex';
+      rowDiv.style.justifyContent = 'center';
+      rowDiv.style.gap = '6px';
+      rowDiv.style.alignItems = 'center';
+
+      const label = document.createElement('span');
+      label.textContent = rowChar;
+      label.style.fontWeight = 'bold';
+      label.style.color = '#64748b';
+      label.style.width = '20px';
+      rowDiv.appendChild(label);
+
+      for (let n = 1; n <= seatsPerRow; n++) {
+        const btn = document.createElement('span');
+        btn.className = 'tm-seat-btn available';
+        btn.textContent = `${rowChar}${n}`;
+        btn.style.width = '32px';
+        btn.style.height = '32px';
+        btn.style.fontSize = '10px';
+        rowDiv.appendChild(btn);
+        total++;
+      }
+
+      const labelEnd = label.cloneNode(true);
+      rowDiv.appendChild(labelEnd);
+      grid.appendChild(rowDiv);
+    }
+
+    document.getElementById('btnTotalCount').textContent = total;
+    document.getElementById('previewBadge').textContent = `${total} Seats`;
+  }
+
+  document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
+{% endblock %}

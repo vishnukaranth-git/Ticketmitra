@@ -1,0 +1,165 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Audience Reviews Moderation{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-star text-warning mr-2"></i> Audience Reviews Moderation
+      </h2>
+      <p class="text-muted mb-0 small">
+        Inspect community reviews, verify viewer status badges, approve or flag reported content. Total reviews: {{ total_count }}.
+      </p>
+    </div>
+    <div class="d-flex" style="gap: 10px;">
+      <a href="/admin/reports/" class="tm-btn tm-btn-ghost">
+        <i class="fas fa-flag text-danger mr-1"></i> Review Reports
+      </a>
+    </div>
+  </div>
+
+  <!-- REVIEWS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if reviews %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Movie</th>
+                <th style="padding: 14px 18px;">Author / Customer</th>
+                <th style="padding: 14px 18px; text-align: center;">Rating</th>
+                <th style="padding: 14px 18px;">Review Comment</th>
+                <th style="padding: 14px 18px; text-align: center;">Verified Viewer</th>
+                <th style="padding: 14px 18px;">Created At</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in reviews %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Movie -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white mb-0" style="font-size: 14.5px;">
+                      {{ r.movie.get_display_title }}
+                    </div>
+                  </td>
+
+                  <!-- User -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ r.user.get_full_name|default:r.user.username }}</div>
+                    <div class="text-muted small">@{{ r.user.username }}</div>
+                  </td>
+
+                  <!-- Rating -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="font-weight-bold text-warning" style="font-size: 15px;">
+                      <i class="fas fa-star mr-1"></i> {{ r.rating }}/5
+                    </span>
+                  </td>
+
+                  <!-- Comment -->
+                  <td style="padding: 12px 18px; vertical-align: middle; max-width: 300px;">
+                    <p class="text-white mb-0 small" style="white-space: normal; line-height: 1.4;">
+                      {{ r.review_text|truncatechars:140 }}
+                    </p>
+                  </td>
+
+                  <!-- Verified Viewer -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if r.is_verified_viewer %}
+                      <span class="tm-badge tm-badge-green" style="font-size: 11px;">
+                        <i class="fas fa-check-circle mr-1"></i> VERIFIED
+                      </span>
+                    {% else %}
+                      <span class="text-muted small">Standard</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Created At -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-muted small">{{ r.created_at|date:"M d, Y" }}</div>
+                  </td>
+
+                  <!-- Status -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if r.is_reported %}
+                      <span class="tm-badge tm-badge-red">REPORTED / HIDDEN</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-green">APPROVED</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      {% if r.is_reported %}
+                        <form method="POST" action="/admin/reviews/" style="margin: 0; display: inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="approve">
+                          <input type="hidden" name="review_id" value="{{ r.id }}">
+                          <button type="submit" class="tm-btn tm-btn-ghost py-1 px-2 small text-success" title="Approve Review">
+                            <i class="fas fa-check mr-1"></i> Approve
+                          </button>
+                        </form>
+                      {% else %}
+                        <form method="POST" action="/admin/reviews/" style="margin: 0; display: inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="hide">
+                          <input type="hidden" name="review_id" value="{{ r.id }}">
+                          <button type="submit" class="tm-btn tm-btn-secondary py-1 px-2 small text-warning" title="Flag / Hide Review">
+                            <i class="fas fa-eye-slash mr-1"></i> Hide
+                          </button>
+                        </form>
+                      {% endif %}
+                      <form method="POST" action="/admin/reviews/" onsubmit="return confirm('Delete review permanently?');" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="review_id" value="{{ r.id }}">
+                        <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Delete Review">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-star text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No reviews yet</h4>
+          <p class="text-muted">No audience reviews have been submitted yet.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

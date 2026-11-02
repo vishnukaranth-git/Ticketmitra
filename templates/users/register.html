@@ -1,0 +1,95 @@
+{% extends "users/basic.html" %}
+{% block title %}Create an Account - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .register-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 20px;
+    padding: 35px 30px;
+    box-shadow: var(--shadow-card);
+  }
+  .register-input-group {
+    background: var(--surface-elevated);
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    transition: all 0.25s ease;
+  }
+  .register-input-group:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px rgba(220, 38, 61, 0.2);
+  }
+  .register-input-addon {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+  }
+  .register-input-group input {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    padding: 12px 14px 12px 0;
+    width: 100%;
+    outline: none !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+      <div class="register-card">
+        <div class="text-center mb-4">
+          <div class="brand-emblem mx-auto mb-3" style="width: 48px; height: 48px;">
+            <i class="fas fa-ticket-alt fa-lg"></i>
+          </div>
+          <h2 class="h4 font-weight-bold text-white mb-1">Create Your Account</h2>
+          <p class="text-secondary small">Join TicketMitra to book seats and share verified viewer reviews</p>
+        </div>
+
+        <form method="POST" novalidate>
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label for="{{ field.id_for_label }}" class="text-secondary small font-weight-bold mb-1 d-block">
+                {{ field.label }}
+                {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+              </label>
+              <div class="register-input-group">
+                <span class="register-input-addon">
+                  <i class="fas fa-{% if field.name == 'username' %}user{% elif field.name == 'email' %}envelope{% elif 'password' in field.name %}lock{% else %}info-circle{% endif %}"></i>
+                </span>
+                {{ field }}
+              </div>
+              {% if field.help_text %}
+                <small class="text-muted d-block mt-1" style="font-size: 11px;">{{ field.help_text|safe }}</small>
+              {% endif %}
+              {% for error in field.errors %}
+                <div class="text-danger small mt-1"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+
+          <button type="submit" class="btn-cinematic-primary w-100 py-3 justify-content-center font-weight-bold mb-3 mt-4" style="font-size: 15px;">
+            <i class="fas fa-user-plus mr-2"></i> Register on TicketMitra
+          </button>
+        </form>
+
+        <div class="text-center pt-3 border-top" style="border-color: var(--surface-border) !important;">
+          <p class="text-secondary small mb-0">
+            Already have an account? <a href="{% url 'login' %}" class="font-weight-bold" style="color: var(--color-primary);">Sign In</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

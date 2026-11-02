@@ -1,0 +1,568 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Showtime Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER & CONTROLS -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="far fa-clock text-info mr-2"></i> Showtime Management
+      </h2>
+      <p class="text-muted mb-0 small">
+        Schedule movies into auditoriums and multiplexes. New showtimes immediately generate available seats and appear on the user booking site.
+      </p>
+    </div>
+    <div class="d-flex flex-wrap" style="gap: 10px;">
+      <button type="button" class="tm-btn tm-btn-primary" onclick="openCreateShowtimeModal()">
+        <i class="fas fa-plus mr-1"></i> + Single Showtime
+      </button>
+      <button type="button" class="tm-btn tm-btn-secondary" onclick="openRecurringShowtimeModal()">
+        <i class="fas fa-calendar-week mr-1"></i> + Generate Recurring
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTERS BAR -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/showtimes/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <!-- Theatre Filter -->
+        <div style="min-width: 200px;">
+          <select name="theatre" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Theatres</option>
+            {% for th in all_theatres %}
+              <option value="{{ th.name }}" {% if selected_theatre == th.name %}selected{% endif %}>{{ th.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Movie Filter -->
+        <div style="min-width: 200px;">
+          <select name="movie_id" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Movies</option>
+            {% for m in all_movies %}
+              <option value="{{ m.id }}" {% if selected_movie_id == m.id|stringformat:"s" %}selected{% endif %}>{{ m.get_display_title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Date Filter -->
+        <div style="min-width: 160px;">
+          <input type="date" name="date" value="{{ selected_date }}" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+        </div>
+
+        <!-- Operational Status Filter -->
+        <div style="min-width: 170px;">
+          <select name="status" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Statuses</option>
+            <option value="BOOKING_OPEN" {% if selected_status == 'BOOKING_OPEN' %}selected{% endif %}>Published / Open</option>
+            <option value="SCHEDULED" {% if selected_status == 'SCHEDULED' %}selected{% endif %}>Scheduled</option>
+            <option value="DRAFT" {% if selected_status == 'DRAFT' %}selected{% endif %}>Draft</option>
+            <option value="CANCELLED" {% if selected_status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+            <option value="COMPLETED" {% if selected_status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+          </select>
+        </div>
+
+        <button type="submit" class="tm-btn tm-btn-primary py-2 px-3">
+          <i class="fas fa-filter mr-1"></i> Filter
+        </button>
+        {% if selected_theatre or selected_movie_id or selected_date or selected_status %}
+          <a href="/admin/showtimes/" class="tm-btn tm-btn-ghost py-2 px-3">Reset</a>
+        {% endif %}
+
+        <div class="ml-auto d-flex align-items-center" style="gap: 6px;">
+          <a href="?view=list{% if selected_theatre %}&theatre={{ selected_theatre }}{% endif %}{% if selected_movie_id %}&movie_id={{ selected_movie_id }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}" class="tm-btn-sm {% if view_mode != 'calendar' %}tm-btn-primary{% else %}tm-btn-ghost{% endif %}">
+            <i class="fas fa-list mr-1"></i> List View
+          </a>
+          <a href="?view=calendar{% if selected_theatre %}&theatre={{ selected_theatre }}{% endif %}{% if selected_movie_id %}&movie_id={{ selected_movie_id }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}" class="tm-btn-sm {% if view_mode == 'calendar' %}tm-btn-primary{% else %}tm-btn-ghost{% endif %}">
+            <i class="fas fa-calendar-alt mr-1"></i> Weekly Calendar
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if view_mode == 'calendar' %}
+    <!-- WEEKLY CALENDAR VIEW -->
+    <div class="tm-panel-card mb-4">
+      <div class="tm-panel-header">
+        <div class="tm-panel-title">
+          <i class="fas fa-calendar-alt text-info"></i>
+          <span>Weekly Schedule Grid &bull; Week of {{ ref_date|date:"M d, Y" }}</span>
+        </div>
+        <div class="d-flex align-items-center" style="gap: 8px;">
+          <span class="badge badge-success" style="font-size: 11px;">Conflict Protected</span>
+          <span class="badge badge-info" style="font-size: 11px;">Turnaround Buffered</span>
+        </div>
+      </div>
+      <div class="tm-panel-body p-3">
+        <div class="row">
+          {% for day in calendar_days %}
+            <div class="col" style="min-width: 155px; border-right: 1px solid rgba(255,255,255,0.06); padding: 6px;">
+              <div class="text-center p-2 rounded mb-2 {% if day == today %}bg-primary text-white{% else %}bg-dark text-muted{% endif %}" style="font-size: 12px; font-weight: bold;">
+                <div>{{ day|date:"D" }}</div>
+                <div style="font-size: 14px;">{{ day|date:"M d" }}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                {% for show_key, shows in calendar_data.items %}
+                  {% if show_key == day|date:'Y-m-d' %}
+                    {% for s in shows %}
+                      <div class="p-2 rounded" style="background: rgba(20, 26, 41, 0.95); border: 1px solid rgba(255,255,255,0.08); font-size: 11px;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <strong class="text-info">{{ s.time|date:"h:i A" }}</strong>
+                          <span class="badge badge-secondary" style="font-size: 9px;">{{ s.screen.screen_type|default:"2D" }}</span>
+                        </div>
+                        <div class="font-weight-bold text-white text-truncate" title="{{ s.movie.get_display_title }}">
+                          {{ s.movie.get_display_title }}
+                        </div>
+                        <div class="text-muted text-truncate" style="font-size: 10px;">
+                          {{ s.screen.name|default:"Main" }} &bull; ₹{{ s.price|floatformat:0 }}
+                        </div>
+                        <div class="mt-1 d-flex justify-content-between align-items-center">
+                          <a href="/admin/seats/?theater_id={{ s.id }}" class="text-success font-weight-bold" style="font-size: 10px;">
+                            <i class="fas fa-chair"></i> Seats
+                          </a>
+                          <span class="text-muted" style="font-size: 9px;">{{ s.language|upper|default:"EN" }}</span>
+                        </div>
+                      </div>
+                    {% empty %}
+                      <div class="text-center text-muted py-3" style="font-size: 11px;">No Shows</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+  <!-- SHOWTIMES TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if showtimes %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Showtime & End Time</th>
+                <th style="padding: 14px 18px;">Movie</th>
+                <th style="padding: 14px 18px;">Theatre</th>
+                <th style="padding: 14px 18px; text-align: center;">Auditorium / Screen</th>
+                <th style="padding: 14px 18px; text-align: center;">Format & Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Price</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in showtimes %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Time & Date -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white mb-0" style="font-size: 14.5px;">
+                      <i class="far fa-clock text-info mr-1"></i> {{ s.time|date:"h:i A" }} &ndash; {{ s.end_time|date:"h:i A" }}
+                    </div>
+                    <div class="text-muted small">
+                      {{ s.time|date:"D, M d, Y" }} &bull; +{{ s.screen.turnaround_minutes|default:30 }}m clean
+                    </div>
+                  </td>
+
+                  <!-- Movie -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white mb-0" style="font-size: 14.5px;">
+                      {{ s.movie.get_display_title }}
+                    </div>
+                    <div class="text-muted small">
+                      {{ s.movie.original_language|upper }} &bull; {{ s.movie.runtime|default:120 }}m &bull; {{ s.movie.age_certification|default:"UA" }}
+                    </div>
+                  </td>
+
+                  <!-- Theatre -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ s.name }}</div>
+                    <div class="text-muted small">{{ s.city }}</div>
+                  </td>
+
+                  <!-- Screen -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if s.screen %}
+                      <div class="font-weight-bold text-white">{{ s.screen.name }}</div>
+                      <div class="text-muted small">{{ s.screen.capacity|default:32 }} seats</div>
+                    {% else %}
+                      <span class="text-muted small">Main Screen</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Format & Status Badge -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <div class="d-flex flex-column align-items-center" style="gap: 4px;">
+                      <div>
+                        {% if s.screen and s.screen.screen_type == 'IMAX' %}
+                          <span class="tm-badge tm-badge-blue">IMAX</span>
+                        {% elif s.screen and s.screen.screen_type == '4DX' %}
+                          <span class="tm-badge tm-badge-red">4DX</span>
+                        {% elif s.screen and s.screen.screen_type == 'PXL' %}
+                          <span class="tm-badge tm-badge-purple">PXL</span>
+                        {% elif s.screen and s.screen.screen_type == 'Gold' %}
+                          <span class="tm-badge tm-badge-orange">GOLD</span>
+                        {% else %}
+                          <span class="tm-badge tm-badge-gray">{{ s.screen.screen_type|default:"2D" }}</span>
+                        {% endif %}
+                      </div>
+                      <div>
+                        {% if s.operational_status == 'BOOKING_OPEN' %}
+                          <span class="tm-badge tm-badge-green" style="font-size: 10px;">PUBLISHED</span>
+                        {% elif s.operational_status == 'SCHEDULED' %}
+                          <span class="tm-badge tm-badge-blue" style="font-size: 10px;">SCHEDULED</span>
+                        {% elif s.operational_status == 'DRAFT' %}
+                          <span class="tm-badge tm-badge-gray" style="font-size: 10px;">DRAFT</span>
+                        {% elif s.operational_status == 'CANCELLED' %}
+                          <span class="tm-badge tm-badge-red" style="font-size: 10px;">CANCELLED</span>
+                        {% else %}
+                          <span class="tm-badge tm-badge-purple" style="font-size: 10px;">{{ s.operational_status }}</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Price -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <span class="font-weight-bold text-success" style="font-size: 15px;">₹{{ s.price|floatformat:2 }}</span>
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      <a href="/admin/seats/?theater_id={{ s.id }}" class="tm-btn tm-btn-primary py-1 px-2 small" title="Manage Seats for this show">
+                        <i class="fas fa-chair mr-1"></i> Seats
+                      </a>
+                      <button type="button" class="tm-btn tm-btn-ghost py-1 px-2 small" onclick="openEditShowtimeModal('{{ s.id }}', '{{ s.operational_status }}', '{{ s.price }}', '{{ s.language|default:''|escapejs }}', {{ s.subtitles_available|yesno:'true,false' }})" title="Edit Showtime">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <form method="POST" action="/admin/showtimes/" onsubmit="return confirm('Cancel this showtime? Existing bookings will remain in the audit history.');" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_showtime">
+                        <input type="hidden" name="showtime_id" value="{{ s.id }}">
+                        <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Cancel Showtime">
+                          <i class="fas fa-ban"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&theatre={{ selected_theatre }}&movie_id={{ selected_movie_id }}&date={{ selected_date }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&theatre={{ selected_theatre }}&movie_id={{ selected_movie_id }}&date={{ selected_date }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="far fa-clock text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Showtimes Found</h4>
+          <p class="text-muted mb-4">No scheduled shows matched the filter criteria.</p>
+          <button type="button" class="tm-btn tm-btn-primary" onclick="openCreateShowtimeModal()">
+            <i class="fas fa-plus mr-1"></i> Create First Showtime
+          </button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endif %}
+
+<!-- RECURRING SHOWTIME GENERATOR MODAL -->
+<div id="recurringShowtimeModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-calendar-week text-danger mr-2"></i> + Generate Recurring Showtimes</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeRecurringShowtimeModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="POST" action="/admin/showtimes/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="generate_recurring_showtimes">
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Movie *</label>
+        <select name="movie_id" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for m in all_movies %}
+            <option value="{{ m.id }}">{{ m.get_display_title }} ({{ m.original_language|upper }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Theatre Complex *</label>
+        <select name="theater_name" id="modalRecurTheatreSelect" required class="form-control" onchange="filterScreensByTheatre(this.value, 'modalRecurScreenSelect')" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for th in all_theatres %}
+            <option value="{{ th.name }}">{{ th.name }} ({{ th.city }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Screen / Auditorium *</label>
+        <select name="screen_id" id="modalRecurScreenSelect" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for sc in all_screens %}
+            <option value="{{ sc.id }}" data-theatre="{{ sc.theater_name }}">{{ sc.theater_name }} &bull; {{ sc.name }} ({{ sc.screen_type }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Start Date *</label>
+          <input type="date" name="start_date" required class="form-control" id="modalRecurStartDate" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">End Date *</label>
+          <input type="date" name="end_date" required class="form-control" id="modalRecurEndDate" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Daily Showtime Slots (Comma separated) *</label>
+        <input type="text" name="time_slots" value="10:30, 14:15, 18:00, 21:30" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        <small class="text-muted">Example: 10:30, 14:15, 18:00, 21:30 (24-hour HH:MM format)</small>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Language</label>
+          <input type="text" name="language" placeholder="e.g. Kannada, Hindi, English" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Base Price Override (₹, optional)</label>
+          <input type="number" step="10" name="base_price" placeholder="Auto-resolved from Pricing Plan" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+      </div>
+
+      <div class="form-check mb-4">
+        <input type="checkbox" class="form-check-input" name="subtitles_available" id="recurSubs">
+        <label class="form-check-label text-muted small" for="recurSubs">English Subtitles Available</label>
+      </div>
+
+      <div class="d-flex justify-content-end" style="gap: 10px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeRecurringShowtimeModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary"><i class="fas fa-magic mr-1"></i> Generate All Recurring Showtimes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- EDIT SHOWTIME MODAL -->
+<div id="editShowtimeModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-edit text-warning mr-2"></i> Edit Showtime</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeEditShowtimeModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="POST" action="/admin/showtimes/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_showtime">
+      <input type="hidden" name="showtime_id" id="editShowtimeId">
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Operational Status</label>
+        <select name="operational_status" id="editOperationalStatus" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          <option value="BOOKING_OPEN">Published / Open (Visible on website)</option>
+          <option value="SCHEDULED">Scheduled</option>
+          <option value="DRAFT">Draft (Hidden from customers)</option>
+          <option value="CANCELLED">Cancelled</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Base Ticket Price (₹ INR)</label>
+        <input type="number" step="10" name="price" id="editPrice" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Language Audio Track</label>
+        <input type="text" name="language" id="editLanguage" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+
+      <div class="form-check mb-4">
+        <input type="checkbox" class="form-check-input" name="subtitles_available" id="editSubtitles">
+        <label class="form-check-label text-muted small" for="editSubtitles">English Subtitles Available</label>
+      </div>
+
+      <div class="d-flex justify-content-end" style="gap: 10px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeEditShowtimeModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary"><i class="fas fa-save mr-1"></i> Save Showtime</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CREATE SHOWTIME MODAL -->
+<div id="createShowtimeModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-plus-circle text-info mr-2"></i> + Create Showtime</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeCreateShowtimeModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="POST" action="/admin/showtimes/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_showtime">
+      
+      <!-- Movie -->
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Movie *</label>
+        <select name="movie_id" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for m in all_movies %}
+            <option value="{{ m.id }}">{{ m.get_display_title }} ({{ m.original_language|upper }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Theatre -->
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Theatre Complex *</label>
+        <select name="theater_name" id="modalTheatreSelect" required class="form-control" onchange="filterScreensByTheatre(this.value)" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for th in all_theatres %}
+            <option value="{{ th.name }}">{{ th.name }} ({{ th.city }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Screen (Linked to Theatre) -->
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Screen / Auditorium *</label>
+        <select name="screen_id" id="modalScreenSelect" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for sc in all_screens %}
+            <option value="{{ sc.id }}" data-theatre="{{ sc.theater_name }}">{{ sc.theater_name }} &bull; {{ sc.name }} ({{ sc.screen_type }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <!-- Date -->
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Show Date *</label>
+          <input type="date" name="show_date" required class="form-control" id="modalShowDate" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+        <!-- Time -->
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Start Time *</label>
+          <input type="time" name="show_time" value="19:30" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Operational Status *</label>
+          <select name="operational_status" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            <option value="BOOKING_OPEN" selected>Published / Open (Customer Visible)</option>
+            <option value="SCHEDULED">Scheduled (Active)</option>
+            <option value="DRAFT">Draft (Hidden from Customers)</option>
+          </select>
+        </div>
+        <div class="col-md-6 form-group mb-3">
+          <label class="text-muted small font-weight-bold">Pricing Plan (Optional)</label>
+          <select name="pricing_plan_id" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+            <option value="">Manual / Custom Pricing</option>
+            {% for plan in all_pricing_plans %}
+              <option value="{{ plan.id }}">{{ plan.name }} (₹{{ plan.base_price }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group mb-4">
+        <label class="text-muted small font-weight-bold">Ticket Base Price (₹ INR) *</label>
+        <input type="number" step="10" name="price" value="250" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Seat category prices (JSON, ₹)</label>
+        <textarea name="ticket_prices_json" rows="2" class="form-control" style="background:rgba(27, 41, 64, 0.72);color:#fff;border:1px solid var(--tm-border);border-radius:8px;" placeholder='{"REGULAR":180,"PREMIUM":250,"VIP":350}'></textarea>
+        <small class="text-muted">These prices are saved on this showtime and copied into active seat holds.</small>
+      </div>
+      <div class="row">
+        <div class="col-md-8 form-group mb-3"><label class="text-muted small font-weight-bold">Language</label><input type="text" name="language" class="form-control" style="background:rgba(27, 41, 64, 0.72);color:#fff;border:1px solid var(--tm-border);border-radius:8px;"></div>
+        <div class="col-md-4 form-group mb-3"><label class="text-muted small font-weight-bold"><input type="checkbox" name="subtitles_available"> Subtitles</label></div>
+      </div>
+
+      <div class="d-flex justify-content-end" style="gap: 10px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeCreateShowtimeModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary">Create Showtime & Generate Seats</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+
+function openRecurringShowtimeModal() {
+  const today = new Date().toISOString().split('T')[0];
+  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+  document.getElementById('modalRecurStartDate').value = today;
+  document.getElementById('modalRecurEndDate').value = nextWeek;
+  const thSelect = document.getElementById('modalRecurTheatreSelect');
+  if (thSelect) filterScreensByTheatre(thSelect.value, 'modalRecurScreenSelect');
+  document.getElementById('recurringShowtimeModal').style.display = 'flex';
+}
+function closeRecurringShowtimeModal() {
+  document.getElementById('recurringShowtimeModal').style.display = 'none';
+}
+
+function openCreateShowtimeModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('modalShowDate').value = today;
+  const thSelect = document.getElementById('modalTheatreSelect');
+  if (thSelect) filterScreensByTheatre(thSelect.value);
+  document.getElementById('createShowtimeModal').style.display = 'flex';
+}
+function closeCreateShowtimeModal() {
+  document.getElementById('createShowtimeModal').style.display = 'none';
+}
+function filterScreensByTheatre(theatreName) {
+  const screenSelect = document.getElementById('modalScreenSelect');
+  let firstValid = null;
+  for (let i = 0; i < screenSelect.options.length; i++) {
+    const opt = screenSelect.options[i];
+    const belongs = opt.getAttribute('data-theatre') === theatreName;
+    opt.style.display = belongs ? 'block' : 'none';
+    if (belongs && !firstValid) firstValid = opt;
+  }
+  if (firstValid) screenSelect.value = firstValid.value;
+}
+
+function openEditShowtimeModal(id, status, price, language, subs) {
+  document.getElementById('editShowtimeId').value = id;
+  document.getElementById('editOperationalStatus').value = status;
+  document.getElementById('editPrice').value = price;
+  document.getElementById('editLanguage').value = language;
+  document.getElementById('editSubtitles').checked = Boolean(subs);
+  document.getElementById('editShowtimeModal').style.display = 'flex';
+}
+function closeEditShowtimeModal() {
+  document.getElementById('editShowtimeModal').style.display = 'none';
+}
+
+</script>
+{% endblock %}

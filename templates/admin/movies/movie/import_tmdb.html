@@ -1,0 +1,181 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+  
+  <!-- Navigation Breadcrumb & Hero -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:movies_movie_changelist' %}" class="text-muted small">
+          <i class="fas fa-arrow-left mr-1"></i> Movies
+        </a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">TMDB Movie Search & Import</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-film text-danger"></i>
+        <span>Add Movie to TicketMitra</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Choose how you would like to register movies: add manually or import directly from The Movie Database (TMDB).
+      </p>
+    </div>
+
+    <!-- Mode Switcher Tabs -->
+    <div class="d-flex flex-wrap align-items-center" style="gap: 10px;">
+      <a href="{% url 'admin:movies_movie_add' %}" class="tm-btn tm-btn-ghost">
+        <i class="fas fa-pen-fancy mr-1"></i> Add Manually
+      </a>
+      <a href="{% url 'admin:movies_movie_import_tmdb' %}" class="tm-btn tm-btn-primary">
+        <i class="fas fa-search mr-1"></i> Search TMDB
+      </a>
+    </div>
+  </div>
+
+  <!-- Search Control Panel -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-search text-warning mr-2"></i>
+        <span>Search TMDB Catalog</span>
+      </div>
+    </div>
+    <div class="tm-panel-body">
+      <form method="GET" action="{% url 'admin:movies_movie_import_tmdb' %}" class="d-flex flex-wrap align-items-center" style="gap: 12px;">
+        <div style="flex: 1; min-width: 280px;">
+          <input 
+            type="text" 
+            name="q" 
+            value="{{ query }}" 
+            placeholder="Search movie title, e.g. Spider-Man: Brand New Day, Kalki, Kantara..."
+            class="form-control"
+            style="background: #0f172a; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;"
+            required
+            autofocus
+          />
+        </div>
+        <button type="submit" class="tm-btn tm-btn-primary" style="padding: 10px 20px;">
+          <i class="fas fa-search mr-1"></i> Search
+        </button>
+        {% if query %}
+        <a href="{% url 'admin:movies_movie_import_tmdb' %}" class="tm-btn tm-btn-ghost">
+          Clear
+        </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Search Results Section -->
+  {% if query %}
+    <div class="tm-panel-card mb-4">
+      <div class="tm-panel-header d-flex justify-content-between align-items-center">
+        <div class="tm-panel-title">
+          <i class="fas fa-list text-info mr-2"></i>
+          <span>Search Results for "{{ query }}"</span>
+          <span class="tm-badge tm-badge-blue ml-2">{{ results|length }} found</span>
+        </div>
+      </div>
+      <div class="tm-panel-body">
+        {% if results %}
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+            {% for item in results %}
+              <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; display: flex; gap: 14px; transition: all 0.2s ease;">
+                <!-- Poster -->
+                <div style="flex-shrink: 0; width: 90px; height: 135px; border-radius: 8px; overflow: hidden; background: #1e293b; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+                  {% if item.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w185{{ item.poster_path }}" alt="{{ item.title }}" style="width: 100%; height: 100%; object-fit: cover;" />
+                  {% else %}
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 11px; text-align: center; padding: 4px;">
+                      No Poster
+                    </div>
+                  {% endif %}
+                </div>
+
+                <!-- Info -->
+                <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <h4 style="color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 4px; line-height: 1.2;">
+                      {{ item.title }}
+                    </h4>
+                    {% if item.original_title and item.original_title != item.title %}
+                      <div class="text-muted small mb-1" style="font-style: italic;">
+                        Orig: {{ item.original_title }}
+                      </div>
+                    {% endif %}
+                    
+                    <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 6px; font-size: 12px;">
+                      {% if item.release_date %}
+                        <span class="tm-badge tm-badge-ghost">{{ item.release_date }}</span>
+                      {% else %}
+                        <span class="tm-badge tm-badge-muted">Unreleased</span>
+                      {% endif %}
+
+                      {% if item.original_language %}
+                        <span class="tm-badge tm-badge-blue text-uppercase">{{ item.original_language }}</span>
+                      {% endif %}
+
+                      {% if item.vote_average %}
+                        <span style="color: #f59e0b; font-weight: 700; font-size: 12px;">
+                          <i class="fas fa-star mr-1"></i>{{ item.vote_average }}
+                        </span>
+                      {% endif %}
+                    </div>
+
+                    {% if item.id in existing_tmdb_ids %}
+                      <span class="tm-badge tm-badge-success mb-2" style="font-size: 11px;">
+                        <i class="fas fa-check-circle mr-1"></i> Already in Database
+                      </span>
+                    {% endif %}
+                  </div>
+
+                  <!-- Import Action Form -->
+                  <form method="POST" action="{% url 'admin:movies_movie_import_tmdb' %}" class="mt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="import_tmdb_id" value="{{ item.id }}" />
+                    <input type="hidden" name="q" value="{{ query }}" />
+                    
+                    <button type="submit" class="tm-btn {% if item.id in existing_tmdb_ids %}tm-btn-secondary{% else %}tm-btn-primary{% endif %}" style="width: 100%; justify-content: center; padding: 6px 12px; font-size: 12px;">
+                      {% if item.id in existing_tmdb_ids %}
+                        <i class="fas fa-sync-alt mr-1"></i> Update Movie
+                      {% else %}
+                        <i class="fas fa-cloud-download-alt mr-1"></i> Import Movie
+                      {% endif %}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-film fa-3x mb-3" style="color: #64748b;"></i>
+            <h5 class="text-white">No Movies Found</h5>
+            <p>No TMDB movies matched your search for "{{ query }}". Try a different spelling or keyword.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <!-- Quick Search Tips / Suggestions -->
+    <div class="tm-panel-card">
+      <div class="tm-panel-body text-center py-5">
+        <i class="fas fa-cloud-download-alt fa-3x text-warning mb-3"></i>
+        <h3 class="text-white mb-2">Import Any Movie in Seconds</h3>
+        <p class="text-muted" style="max-width: 540px; margin: 0 auto 20px;">
+          Search by English or Indian movie titles. TicketMitra will automatically fetch verified metadata, poster artworks, backdrops, YouTube trailers, cast members, certifications, and languages.
+        </p>
+        <div class="d-flex justify-content-center flex-wrap" style="gap: 8px;">
+          <a href="?q=Spider-Man" class="tm-btn tm-btn-ghost">Spider-Man</a>
+          <a href="?q=Kantara" class="tm-btn tm-btn-ghost">Kantara</a>
+          <a href="?q=Kalki" class="tm-btn tm-btn-ghost">Kalki</a>
+          <a href="?q=Devara" class="tm-btn tm-btn-ghost">Devara</a>
+          <a href="?q=Avatar" class="tm-btn tm-btn-ghost">Avatar</a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

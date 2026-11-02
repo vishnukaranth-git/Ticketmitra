@@ -1,0 +1,200 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Confirmed Bookings Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER & CONTROLS -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-ticket-alt text-primary mr-2"></i> Bookings Management
+      </h2>
+      <p class="text-muted mb-0 small">
+        Review real confirmed audience bookings. Total recorded bookings: {{ total_count }}.
+      </p>
+    </div>
+  </div>
+
+  <!-- SEARCH & STATUS FILTERS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/bookings/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="flex: 1; min-width: 250px;">
+          <input type="text" name="q" value="{{ q }}" placeholder="Search booking #, customer, movie, seat number..." class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 14px; font-size: 13.5px;">
+        </div>
+        <div style="min-width: 160px;">
+          <select name="status" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Statuses</option>
+            <option value="CONFIRMED" {% if status_filter == 'CONFIRMED' %}selected{% endif %}>CONFIRMED</option>
+            <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>CANCELLED</option>
+          </select>
+        </div>
+        <button type="submit" class="tm-btn tm-btn-primary py-2 px-3">
+          <i class="fas fa-search mr-1"></i> Search
+        </button>
+        {% if q or status_filter %}
+          <a href="/admin/bookings/" class="tm-btn tm-btn-ghost py-2 px-3">Reset</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- BOOKINGS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if bookings %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Booking ID</th>
+                <th style="padding: 14px 18px;">Customer</th>
+                <th style="padding: 14px 18px;">Movie</th>
+                <th style="padding: 14px 18px;">Theatre / Screen</th>
+                <th style="padding: 14px 18px;">Showtime</th>
+                <th style="padding: 14px 18px; text-align: center;">Seat</th>
+                <th style="padding: 14px 18px; text-align: right;">Amount</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px; text-align: center;">Attendance</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in bookings %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Booking ID -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <span class="font-weight-bold text-white">#{{ b.id }}</span>
+                    <div class="text-muted" style="font-size: 11px;">{{ b.booked_at|date:"M d, H:i" }}</div>
+                  </td>
+
+                  <!-- User -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ b.user.get_full_name|default:b.user.username }}</div>
+                    <div class="text-muted small">{{ b.user.email }}</div>
+                  </td>
+
+                  <!-- Movie -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ b.movie.get_display_title }}</div>
+                  </td>
+
+                  <!-- Theatre & Screen -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white">{{ b.theater.name }}</div>
+                    <div class="text-muted small">{{ b.theater.screen.name|default:"Main Screen" }}</div>
+                  </td>
+
+                  <!-- Showtime -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-info font-weight-bold">{{ b.theater.time|date:"h:i A" }}</div>
+                    <div class="text-muted small">{{ b.theater.time|date:"M d, Y" }}</div>
+                  </td>
+
+                  <!-- Seat -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="tm-badge tm-badge-blue" style="font-size: 13px; font-weight: 700; padding: 4px 10px;">
+                      {{ b.seat.seat_number }}
+                    </span>
+                  </td>
+
+                  <!-- Amount -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <span class="font-weight-bold text-success" style="font-size: 14.5px;">₹{{ b.total_price|default:b.theater.price|floatformat:2 }}</span>
+                  </td>
+
+                  <!-- Status -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if b.status == 'CONFIRMED' %}
+                      <span class="tm-badge tm-badge-green">CONFIRMED</span>
+                    {% elif b.status == 'CANCELLED' %}
+                      <span class="tm-badge tm-badge-red">CANCELLED</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-gray">{{ b.status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Attendance verification used for verified movie reviews -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center; min-width: 150px;">
+                    {% if b.attended_at %}
+                      <span class="tm-badge tm-badge-green">CHECKED IN</span>
+                      <div class="text-muted small mt-1">{{ b.attended_at|date:"M d, H:i" }}</div>
+                      <form method="POST" action="/admin/bookings/" class="mt-1" onsubmit="return confirm('Remove check-in for booking #{{ b.id }}? This also removes review eligibility.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="undo_check_in">
+                        <input type="hidden" name="booking_id" value="{{ b.id }}">
+                        <button type="submit" class="tm-btn tm-btn-ghost py-1 px-2 small">Undo</button>
+                      </form>
+                    {% elif b.status == 'CONFIRMED' and b.is_show_completed %}
+                      <form method="POST" action="/admin/bookings/" onsubmit="return confirm('Confirm the ticket was validated and the attendee completed this screening?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="check_in_booking">
+                        <input type="hidden" name="booking_id" value="{{ b.id }}">
+                        <button type="submit" class="tm-btn tm-btn-primary py-1 px-2 small">Check In</button>
+                      </form>
+                    {% elif b.status == 'CONFIRMED' %}
+                      <span class="text-muted small">Available after show</span>
+                    {% else %}
+                      <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      <a href="/profile/" target="_blank" class="tm-btn tm-btn-ghost py-1 px-2 small" title="Open Ticket / Profile">
+                        <i class="fas fa-ticket-alt"></i>
+                      </a>
+                      {% if b.status == 'CONFIRMED' %}
+                        <form method="POST" action="/admin/bookings/" onsubmit="return confirm('Cancel booking #{{ b.id }} and refund ₹{{ b.amount|default:b.ticket_price }} to customer?');" style="margin: 0; display: inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="cancel_booking">
+                          <input type="hidden" name="booking_id" value="{{ b.id }}">
+                          <input type="hidden" name="process_refund" value="1">
+                          <input type="hidden" name="refund_reason" value="Staff initiated cancellation and refund">
+                          <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Cancel & Refund">
+                            <i class="fas fa-undo-alt mr-1"></i> Refund
+                          </button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-ticket-alt text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Bookings Found</h4>
+          <p class="text-muted mb-2">No confirmed bookings currently recorded in database.</p>
+          <small class="text-muted">Seats remain 100% available for manual testing by user.</small>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

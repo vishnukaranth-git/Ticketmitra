@@ -1,0 +1,1880 @@
+{% extends "users/basic.html" %}
+{% block title %}TicketMitra — Movie Discovery & Theatres{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ============================================================
+     TICKETMITRA HOMEPAGE — MIDNIGHT EDITORIAL CINEMA PUBLICATION
+     Dominant: Midnight Ink (#101827) + Deep Navy (#151C30)
+     Cards & Panels: Deep Navy (#151C30 / rgba(21, 28, 48, 0.88))
+     Headlines: Playfair Display in Warm Ivory (#F2E9DC)
+     Functional Text: DM Sans in Warm Ivory (#F2E9DC) & Muted Parchment (#C8BBAA)
+     Accents: Crimson Red (#D61F45) & Antique Brass (#B58A5A)
+     Borders: Subtle Low-Contrast Editorial (rgba(226, 211, 193, 0.16))
+     ============================================================ */
+
+  /* ==================================================
+     1. COMPACT HERO SECTION (FEATURED PREMIERE)
+     Art-directed cinematic composition with deep navy overlay
+     ================================================== */
+  .hero-viewport {
+    position: relative;
+    width: 100%;
+    min-height: 44vh;
+    max-height: 54vh;
+    display: flex;
+    align-items: center;
+    background-size: cover;
+    background-position: center 25%;
+    background-repeat: no-repeat;
+    margin-top: -86px; /* Pull beneath floating navbar */
+    padding-top: 106px;
+    padding-bottom: 40px;
+    overflow: hidden;
+  }
+  .hero-backdrop-layer {
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(to top, rgba(16, 24, 39, 0.98) 0%, rgba(16, 24, 39, 0.84) 48%, rgba(16, 24, 39, 0.45) 100%),
+      linear-gradient(to right, rgba(16, 24, 39, 0.98) 0%, rgba(16, 24, 39, 0.88) 45%, rgba(16, 24, 39, 0.35) 75%, transparent 100%);
+    z-index: 1;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 720px;
+  }
+  .hero-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .hero-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(214, 31, 69, 0.16);
+    border: 1px solid rgba(214, 31, 69, 0.40);
+    color: var(--crimson, #D61F45);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  .hero-pill-glass {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(21, 28, 48, 0.85);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 11px;
+    border-radius: 4px;
+  }
+  .hero-headline {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 40px;
+    line-height: 1.15;
+    font-weight: 800;
+    color: var(--warm-ivory, #F2E9DC) !important;
+    margin-bottom: 10px;
+    letter-spacing: -0.015em;
+  }
+  @media (max-width: 768px) {
+    .hero-viewport {
+      min-height: 38vh;
+      max-height: none;
+    }
+    .hero-headline {
+      font-size: 28px;
+    }
+  }
+  .hero-meta-line {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--muted-parchment, #C8BBAA);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .hero-meta-line .hero-lang-highlight {
+    color: var(--warm-ivory, #F2E9DC);
+    text-decoration: underline;
+    text-decoration-color: var(--crimson, #D61F45);
+    text-underline-offset: 4px;
+    font-weight: 700;
+  }
+  .hero-synopsis {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--muted-parchment, #C8BBAA);
+    margin-bottom: 20px;
+    max-width: 620px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hero-action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .btn-book-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF !important;
+    padding: 11px 24px;
+    border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-decoration: none !important;
+    box-shadow: 0 4px 16px rgba(214, 31, 69, 0.45);
+    transition: all 0.2s ease;
+  }
+  .btn-book-primary:hover {
+    background: var(--deep-crimson, #A91535);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(214, 31, 69, 0.6);
+    color: #FFFFFF !important;
+  }
+  .btn-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(21, 28, 48, 0.85);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC) !important;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+  }
+  .btn-hero-secondary:hover {
+    background: #1A2238;
+    border-color: rgba(226, 211, 193, 0.35);
+    color: #FFFFFF !important;
+  }
+
+  /* ==================================================
+     2. SUB-HERO: LANGUAGE BAR & DISCOVERY CONTROLS
+     Visually quiet on midnight paper texture
+     ================================================== */
+  .subhero-strip {
+    background: transparent;
+    border-top: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-bottom: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    padding: 12px 0;
+  }
+  .lang-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .lang-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--muted-parchment, #C8BBAA);
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .lang-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 14px;
+    border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-parchment, #C8BBAA);
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+  }
+  .lang-pill-btn:hover {
+    background: #1A2238;
+    color: var(--warm-ivory, #F2E9DC);
+    border-color: rgba(226, 211, 193, 0.35);
+  }
+  .lang-pill-btn.active {
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF !important;
+    border-color: var(--crimson, #D61F45);
+    box-shadow: 0 2px 10px rgba(214, 31, 69, 0.35);
+  }
+  .editorial-city-tag {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--muted-parchment, #C8BBAA);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .editorial-city-tag strong {
+    color: var(--warm-ivory, #F2E9DC);
+  }
+
+  /* ==================================================
+     SECTION EDITORIAL HEADINGS
+     ================================================== */
+  .section-editorial-header {
+    margin-bottom: 20px;
+  }
+  .tracker-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--crimson, #D61F45);
+    margin-bottom: 5px;
+  }
+  .tracker-tag i {
+    color: var(--antique-brass, #B58A5A);
+    font-size: 11px;
+  }
+  .section-main-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--warm-ivory, #F2E9DC);
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+
+  /* ==================================================
+     STRICT UNIFORM MOVIE CARDS (2:3 ASPECT RATIO)
+     Integrated Deep Navy Surface on Textured Background
+     ================================================== */
+  .movie-card-uniform {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    cursor: pointer;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    text-decoration: none !important;
+    box-shadow: 0 4px 18px rgba(10, 16, 28, 0.5);
+  }
+  .movie-card-uniform:hover {
+    transform: translateY(-4px);
+    border-color: rgba(214, 31, 69, 0.45);
+    box-shadow: 0 12px 28px rgba(10, 16, 28, 0.7);
+  }
+
+  /* STRICT 2:3 POSTER CONTAINER */
+  .card-poster-container {
+    display: block;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    background: #0B1220;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(226, 211, 193, 0.12);
+  }
+  .card-poster-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    transition: transform 0.4s ease;
+    display: block;
+  }
+  .movie-card-uniform:hover .card-poster-container img {
+    transform: scale(1.04);
+  }
+  .poster-gradient-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(16, 24, 39, 0.75) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  /* Trailer Quick Trigger Icon on Poster Hover */
+  .poster-trailer-trigger {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(214, 31, 69, 0.92);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 3;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    border: none;
+  }
+  .card-poster-container:hover .poster-trailer-trigger {
+    opacity: 1;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* BADGES */
+  .card-badge-top-right {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(16, 24, 39, 0.92);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+  }
+  .card-badge-top-right i {
+    color: var(--antique-brass, #B58A5A);
+  }
+  .card-badge-top-left {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .card-date-badge-bottom {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(16, 24, 39, 0.92);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* UNIFORM CARD BODY */
+  .card-content-uniform {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-grow: 1;
+    min-height: 114px;
+    background: transparent;
+  }
+  .card-title-clamped {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--warm-ivory, #F2E9DC) !important;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+    text-decoration: none !important;
+  }
+  .card-meta-clamped {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    color: var(--muted-parchment, #C8BBAA);
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    margin-top: auto;
+    gap: 6px;
+  }
+  .btn-card-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    padding: 7px 12px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: center;
+    transition: all 0.2s ease;
+    text-decoration: none !important;
+  }
+  .btn-card-action.book-now {
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF !important;
+  }
+  .btn-card-action.book-now:hover {
+    background: var(--deep-crimson, #A91535);
+    box-shadow: 0 4px 14px rgba(214, 31, 69, 0.45);
+    color: #FFFFFF !important;
+  }
+  .btn-card-action.coming-soon,
+  .btn-card-action.details {
+    background: #1A2238;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC) !important;
+  }
+  .btn-card-action.coming-soon:hover,
+  .btn-card-action.details:hover {
+    background: #232D48;
+    border-color: rgba(226, 211, 193, 0.35);
+    color: #FFFFFF !important;
+  }
+
+  /* ==================================================
+     HORIZONTAL CONTINUOUS SMOOTH CAROUSEL RAILS
+     Desktop: 5 cards / Tablet: 3-4 cards / Mobile: 2 cards
+     ================================================== */
+  .carousel-scroll-rail {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 6px 2px 14px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle, rgba(226, 211, 193, 0.16)) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+  .carousel-scroll-rail::-webkit-scrollbar {
+    height: 5px;
+  }
+  .carousel-scroll-rail::-webkit-scrollbar-thumb {
+    background: var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 3px;
+  }
+  .carousel-scroll-rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .carousel-card-item {
+    flex: 0 0 195px;
+    width: 195px;
+    min-width: 0;
+    max-width: 195px;
+  }
+  @media (min-width: 1200px) {
+    .carousel-card-item {
+      flex: 0 0 210px;
+      width: 210px;
+      max-width: 210px;
+    }
+  }
+  @media (min-width: 1600px) {
+    .carousel-card-item {
+      flex: 0 0 225px;
+      width: 225px;
+      max-width: 225px;
+    }
+  }
+  @media (max-width: 992px) {
+    .carousel-card-item {
+      flex: 0 0 170px;
+      width: 170px;
+      max-width: 170px;
+    }
+  }
+  @media (max-width: 576px) {
+    .carousel-card-item {
+      flex: 0 0 148px;
+      width: 148px;
+      max-width: 148px;
+    }
+  }
+
+  .rail-controls-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rail-control-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: rgba(21, 28, 48, 0.88);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .rail-control-btn:hover {
+    background: var(--crimson, #D61F45);
+    border-color: var(--crimson, #D61F45);
+    color: #FFFFFF;
+  }
+  .weekly-cycle-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(226, 211, 193, 0.08);
+    border: 1px solid rgba(226, 211, 193, 0.2);
+    color: var(--warm-ivory, #F2E9DC);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+  }
+
+  /* ==================================================
+     THEATRES & SHOWTIMES CARDS
+     Integrated Deep Navy Card on Textured Background
+     ================================================== */
+  .cinema-venue-card {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 6px;
+    padding: 18px 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 4px 18px rgba(10, 16, 28, 0.5);
+    position: relative;
+  }
+  .cinema-venue-card:hover {
+    border-color: rgba(214, 31, 69, 0.45);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(10, 16, 28, 0.65);
+  }
+  .cinema-venue-name {
+    color: var(--warm-ivory, #F2E9DC);
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  .cinema-venue-sub {
+    color: var(--muted-parchment, #C8BBAA);
+    font-size: 12.5px;
+  }
+  .cinema-partner-badge {
+    background: rgba(181, 138, 90, 0.12);
+    color: var(--antique-brass, #B58A5A);
+    border: 1px solid rgba(181, 138, 90, 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.08em;
+  }
+  .cinema-ticket-perforation {
+    border-top: 1px dashed rgba(226, 211, 193, 0.22);
+    margin: 12px 0 10px;
+  }
+  .showtimes-pill-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .showtime-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 4px;
+    background: #1A2238;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    color: var(--warm-ivory, #F2E9DC);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+  }
+  .showtime-pill-btn:hover {
+    background: var(--crimson, #D61F45);
+    border-color: var(--crimson, #D61F45);
+    color: #FFFFFF !important;
+  }
+  .cinema-view-link {
+    color: var(--crimson, #D61F45);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .cinema-view-link:hover {
+    color: var(--warm-ivory, #F2E9DC);
+    text-decoration: none;
+  }
+
+  /* ==================================================
+     F. CINEMA EDITORIAL MOMENT (Crimson Texture Reference 4)
+     Styled like an archival cinema program / velvet ticket stub
+     ================================================== */
+  .cinema-editorial-strip {
+    position: relative;
+    background-color: #8C0B20;
+    background-image: linear-gradient(135deg, rgba(16, 24, 39, 0.40) 0%, rgba(140, 11, 32, 0.18) 50%, rgba(10, 16, 28, 0.48) 100%), url('/static/images/crimson_texture.jpg');
+    background-repeat: repeat;
+    background-size: 650px auto;
+    border: 1px solid rgba(226, 211, 193, 0.28);
+    border-radius: 6px;
+    padding: 28px 38px;
+    margin: 36px 0 44px;
+    box-shadow: 0 8px 30px rgba(10, 16, 28, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    overflow: hidden;
+  }
+  .cinema-editorial-strip::before,
+  .cinema-editorial-strip::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--midnight-ink, #101827);
+    border-radius: 50%;
+    border: 1px solid rgba(226, 211, 193, 0.35);
+    z-index: 2;
+  }
+  .cinema-editorial-strip::before {
+    left: -8px;
+  }
+  .cinema-editorial-strip::after {
+    right: -8px;
+  }
+  .editorial-stub-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(242, 233, 220, 0.15);
+    border: 1px solid rgba(242, 233, 220, 0.35);
+    color: var(--warm-ivory, #F2E9DC);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+  }
+  .editorial-quote-text {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    line-height: 1.4;
+    font-style: italic;
+    color: var(--warm-ivory, #F2E9DC);
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+  .editorial-quote-author {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--warm-ivory, #F2E9DC);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 0;
+    opacity: 0.92;
+  }
+  .editorial-quote-author span {
+    color: var(--antique-brass, #B58A5A);
+    font-weight: 700;
+  }
+  .editorial-seal {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+    border-left: 1px dashed rgba(242, 233, 220, 0.3);
+    padding-left: 24px;
+  }
+  .editorial-seal-tag {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: var(--warm-ivory, #F2E9DC);
+    text-align: right;
+    line-height: 1.35;
+  }
+  .editorial-crimson-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    margin-right: 4px;
+  }
+  @media (max-width: 768px) {
+    .cinema-editorial-strip {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 20px 24px;
+      gap: 16px;
+    }
+    .editorial-seal {
+      border-left: none;
+      border-top: 1px dashed rgba(242, 233, 220, 0.3);
+      padding-left: 0;
+      padding-top: 14px;
+      width: 100%;
+      justify-content: space-between;
+    }
+    .editorial-seal-tag {
+      text-align: left;
+    }
+  }
+
+  /* ==================================================
+     UPCOMING RELEASES EDITORIAL SECTION
+     Seamlessly blended into Midnight Paper Texture
+     ================================================== */
+  .section-ivory-editorial {
+    background: transparent;
+    border-radius: 8px;
+    padding: 32px 30px;
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    box-shadow: 0 6px 26px rgba(10, 16, 28, 0.45);
+    color: var(--warm-ivory, #F2E9DC);
+  }
+  .section-ivory-editorial .tracker-tag {
+    color: var(--crimson, #D61F45);
+  }
+  .section-ivory-editorial .tracker-tag i {
+    color: var(--antique-brass, #B58A5A);
+  }
+  .section-ivory-editorial .section-main-heading {
+    color: var(--warm-ivory, #F2E9DC);
+  }
+  .section-ivory-editorial .editorial-ivory-link {
+    color: var(--crimson, #D61F45);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none !important;
+    transition: color 0.2s ease;
+  }
+  .section-ivory-editorial .editorial-ivory-link:hover {
+    color: var(--deep-crimson, #A91535);
+  }
+  .section-ivory-editorial .movie-card-uniform {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    box-shadow: 0 4px 18px rgba(10, 16, 28, 0.5);
+  }
+  .section-ivory-editorial .movie-card-uniform:hover {
+    border-color: rgba(214, 31, 69, 0.45);
+    box-shadow: 0 12px 28px rgba(10, 16, 28, 0.7);
+  }
+  .section-ivory-editorial .card-content-uniform {
+    background: transparent;
+  }
+  .section-ivory-editorial .card-title-clamped {
+    color: var(--warm-ivory, #F2E9DC) !important;
+  }
+  .section-ivory-editorial .card-title-clamped:hover {
+    color: var(--crimson, #D61F45) !important;
+  }
+  .section-ivory-editorial .card-meta-clamped {
+    color: var(--muted-parchment, #C8BBAA) !important;
+  }
+  .section-ivory-editorial .card-action-bar {
+    border-top: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+  }
+  .section-ivory-editorial .btn-card-action.coming-soon {
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.25));
+    color: var(--muted-parchment, #C8BBAA) !important;
+  }
+  .section-ivory-editorial .btn-card-action.coming-soon:hover {
+    background: rgba(226, 211, 193, 0.08);
+    border-color: rgba(226, 211, 193, 0.4);
+    color: var(--warm-ivory, #F2E9DC) !important;
+  }
+  .section-ivory-editorial .btn-card-action.book-now {
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF !important;
+  }
+  .section-ivory-editorial .btn-card-action.book-now:hover {
+    background: var(--deep-crimson, #A91535);
+    box-shadow: 0 4px 14px rgba(214, 31, 69, 0.4);
+  }
+
+  /* Section on Surface (Dark regular panel) */
+  .section-on-surface {
+    background: transparent;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+  }
+
+  /* Grid Movie Cards aspect-ratio enforcement */
+  .row .movie-card-uniform {
+    height: auto;
+  }
+  .col-lg-3 .card-poster-container,
+  .col-md-6 .card-poster-container,
+  .col-6 .card-poster-container {
+    aspect-ratio: 2 / 3;
+    width: 100%;
+  }
+
+  /* EMPTY / UNAVAILABLE STATE */
+  .movies-unavailable-box {
+    background: rgba(21, 28, 48, 0.90);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    border-radius: 6px;
+    padding: 50px 30px;
+    text-align: center;
+    margin: 40px 0;
+  }
+
+  /* ==================================================
+     TOP MOVIES THIS WEEK — HERO SHOWCASE (TOP OF HOMEPAGE)
+     Adapted to TicketMitra Midnight Editorial Aesthetic
+     ================================================== */
+  .top-movies-hero-section {
+    position: relative;
+    padding-top: 104px; /* Clearance for floating navbar */
+    padding-bottom: 32px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.14));
+  }
+  .top-movies-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.14));
+    margin-bottom: 24px;
+  }
+  .top-movies-heading-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .top-movies-crimson-marker {
+    width: 4px;
+    height: 22px;
+    background: var(--crimson, #D61F45);
+    border-radius: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(214, 31, 69, 0.5);
+  }
+  .top-movies-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--warm-ivory, #F2E9DC) !important;
+    margin: 0;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .top-movies-view-all {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted-parchment, #C8BBAA);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s ease, transform 0.2s ease;
+  }
+  .top-movies-view-all:hover {
+    color: var(--warm-ivory, #F2E9DC);
+    text-decoration: none;
+  }
+  .top-movies-view-all:hover .top-movies-arrow {
+    transform: translateX(4px);
+    color: var(--crimson, #D61F45);
+  }
+  .top-movies-arrow {
+    display: inline-block;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+
+  /* Grid Layout for the 5 Ranked Cards */
+  .top-movies-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .ranked-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none !important;
+    color: inherit;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.25s ease;
+  }
+
+  /* Artwork Stage: Holds the overlapping numeral and 2:3 poster */
+  .ranked-artwork-stage {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding-bottom: 4px;
+    user-select: none;
+    min-height: 180px;
+  }
+
+  /* Oversized Outline Ranking Numeral: 1, 2, 3, 4, 5 */
+  .ranked-numeral {
+    position: absolute;
+    left: -4px;
+    bottom: -4px;
+    z-index: 1;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Impact, sans-serif;
+    font-size: clamp(80px, 7vw, 120px);
+    font-weight: 900;
+    line-height: 0.8;
+    letter-spacing: -0.06em;
+    user-select: none;
+    pointer-events: none;
+    color: #101622;
+    -webkit-text-fill-color: #101622;
+    -webkit-text-stroke: 3.5px rgba(150, 155, 168, 0.75);
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.8));
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), -webkit-text-stroke-color 0.3s ease;
+  }
+
+  /* 2:3 Portrait Poster Container */
+  .ranked-poster-container {
+    position: relative;
+    z-index: 2;
+    width: 68%;
+    aspect-ratio: 2 / 3;
+    margin-left: auto;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--deep-navy, #151C30);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.16));
+    box-shadow: 0 10px 24px rgba(7, 11, 20, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .ranked-poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.35s ease;
+  }
+  .ranked-poster-glare {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(16, 24, 39, 0.5) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .ranked-cert-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 3;
+    background: rgba(16, 24, 39, 0.85);
+    border: 1px solid var(--border-subtle, rgba(226, 211, 193, 0.25));
+    color: var(--warm-ivory, #F2E9DC);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(4px);
+  }
+  .ranked-recently-added-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    background: #E50914;
+    color: #FFFFFF;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    padding: 3px 4px;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .ranked-hover-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: rgba(16, 24, 39, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .ranked-hover-btn {
+    background: var(--crimson, #D61F45);
+    color: #FFFFFF;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 4px;
+    box-shadow: 0 4px 14px rgba(214, 31, 69, 0.5);
+    transform: translateY(6px);
+    transition: transform 0.25s ease;
+  }
+
+  /* Hover States */
+  .ranked-card:hover .ranked-poster-container {
+    transform: translateY(-5px);
+    border-color: rgba(214, 31, 69, 0.5);
+    box-shadow: 0 16px 34px rgba(7, 11, 20, 0.85);
+  }
+  .ranked-card:hover .ranked-poster-img {
+    transform: scale(1.03);
+  }
+  .ranked-card:hover .ranked-numeral {
+    transform: translateX(-3px);
+    -webkit-text-stroke-color: rgba(214, 31, 69, 0.65);
+  }
+  .ranked-card:hover .ranked-hover-overlay {
+    opacity: 1;
+  }
+  .ranked-card:hover .ranked-hover-btn {
+    transform: translateY(0);
+  }
+  .ranked-card:hover .ranked-title {
+    color: #FFFFFF !important;
+  }
+
+  /* Metadata Below Artwork */
+  .ranked-meta-area {
+    padding-top: 10px;
+  }
+  .ranked-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 16.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--warm-ivory, #F2E9DC) !important;
+    margin: 0 0 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+    transition: color 0.2s ease;
+  }
+  .ranked-specs {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--muted-parchment, #C8BBAA);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+  }
+  .ranked-rating {
+    color: var(--antique-brass, #B58A5A);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ranked-rating i {
+    font-size: 10.5px;
+  }
+  .ranked-sep {
+    color: rgba(200, 187, 170, 0.4);
+    font-size: 11px;
+  }
+  .ranked-lang {
+    color: var(--warm-ivory, #F2E9DC);
+    font-weight: 600;
+  }
+  .ranked-genre-text {
+    color: var(--muted-parchment, #C8BBAA);
+  }
+  .ranked-sub-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 11.5px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .ranked-runtime {
+    color: var(--muted-parchment, #C8BBAA);
+    display: inline-flex;
+    align-items: center;
+  }
+  .ranked-showtimes-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #4ade80;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .live-pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.8);
+  }
+  .ranked-highlight-badge {
+    background: rgba(214, 31, 69, 0.14);
+    border: 1px solid rgba(214, 31, 69, 0.35);
+    color: var(--crimson, #D61F45);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Responsive Rules */
+  @media (max-width: 1100px) {
+    .top-movies-grid {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      gap: 16px;
+      padding-bottom: 14px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-subtle, rgba(226, 211, 193, 0.16)) transparent;
+    }
+    .top-movies-grid::-webkit-scrollbar {
+      height: 4px;
+    }
+    .top-movies-grid::-webkit-scrollbar-thumb {
+      background: var(--border-subtle, rgba(226, 211, 193, 0.25));
+      border-radius: 4px;
+    }
+    .ranked-card {
+      flex: 0 0 210px;
+      min-width: 210px;
+      scroll-snap-align: start;
+    }
+  }
+  @media (max-width: 576px) {
+    .top-movies-heading {
+      font-size: 18px;
+    }
+    .top-movies-crimson-marker {
+      height: 18px;
+    }
+    .ranked-card {
+      flex: 0 0 220px;
+      min-width: 220px;
+    }
+  }
+
+  /* Cinematic, data-driven Discover carousel */
+  .tm-premiere-carousel { --carousel-height: 690px; position: relative; width: 100%; min-height: var(--carousel-height); margin: 0 auto 26px; padding: 28px 36px 0; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse at 50% 46%, rgba(116,32,54,.28), transparent 30%), radial-gradient(ellipse at 50% 15%, rgba(66,93,132,.12), transparent 42%), linear-gradient(180deg, rgba(5,9,17,.97), rgba(12,17,29,.91) 74%, rgba(16,24,39,.25)); border-bottom: 1px solid rgba(226,211,193,.09); }
+  .tm-premiere-carousel::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .46; background-image: radial-gradient(1px 1px at 12% 26%, #f0d8c5 98%, transparent), radial-gradient(1px 1px at 26% 68%, #c5d8e8 98%, transparent), radial-gradient(1px 1px at 77% 32%, #f5d9c0 98%, transparent), radial-gradient(1px 1px at 89% 61%, #c9d5e2 98%, transparent), radial-gradient(1px 1px at 64% 13%, #fff 98%, transparent); background-size: 390px 290px; pointer-events: none; }
+  .tm-premiere-heading { position: relative; z-index: 5; text-align: center; }
+  .tm-premiere-eyebrow { color: #d9ae98; font-size: 10px; font-weight: 800; letter-spacing: .25em; }
+  .tm-premiere-heading h1 { margin: 5px 0 0; color: #f5eddf; font-size: clamp(24px,2.8vw,38px); font-weight: 600; }
+  .tm-premiere-heading p { margin: 5px 0 0; color: rgba(232,225,216,.65); font-size: 12px; }
+  .tm-premiere-stage { position: relative; height: 516px; max-width: 1500px; margin: 0 auto; perspective: 1250px; perspective-origin: 50% 43%; touch-action: pan-y; user-select: none; }
+  .tm-premiere-spotlight { position: absolute; left: 50%; top: 32px; width: min(55vw,620px); height: 410px; transform: translateX(-50%); pointer-events: none; background: radial-gradient(ellipse, rgba(231,63,88,.20), rgba(215,153,127,.07) 35%, transparent 70%); filter: blur(10px); }
+  .tm-premiere-floor { position: absolute; left: 8%; right: 8%; bottom: 43px; height: 150px; pointer-events: none; transform: rotateX(69deg); transform-origin: center bottom; background: radial-gradient(ellipse, rgba(113,40,57,.24), rgba(15,22,36,.1) 46%, transparent 72%); border-top: 1px solid rgba(232,198,172,.12); box-shadow: 0 -14px 30px rgba(0,0,0,.42); }
+  .tm-premiere-poster { position: absolute; left: 50%; top: 17px; width: clamp(190px,20vw,278px); padding: 0; border: 0; background: none; color: #f5eddf; text-align: left; transform-style: preserve-3d; cursor: pointer; will-change: transform,opacity; transition: transform .68s cubic-bezier(.2,.75,.2,1),opacity .5s ease,filter .5s ease; }
+  .tm-premiere-poster:focus-visible { outline: 2px solid #f1b7a5; outline-offset: 9px; border-radius: 8px; }
+  .tm-premiere-poster[aria-pressed="true"] { filter: drop-shadow(0 12px 34px rgba(0,0,0,.72)); }
+  .tm-premiere-title { display: block; min-height: 37px; margin: 0 0 8px 3px; overflow: hidden; color: #f4eadb; font: 700 15px/1.2 'Playfair Display',Georgia,serif; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 2px 12px #000; }
+  .tm-premiere-art { position: relative; display: block; overflow: visible; aspect-ratio: 2/3; border-radius: 8px; }
+  .tm-premiere-art > img:first-child { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid rgba(242,225,205,.38); box-shadow: 0 22px 56px rgba(0,0,0,.57); }
+  .tm-premiere-art::after { content: ""; position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(120deg,rgba(255,255,255,.17),transparent 24%,transparent 72%,rgba(245,214,191,.1)); pointer-events: none; }
+  .tm-premiere-reflection { position: absolute; top: calc(100% + 5px); left: 0; width: 100%; height: 49%; object-fit: cover; transform: scaleY(-1); transform-origin: top; opacity: .22; filter: blur(1.2px) saturate(.65); mask-image: linear-gradient(to bottom,rgba(0,0,0,.7),transparent 85%); -webkit-mask-image: linear-gradient(to bottom,rgba(0,0,0,.7),transparent 85%); pointer-events: none; }
+  .tm-premiere-nav { position: absolute; z-index: 40; top: 46%; width: 44px; height: 44px; border-radius: 50%; color: #f5eddf; border: 1px solid rgba(238,222,205,.2); background: rgba(9,14,24,.66); backdrop-filter: blur(10px); cursor: pointer; transition: .2s ease; }
+  .tm-premiere-nav:hover { background: #D61F45; border-color: #D61F45; transform: scale(1.06); }
+  .tm-premiere-nav.prev { left: 5%; } .tm-premiere-nav.next { right: 5%; }
+  .tm-premiere-count { position: absolute; right: 7%; bottom: 34px; z-index: 45; color: rgba(242,233,220,.55); font-size: 11px; letter-spacing: .12em; }
+  .tm-premiere-panel { position: absolute; z-index: 50; left: 50%; bottom: 18px; width: min(680px,calc(100% - 38px)); transform: translateX(-50%); padding: 17px 22px 15px; text-align: center; border: 1px solid rgba(237,218,197,.2); border-radius: 14px; background: linear-gradient(135deg,rgba(15,22,36,.91),rgba(21,24,35,.82)); box-shadow: 0 18px 50px rgba(0,0,0,.44); backdrop-filter: blur(18px); }
+  .tm-premiere-panel h2 { margin: 0 0 3px; color: #fff4e5; font: 700 21px 'Playfair Display',Georgia,serif; }
+  .tm-premiere-status { color: #e7ad9c; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+  .tm-premiere-meta { display: flex; justify-content: center; gap: 8px 14px; flex-wrap: wrap; margin-top: 8px; color: rgba(236,226,214,.76); font-size: 11px; }
+  .tm-premiere-meta span + span::before { content: "·"; margin-right: 14px; color: #d35a6d; }
+  .tm-premiere-actions { display: flex; justify-content: center; gap: 9px; margin-top: 12px; }
+  .tm-premiere-action { display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 7px; font-size: 11px; font-weight: 800; text-decoration: none !important; cursor: pointer; }
+  .tm-premiere-action.trailer { color: #f5eee6; border: 1px solid rgba(242,233,220,.3); background: rgba(255,255,255,.05); }
+  .tm-premiere-action.booking { color: #fff; border: 1px solid #D61F45; background: #D61F45; }
+  .tm-premiere-action:hover { filter: brightness(1.14); color: #fff; }
+  @media (max-width:768px) {
+    .tm-premiere-carousel { --carousel-height: 625px; padding: 22px 12px 0; }
+    .tm-premiere-heading p { max-width: 32ch; margin-left: auto; margin-right: auto; }
+    .tm-premiere-stage { height: 475px; perspective: 900px; }
+    .tm-premiere-poster { width: clamp(165px,45vw,220px); top: 28px; }
+    .tm-premiere-title { font-size: 13px; min-height: 31px; }
+    .tm-premiere-nav { top: 43%; width: 38px; height: 38px; }
+    .tm-premiere-nav.prev { left: 2%; } .tm-premiere-nav.next { right: 2%; }
+    .tm-premiere-panel { bottom: 9px; padding: 13px 12px 12px; }
+    .tm-premiere-panel h2 { font-size: 18px; }
+    .tm-premiere-meta { font-size: 10px; gap: 6px 9px; }
+    .tm-premiere-meta span + span::before { margin-right: 9px; }
+    .tm-premiere-count { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tm-premiere-poster,.tm-premiere-nav,.tm-premiere-action { transition: none !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if movies_unavailable %}
+<!-- ==================================================
+     TEMPORARILY UNAVAILABLE STATE
+     ================================================== -->
+<div class="container py-5">
+  <div class="movies-unavailable-box">
+    <div style="font-size: 42px; color: var(--crimson-red); margin-bottom: 16px;">
+      <i class="fas fa-film"></i>
+    </div>
+    <h3 class="font-weight-bold mb-2" style="color: var(--text-warmstone);">Movies are temporarily unavailable.</h3>
+    <p class="mb-4" style="color: var(--text-warmstone-sub); max-width: 480px; margin: 0 auto;">
+      We are synchronizing live theatrical showtimes and release catalogs from TMDB. Please retry in a few moments.
+    </p>
+    <a href="{% url 'home' %}" class="btn-book-primary">
+      <i class="fas fa-redo-alt mr-1"></i> RETRY
+    </a>
+  </div>
+</div>
+
+{% else %}
+
+{% if trending_movies %}
+<section class="tm-premiere-carousel" aria-label="Cinematic movie carousel">
+  <div class="tm-premiere-heading">
+    <div class="tm-premiere-eyebrow">TICKETMITRA PRESENTS</div>
+    <h1>Find your next story</h1>
+    <p>Move through the latest films and choose your next cinema night.</p>
+  </div>
+  <div class="tm-premiere-stage" id="tmPremiereStage" tabindex="0" aria-label="Movie posters. Use left and right arrow keys to browse.">
+    <div class="tm-premiere-spotlight" aria-hidden="true"></div>
+    <div class="tm-premiere-floor" aria-hidden="true"></div>
+    {% for movie in trending_movies %}
+    <button type="button" class="tm-premiere-poster" data-carousel-index="{{ forloop.counter0 }}"
+      data-movie-id="{{ movie.id }}" data-title="{{ movie.get_display_title }}"
+      data-poster="{{ movie.get_poster_url }}"
+      data-trailer="{{ movie.get_trailer_embed_url|default:movie.trailer_url }}"
+      data-rating="{% if movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% else %}{{ movie.rating|default:'—' }}{% endif %}"
+      data-description="{{ movie.description|default:'' }}"
+      data-language="{% for lang in movie.languages.all|slice:":1" %}{{ lang.name }}{% empty %}{{ movie.original_language|upper }}{% endfor %}"
+      data-genre="{% for genre in movie.genres.all|slice:":2" %}{{ genre.name }}{% if not forloop.last %}, {% endif %}{% empty %}Film{% endfor %}"
+      data-runtime="{{ movie.get_runtime_display|default:'' }}"
+      data-release-date="{{ movie.release_date|date:'M Y' }}"
+      data-status="{{ movie.release_status_label }}" data-status-code="{{ movie.dynamic_release_status }}"
+      data-detail-url="{% url 'movie_detail' movie.id %}" data-booking-url="{% url 'theater_list' movie.id %}"
+      aria-label="Select {{ movie.get_display_title }}" aria-pressed="false">
+      <span class="tm-premiere-title">{{ movie.get_display_title }}</span>
+      <span class="tm-premiere-art">
+        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }} poster" {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %}>
+        <img class="tm-premiere-reflection" src="{{ movie.get_poster_url }}" alt="" aria-hidden="true" loading="lazy">
+      </span>
+    </button>
+    {% endfor %}
+    <button type="button" class="tm-premiere-nav prev" id="tmPremierePrev" aria-label="Previous movie"><i class="fas fa-chevron-left"></i></button>
+    <button type="button" class="tm-premiere-nav next" id="tmPremiereNext" aria-label="Next movie"><i class="fas fa-chevron-right"></i></button>
+    <div class="tm-premiere-count" id="tmPremiereCount" aria-live="polite"></div>
+  </div>
+  <div class="tm-premiere-panel" aria-live="polite">
+    <div class="tm-premiere-status" id="tmPremiereStatus"></div>
+    <h2 id="tmPremiereMovieTitle"></h2>
+    <div class="tm-premiere-meta">
+      <span id="tmPremiereLanguage"></span><span id="tmPremiereGenre"></span>
+      <span id="tmPremiereRuntime"></span><span id="tmPremiereRating"></span><span id="tmPremiereDate"></span>
+    </div>
+    <div class="tm-premiere-actions">
+      <button type="button" class="tm-premiere-action trailer" id="tmPremiereTrailer"><i class="fas fa-play"></i> Trailer</button>
+      <a class="tm-premiere-action booking" id="tmPremiereBooking" href="#"><i class="fas fa-ticket-alt"></i> Book Tickets</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ==================================================
+     2. SUB-HERO: LANGUAGE BAR & LIVE STATUS
+     ================================================== -->
+<section class="subhero-strip">
+  <div class="container d-flex justify-content-between align-items-center flex-wrap" style="gap: 14px;">
+    <div class="lang-filter-group">
+      <span class="lang-label">LANGUAGE</span>
+      <a href="{% url 'home' %}" class="lang-pill-btn {% if not selected_language %}active{% endif %}">All</a>
+      <a href="{% url 'home' %}?lang=kn" class="lang-pill-btn {% if selected_language == 'kn' %}active{% endif %}">Kannada</a>
+      <a href="{% url 'home' %}?lang=ta" class="lang-pill-btn {% if selected_language == 'ta' %}active{% endif %}">Tamil</a>
+      <a href="{% url 'home' %}?lang=te" class="lang-pill-btn {% if selected_language == 'te' %}active{% endif %}">Telugu</a>
+      <a href="{% url 'home' %}?lang=ml" class="lang-pill-btn {% if selected_language == 'ml' %}active{% endif %}">Malayalam</a>
+      <a href="{% url 'home' %}?lang=hi" class="lang-pill-btn {% if selected_language == 'hi' %}active{% endif %}">Hindi</a>
+      <a href="{% url 'home' %}?lang=en" class="lang-pill-btn {% if selected_language == 'en' %}active{% endif %}">English</a>
+    </div>
+
+    <div class="editorial-city-tag">
+      <i class="fas fa-location-dot" style="color: var(--crimson, #D61F45);"></i>
+      <span>Screenings in <strong>{{ user_location.city|default:"Bengaluru" }}</strong></span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================
+     MAIN DISCOVERY CONTAINER (Warmstone Grey dominant)
+     ================================================== -->
+<div class="container py-4">
+
+  <!-- ==================================================
+       2.5. COMBINED MOVIE DISCOVERY RAIL
+       ================================================== -->
+    <!-- ==================================================
+       CATEGORY A: TRENDING & BOOKING OPEN
+       Most Anticipated & High-Demand Movies With Active Bookings
+       ================================================== -->
+  <section class="mb-5 pt-2" id="moviesSection">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header flex-wrap" style="gap: 12px;">
+      <div>
+        <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
+          <div class="tracker-tag mb-0" style="background: rgba(220, 20, 60, 0.15); color: #FF4D6D; border: 1px solid rgba(220, 20, 60, 0.35);">
+            <i class="fas fa-fire"></i> TRENDING & BOOKING OPEN
+          </div>
+          <span class="weekly-cycle-badge" id="weeklyCycleBadge" title="Automated Friday release cycle for Indian cinema">
+            <i class="fas fa-calendar-check mr-1 text-warning"></i>
+            <span id="weeklyCycleText">{{ friday_cycle_label|default:"Friday Release Cycle" }}</span>
+          </span>
+        </div>
+        <h2 class="section-main-heading mt-1 mb-0">Trending & High Demand</h2>
+        <p class="text-muted small mb-0 mt-1" style="color: #94A3B8 !important;">Top anticipated franchise sequels, blockbusters, and high-demand releases with tickets currently available.</p>
+      </div>
+      <div class="rail-controls-box d-flex align-items-center" style="gap: 8px;">
+        <button class="rail-control-btn" id="refreshWeeklyMoviesBtn" type="button" title="Refresh live demand rankings" aria-label="Refresh Movies">
+          <i class="fas fa-sync-alt" id="refreshWeeklyIcon" style="font-size: 11px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('trendingBookingRail', -360)" aria-label="Previous Movies">
+          <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('trendingBookingRail', 360)" aria-label="Next Movies">
+          <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="homepageMoviesAlert" class="alert d-none my-2" style="background: rgba(21, 28, 48, 0.95); border: 1px solid rgba(214, 31, 69, 0.4); color: #F2E9DC; font-size: 13px; border-radius: 6px;">
+      <i class="fas fa-info-circle text-warning mr-2"></i>
+      <span id="homepageMoviesAlertMsg">Unable to refresh live rankings right now. Showing scheduled bookable showtimes.</span>
+    </div>
+
+    <div class="carousel-scroll-rail continuous-rail position-relative" id="trendingBookingRail" data-auto-scroll="true" style="transition: opacity 0.25s ease;">
+      {% for movie in trending_booking_open %}
+        {% include 'movies/partials/categorized_movie_card.html' with movie=movie %}
+      {% empty %}
+        <div class="p-4 text-center w-100" style="color: var(--text-warmstone-sub); min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <i class="fas fa-film mb-2" style="font-size: 26px; opacity: 0.5;"></i>
+          <p class="mb-0">No trending movies currently open for booking.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ==================================================
+       CATEGORY B: UPCOMING ANTICIPATED MOVIES
+       Major Upcoming Theatrical Releases (COMING SOON)
+       ================================================== -->
+  <section class="mb-5 pt-2" id="upcomingAnticipatedSection">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header flex-wrap" style="gap: 12px;">
+      <div>
+        <div class="tracker-tag mb-0" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.35);">
+          <i class="fas fa-clock"></i> COMING SOON TO THEATRES
+        </div>
+        <h2 class="section-main-heading mt-1 mb-0">Upcoming Anticipated Movies</h2>
+        <p class="text-muted small mb-0 mt-1" style="color: #94A3B8 !important;">Major upcoming theatrical productions, multistarrers, and anticipated titles releasing soon.</p>
+      </div>
+      <div class="rail-controls-box d-flex align-items-center" style="gap: 8px;">
+        <button class="rail-control-btn" onclick="manualScroll('upcomingAnticipatedRail', -360)" aria-label="Previous Upcoming">
+          <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('upcomingAnticipatedRail', 360)" aria-label="Next Upcoming">
+          <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="carousel-scroll-rail continuous-rail position-relative" id="upcomingAnticipatedRail" data-auto-scroll="false" style="transition: opacity 0.25s ease;">
+      {% for movie in upcoming_anticipated %}
+        {% include 'movies/partials/categorized_movie_card.html' with movie=movie %}
+      {% empty %}
+        <div class="p-4 text-center w-100" style="color: var(--text-warmstone-sub); min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <i class="fas fa-calendar mb-2" style="font-size: 26px; opacity: 0.5;"></i>
+          <p class="mb-0">No upcoming titles scheduled right now.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ==================================================
+       CATEGORY C: NOW SHOWING
+       Other Current Theatrical Movies Running In Theatres
+       ================================================== -->
+  <section class="mb-5 pt-2" id="nowShowingSection">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header flex-wrap" style="gap: 12px;">
+      <div>
+        <div class="tracker-tag mb-0">
+          <i class="fas fa-film"></i> IN THEATRES NOW
+        </div>
+        <h2 class="section-main-heading mt-1 mb-0">Now Showing</h2>
+        <p class="text-muted small mb-0 mt-1" style="color: #94A3B8 !important;">Explore all current theatrical movies playing in cinemas near you with live showtimes.</p>
+      </div>
+      <div class="rail-controls-box d-flex align-items-center" style="gap: 8px;">
+        <button class="rail-control-btn" onclick="manualScroll('nowShowingRail', -360)" aria-label="Previous Now Showing">
+          <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('nowShowingRail', 360)" aria-label="Next Now Showing">
+          <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="carousel-scroll-rail continuous-rail position-relative" id="nowShowingRail" data-auto-scroll="false" style="transition: opacity 0.25s ease;">
+      {% for movie in now_showing_movies %}
+        {% include 'movies/partials/categorized_movie_card.html' with movie=movie %}
+      {% empty %}
+        <div class="p-4 text-center w-100" style="color: var(--text-warmstone-sub); min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <i class="fas fa-film mb-2" style="font-size: 26px; opacity: 0.5;"></i>
+          <p class="mb-0">No other movies currently showing.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="mb-5" id="cinemas-around-you">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header flex-wrap" style="gap: 10px;">
+      <div>
+        <div class="tracker-tag">
+          <i class="fas fa-map-marker-alt"></i> LOCAL PARTNER THEATRES
+        </div>
+        <h2 class="section-main-heading">Cinemas In {{ user_location.city|default:"Bengaluru" }}</h2>
+      </div>
+      <div class="d-flex align-items-center" style="gap: 10px;">
+        <span class="badge" style="background: rgba(220, 38, 61, 0.12); color: var(--crimson-red); border: 1px solid rgba(220, 38, 61, 0.3); padding: 7px 12px; font-size: 11.5px; font-weight: 700; border-radius: 8px;">
+          <i class="fas fa-crosshairs mr-1"></i> {{ user_location.city|default:"Bengaluru" }} (Within {{ radius_km|default:"30" }} km)
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLocationModal()" style="border-radius: 8px; font-size: 11.5px; font-weight: 700;">
+          Change City
+        </button>
+      </div>
+    </div>
+
+    <div class="row">
+      {% for venue in nearby_theaters %}
+      <div class="col-lg-4 col-md-6 mb-3">
+        <div class="cinema-venue-card cinema-name-card">
+          <h5 class="cinema-venue-name mb-0">{{ venue.name }}</h5>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="p-4 text-center" style="background: var(--warmstone-card); border: 1px solid var(--border-warmstone); border-radius: 12px; color: var(--text-warmstone-sub);">
+          <i class="fas fa-building mr-1 text-danger"></i> No partner theaters found in <strong>{{ user_location.city|default:"this location" }}</strong>.
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ==================================================
+       CINEMATIC EDITORIAL STRIP
+       Archival Cinema Programme Quote with Verified Copy
+       ================================================== -->
+  <aside class="cinema-editorial-strip" aria-label="Cinema Curatorial Note">
+    <div>
+      <div class="editorial-stub-badge">
+        <i class="fas fa-ticket-alt"></i> CINEMA PROGRAMME NOTE
+      </div>
+      <blockquote class="editorial-quote-text">
+        “Every story deserves a big-screen moment.”
+      </blockquote>
+      <p class="editorial-quote-author">
+        <span>TicketMitra Curatorial Journal</span> &bull; Archival Theatrical Edition
+      </p>
+    </div>
+    <div class="editorial-seal">
+      <div class="editorial-seal-tag">
+        <div><span class="editorial-crimson-dot"></span><strong>35mm &bull; 70mm &bull; IMAX</strong></div>
+        <small style="color: var(--antique-brass, #B58A5A); font-weight: 700;">Curated Theatrical Exhibition</small>
+      </div>
+      <div style="font-size: 24px; color: var(--antique-brass, #B58A5A); opacity: 0.9;">
+        <i class="fas fa-certificate"></i>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================================================
+       6. UPCOMING RELEASES (GRID)
+       Sorted by release date ascending: nearest first
+       ================================================== -->
+  <section class="mb-5" id="upcomingSection">
+    <div class="section-ivory-editorial">
+      <div class="d-flex justify-content-between align-items-end section-editorial-header">
+        <div>
+          <div class="tracker-tag">
+            <i class="fas fa-satellite-dish"></i> RELEASING SOON
+          </div>
+          <h2 class="section-main-heading">Upcoming Releases</h2>
+        </div>
+        <div>
+          <a href="{% url 'movie_list' %}" class="editorial-ivory-link">
+            VIEW ALL MOVIES <i class="fas fa-arrow-right ml-1"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 4-Column Grid for Upcoming Movies -->
+      <div class="row">
+        {% for movie in upcoming_movies|slice:":4" %}
+        <div class="col-lg-3 col-md-6 col-6 mb-3">
+          <div class="movie-card-uniform">
+            <div class="card-poster-container">
+              <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
+                <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+                <div class="poster-gradient-overlay"></div>
+              </a>
+
+              <div class="card-date-badge-bottom">
+                {% if movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
+                  <span style="background: var(--crimson, #D61F45); color: #fff; font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.04em;">ADVANCE OPEN</span>
+                {% else %}
+                  <i class="fas fa-calendar-alt text-warning"></i>
+                  {{ movie.release_date|date:"M d"|default:"SOON" }}
+                {% endif %}
+              </div>
+
+              {% if movie.trailer_url %}
+              <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
+                <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
+              </button>
+              {% endif %}
+            </div>
+
+            <div class="card-content-uniform">
+              <div>
+                <a href="{% url 'movie_detail' movie.id %}" class="card-title-clamped" title="{{ movie.get_display_title }}">
+                  {{ movie.get_display_title }}
+                </a>
+                <div class="card-meta-clamped">
+                  {% for lang in movie.languages.all|slice:":1" %}{{ lang.name }}{% empty %}{{ movie.original_language|upper }}{% endfor %} • 
+                  {{ movie.release_date|date:"M d, Y"|default:"Releasing Soon" }}
+                </div>
+              </div>
+
+              <div class="card-action-bar">
+                {% if movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
+                  <a href="{% url 'theater_list' movie.id %}" class="btn-card-action book-now" style="background: var(--crimson, #D61F45); color: #fff;">
+                    <i class="fas fa-ticket-alt"></i> ADVANCE BOOKING
+                  </a>
+                {% else %}
+                  <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon">
+                    <i class="far fa-bell"></i> COMING SOON
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================
+       OTT RELEASES IN INDIA
+       ================================================== -->
+  <section class="mb-5 pt-2" id="nowStreamingSection">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header">
+      <div>
+        <div class="tracker-tag">
+          <i class="fas fa-tv"></i> STREAMING IN INDIA
+        </div>
+        <h2 class="section-main-heading">OTT Releases</h2>
+      </div>
+      <div class="rail-controls-box">
+        <button class="rail-control-btn" onclick="manualScroll('nowStreamingRail', -360)" aria-label="Previous Streaming">
+          <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('nowStreamingRail', 360)" aria-label="Next Streaming">
+          <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="carousel-scroll-rail continuous-rail" id="nowStreamingRail" data-auto-scroll="false">
+      {% for movie in now_streaming_movies %}
+      <div class="carousel-card-item">
+        <div class="movie-card-uniform">
+          <div class="card-poster-container">
+            <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
+              <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+              <div class="poster-gradient-overlay"></div>
+            </a>
+
+            <div style="position: absolute; top: 8px; left: 8px; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 5px;">
+              {% with primary_provider=movie.get_primary_ott_provider %}
+                {% if primary_provider.name and primary_provider.name != "OTT Streaming" %}
+                  <span class="card-badge-top-left" style="position: static; background: #0F172A; border: 1px solid rgba(226, 211, 193, 0.3);">{{ primary_provider.name }}</span>
+                {% elif primary_provider.provider_name and primary_provider.provider_name != "OTT Streaming" %}
+                  <span class="card-badge-top-left" style="position: static; background: #0F172A; border: 1px solid rgba(226, 211, 193, 0.3);">{{ primary_provider.provider_name }}</span>
+                {% endif %}
+              {% endwith %}
+              <span class="card-badge-top-left" style="position: static;">OTT RELEASE</span>
+            </div>
+
+            {% if movie.tmdb_rating and movie.tmdb_rating > 0 or movie.rating and movie.rating > 0 %}
+              <div class="card-badge-top-right">
+                <i class="fas fa-star text-warning"></i>
+                {% if movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% else %}{{ movie.rating }}{% endif %}
+              </div>
+            {% endif %}
+
+            {% if movie.get_trailer_embed_url %}
+            <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
+              <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
+            </button>
+            {% endif %}
+          </div>
+
+          <div class="card-content-uniform">
+            <div>
+              <a href="{% url 'movie_detail' movie.id %}" class="card-title-clamped" title="{{ movie.get_display_title }}">
+                {{ movie.get_display_title }}
+              </a>
+              <div class="card-meta-clamped">
+                {% for lang in movie.languages.all|slice:":1" %}{{ lang.name }}{% empty %}{{ movie.original_language|upper }}{% endfor %} • 
+                {% for g in movie.genres.all|slice:":1" %}{{ g.name }}{% empty %}Cinema{% endfor %}
+              </div>
+            </div>
+
+            <div class="card-action-bar">
+              {% if movie.ott_streaming_url %}
+                <a href="{{ movie.ott_streaming_url }}" target="_blank" rel="noopener noreferrer" class="btn-card-action book-now">
+                  <i class="fas fa-external-link-alt mr-1"></i> WATCH NOW
+                </a>
+              {% else %}
+                <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action details">
+                  <i class="fas fa-info-circle mr-1"></i> STREAMING DETAILS
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="p-4 text-center w-100" style="color: var(--text-warmstone-sub);">
+        No OTT titles recorded in the active catalogue yet.
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+{% endif %}
+
+<script>
+  // ==================================================
+  // 0. IMMERSIVE DATA-DRIVEN DISCOVER CAROUSEL
+  // ==================================================
+  (function initPremiereCarousel() {
+    const stage = document.getElementById('tmPremiereStage');
+    if (!stage) return;
+    const posters = Array.from(stage.querySelectorAll('.tm-premiere-poster'));
+    if (!posters.length) return;
+    let activeIndex = 0;
+    let dragStartX = null;
+    let dragged = false;
+    const count = document.getElementById('tmPremiereCount');
+
+    function renderSelection() {
+      const selected = posters[activeIndex];
+      const data = selected.dataset;
+      const statusCode = data.statusCode || '';
+      const canBook = statusCode === 'NOW_SHOWING' || statusCode === 'ADVANCE_BOOKING';
+      const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || '';
+      };
+
+      setText('tmPremiereMovieTitle', data.title);
+      setText('tmPremiereStatus', data.status);
+      setText('tmPremiereLanguage', data.language);
+      setText('tmPremiereGenre', data.genre);
+      setText('tmPremiereRuntime', data.runtime);
+      setText('tmPremiereRating', data.rating && data.rating !== '—' ? `★ ${data.rating}` : '');
+      setText('tmPremiereDate', data.releaseDate);
+
+      const booking = document.getElementById('tmPremiereBooking');
+      if (booking) {
+        booking.href = canBook ? data.bookingUrl : data.detailUrl;
+        booking.innerHTML = canBook
+          ? '<i class="fas fa-ticket-alt"></i> ' + (statusCode === 'ADVANCE_BOOKING' ? 'Pre-book' : 'Book Tickets')
+          : '<i class="fas fa-film"></i> View Details';
+      }
+
+      const trailer = document.getElementById('tmPremiereTrailer');
+      if (trailer) {
+        trailer.onclick = function () {
+          if (typeof window.openTrailerModal === 'function') {
+            window.openTrailerModal(data.movieId, data.title, data.trailer, data.poster,
+              data.rating === '—' ? '' : data.rating, data.description, data.runtime,
+              data.language, data.releaseDate);
+          }
+        };
+      }
+
+      posters.forEach((poster, index) => {
+        const delta = index - activeIndex;
+        const wrappedDelta = delta > posters.length / 2 ? delta - posters.length
+          : (delta < -posters.length / 2 ? delta + posters.length : delta);
+        const distance = Math.abs(wrappedDelta);
+        const mobile = window.matchMedia('(max-width: 768px)').matches;
+        const spacing = mobile ? Math.min(155, window.innerWidth * .42) : Math.min(290, Math.max(205, window.innerWidth * .25));
+        const scale = Math.max(mobile ? .68 : .62, 1 - distance * (mobile ? .12 : .13));
+        poster.style.transform = `translateX(calc(-50% + ${wrappedDelta * spacing}px)) translateZ(${-distance * (mobile ? 55 : 95)}px) rotateY(${wrappedDelta * (mobile ? -10 : -13)}deg) scale(${scale})`;
+        poster.style.opacity = distance > 4 ? '0' : String(Math.max(.18, 1 - distance * .19));
+        poster.style.zIndex = String(20 - distance);
+        poster.style.pointerEvents = distance > 4 ? 'none' : 'auto';
+        poster.tabIndex = distance > 4 ? -1 : 0;
+        poster.setAttribute('aria-pressed', index === activeIndex ? 'true' : 'false');
+      });
+      if (count) count.textContent = `${String(activeIndex + 1).padStart(2, '0')} / ${String(posters.length).padStart(2, '0')}`;
+    }
+
+    function select(index) {
+      activeIndex = (index + posters.length) % posters.length;
+      renderSelection();
+    }
+    posters.forEach((poster, index) => poster.addEventListener('click', function () {
+      if (dragged) return;
+      select(index);
+    }));
+    document.getElementById('tmPremierePrev')?.addEventListener('click', () => select(activeIndex - 1));
+    document.getElementById('tmPremiereNext')?.addEventListener('click', () => select(activeIndex + 1));
+    stage.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft') { event.preventDefault(); select(activeIndex - 1); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); select(activeIndex + 1); }
+    });
+    stage.addEventListener('pointerdown', event => { dragStartX = event.clientX; dragged = false; });
+    stage.addEventListener('pointerup', event => {
+      if (dragStartX === null) return;
+      const delta = event.clientX - dragStartX;
+      if (Math.abs(delta) > 45) {
+        dragged = true;
+        select(activeIndex + (delta < 0 ? 1 : -1));
+        window.setTimeout(() => { dragged = false; }, 80);
+      }
+      dragStartX = null;
+    });
+    stage.addEventListener('pointercancel', () => { dragStartX = null; });
+    window.addEventListener('resize', renderSelection, { passive: true });
+    renderSelection();
+  })();
+
+  // ==================================================
+  // 1. CAROUSEL CONTROLS (Manual Smooth Scrolling)
+  // ==================================================
+  function manualScroll(elementId, distance) {
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.scrollBy({ left: distance, behavior: 'smooth' });
+    }
+  }
+
+  // Card surfaces retain their existing movie details navigation.
+  document.addEventListener('click', function(e) {
+    const card = e.target.closest('.movie-card-uniform');
+    if (!card) return;
+    if (e.target.closest('a, button, input, select')) return;
+    const link = card.querySelector('a.card-title-clamped') || card.querySelector('a[href*="/movies/"]');
+    if (link?.href) window.location.href = link.href;
+  });
+</script>
+{% endblock %}
+

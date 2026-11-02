@@ -1,0 +1,175 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Seat Reservations Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-stopwatch text-warning mr-2"></i> Seat Reservations Management
+      </h2>
+      <p class="text-muted mb-0 small">
+        Inspect live 2-minute exclusive seat holds. Total reservations recorded: {{ total_count }}. Expired reservations automatically release seats.
+      </p>
+    </div>
+  </div>
+
+  <!-- STATUS FILTERS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/reservations/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="min-width: 180px;">
+          <select name="status" class="form-control" onchange="this.form.submit()" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Statuses</option>
+            <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>ACTIVE (Live Holds)</option>
+            <option value="CONVERTED" {% if status_filter == 'CONVERTED' %}selected{% endif %}>CONVERTED (Paid Bookings)</option>
+            <option value="EXPIRED" {% if status_filter == 'EXPIRED' %}selected{% endif %}>EXPIRED (Released)</option>
+            <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>CANCELLED</option>
+          </select>
+        </div>
+        {% if status_filter %}
+          <a href="/admin/reservations/" class="tm-btn tm-btn-ghost py-1 px-3">Show All</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- RESERVATIONS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if reservations %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Reservation ID</th>
+                <th style="padding: 14px 18px;">Customer</th>
+                <th style="padding: 14px 18px;">Movie</th>
+                <th style="padding: 14px 18px;">Theatre / Screen</th>
+                <th style="padding: 14px 18px;">Seats Held</th>
+                <th style="padding: 14px 18px;">Expires At</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in reservations %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Reservation ID -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <span class="font-weight-bold text-white">#{{ r.id }}</span>
+                    <div class="text-muted" style="font-size: 11px;">Created: {{ r.created_at|date:"M d, H:i:s" }}</div>
+                  </td>
+
+                  <!-- User -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ r.user.get_full_name|default:r.user.username }}</div>
+                    <div class="text-muted small">{{ r.user.email }}</div>
+                  </td>
+
+                  <!-- Movie -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ r.theater.movie.get_display_title }}</div>
+                  </td>
+
+                  <!-- Theatre & Screen -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white">{{ r.theater.name }}</div>
+                    <div class="text-muted small">{{ r.theater.screen.name|default:"Auditorium" }}</div>
+                  </td>
+
+                  <!-- Seats -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="d-flex flex-wrap" style="gap: 4px;">
+                      {% for s in r.seats.all %}
+                        <span class="tm-badge tm-badge-orange" style="font-size: 11px; padding: 2px 7px;">
+                          {{ s.seat_number }}
+                        </span>
+                      {% empty %}
+                        <span class="text-muted small">None</span>
+                      {% endfor %}
+                    </div>
+                  </td>
+
+                  <!-- Expires At / Timer -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div>{{ r.expires_at|date:"H:i:s" }}</div>
+                    {% if r.status == 'ACTIVE' and r.expires_at > now %}
+                      <span class="text-warning small font-weight-bold" data-countdown="{{ r.expires_at|date:'c' }}">
+                        <i class="fas fa-stopwatch mr-1"></i> Active Hold
+                      </span>
+                    {% elif r.status == 'ACTIVE' %}
+                      <span class="text-muted small">Expired</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Status Badge -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if r.status == 'ACTIVE' and r.expires_at > now %}
+                      <span class="tm-badge tm-badge-orange">ACTIVE</span>
+                    {% elif r.status == 'CONVERTED' %}
+                      <span class="tm-badge tm-badge-green">CONVERTED</span>
+                    {% elif r.status == 'EXPIRED' or r.expires_at <= now %}
+                      <span class="tm-badge tm-badge-gray">EXPIRED</span>
+                    {% elif r.status == 'CANCELLED' %}
+                      <span class="tm-badge tm-badge-red">CANCELLED</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-blue">{{ r.status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    {% if r.status == 'ACTIVE' %}
+                      <form method="POST" action="/admin/reservations/" onsubmit="return confirm('Cancel reservation #{{ r.id }} and release seats immediately?');" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel_reservation">
+                        <input type="hidden" name="reservation_id" value="{{ r.id }}">
+                        <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Cancel Hold & Release Seats">
+                          <i class="fas fa-unlock mr-1"></i> Release
+                        </button>
+                      </form>
+                    {% else %}
+                      <span class="text-muted small">&mdash;</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-stopwatch text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Seat Reservations</h4>
+          <p class="text-muted mb-2">No active holds or reservations in database.</p>
+          <small class="text-muted">Seats are completely free and available for testing.</small>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

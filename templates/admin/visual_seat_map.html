@@ -1,0 +1,949 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- Visual Seat Map Header -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Seat Operations</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-chair text-danger"></i>
+        <span>3D &amp; 2D Seat Layout Management</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        {% if screen %}
+          <span class="text-white font-weight-bold">{{ screen.theater_name }}</span> &bull; <span class="text-info font-weight-bold">{{ screen.name }}</span> ({{ screen.screen_type }}) &bull; <span class="text-success font-weight-bold">{{ total_seats }}</span> Seats Configured
+        {% else %}
+          Select an auditorium or screen to view and configure seats.
+        {% endif %}
+      </p>
+    </div>
+
+    <!-- Quick Jump & View Switcher -->
+    <div class="d-flex flex-wrap align-items-center" style="gap: 10px;">
+      <!-- 2D / 3D Segmented Toggle -->
+      <div class="btn-group" role="group" style="background: rgba(255,255,255,0.06); padding: 3px; border-radius: 8px; border: 1px solid var(--tm-border);">
+        <button type="button" class="btn btn-sm text-white px-3" id="btnView2D" onclick="switchView('2d')" style="background: var(--tm-primary); font-weight: 600; border-radius: 6px;">
+          <i class="fas fa-th mr-1"></i> 2D Grid
+        </button>
+        <button type="button" class="btn btn-sm text-white px-3" id="btnView3D" onclick="switchView('3d')" style="background: transparent; font-weight: 600; border-radius: 6px;">
+          <i class="fas fa-cube mr-1"></i> 3D Cinema
+        </button>
+      </div>
+
+      <div class="d-flex align-items-center" style="gap: 8px;">
+        <label class="text-muted small mb-0 font-weight-bold d-none d-sm-inline"><i class="fas fa-desktop text-info mr-1"></i> Screen:</label>
+        <select class="form-control form-control-sm" style="min-width: 220px; max-width: 290px; background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 6px; font-weight: 600; padding: 4px 10px;" onchange="if(this.value) window.location.href=this.value;">
+          <option value="">-- Select Screen --</option>
+          {% for sc in all_screens %}
+            <option value="{% url 'admin_manage_seats_screen' sc.id %}" {% if screen and screen.id == sc.id %}selected{% endif %}>
+              {{ sc.theater_name }} &bull; {{ sc.name }} ({{ sc.screen_type }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seat Action Bar -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-sliders-h text-warning"></i>
+        <span>Seat Configuration &amp; Layout Controls</span>
+      </div>
+      <div class="d-flex flex-wrap" style="gap: 8px;">
+        <button type="button" class="tm-btn tm-btn-primary" onclick="tmOpenModal('modalLayoutGenerator')" title="Configure custom auditorium layout with aisles and categories">
+          <i class="fas fa-drafting-compass mr-1"></i> Layout Generator
+        </button>
+        <button type="button" class="tm-btn tm-btn-secondary" onclick="triggerGenerateSeats()" title="Quick generate standard 32 seats">
+          <i class="fas fa-magic mr-1"></i> Quick 32 Seats
+        </button>
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmOpenModal('modalAddRow')" title="Add New Row">
+          <i class="fas fa-layer-group mr-1"></i> Add Row
+        </button>
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmOpenModal('modalAddSeat')" title="Add Individual Seat">
+          <i class="fas fa-plus mr-1"></i> Add Seat
+        </button>
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="triggerEditSeatPrompt()" title="Edit Selected Seat Category">
+          <i class="fas fa-edit mr-1"></i> Change Category
+        </button>
+        <button type="button" class="tm-btn tm-btn-ghost text-warning" onclick="triggerRemoveSeatPrompt()" title="Remove Selected Seat">
+          <i class="fas fa-trash-alt mr-1"></i> Remove Seat
+        </button>
+        <button type="button" class="tm-btn tm-btn-danger" onclick="triggerClearLayout()" title="Clear unbooked seats layout">
+          <i class="fas fa-eraser mr-1"></i> Clear Layout
+        </button>
+      </div>
+    </div>
+
+    <!-- Seat Status Counter Pill -->
+    <div class="tm-panel-body py-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 16px;">
+        <div class="d-flex align-items-center" style="gap: 18px; flex-wrap: wrap;">
+          <div class="small">Total Capacity: <strong class="text-white">{{ total_seats }}</strong></div>
+          <div class="small text-success"><i class="fas fa-circle mr-1" style="font-size: 8px;"></i> Available: <strong>{{ available_count }}</strong></div>
+          <div class="small text-warning"><i class="fas fa-circle mr-1" style="font-size: 8px;"></i> Reserved: <strong>{{ reserved_count }}</strong></div>
+          <div class="small text-danger"><i class="fas fa-circle mr-1" style="font-size: 8px;"></i> Booked: <strong>{{ booked_count }}</strong></div>
+          <div class="small text-muted"><i class="fas fa-circle mr-1" style="font-size: 8px;"></i> Blocked: <strong>{{ blocked_count }}</strong></div>
+        </div>
+
+        <div id="seatSelectedBanner" class="small text-info font-weight-bold d-flex align-items-center flex-wrap" style="display: none !important; gap: 8px;">
+          <span id="selectedSeatLabel">Selected: 0 seats</span>
+          <button type="button" class="btn btn-sm btn-outline-danger py-1 px-3 ml-2" id="btnBlockSelected" onclick="performBatchSeatAction('block')">
+            <i class="fas fa-ban mr-1"></i> Block Selected
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-success py-1 px-3" id="btnUnblockSelected" onclick="performBatchSeatAction('unblock')">
+            <i class="fas fa-check mr-1"></i> Unblock Selected
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" onclick="clearSeatSelection()">
+            <i class="fas fa-times"></i> Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 1: 2D GRID VIEW -->
+  <div id="container2D" class="tm-seat-map-wrapper mb-4 text-center">
+    <!-- Cinema Screen Indicator -->
+    <div style="max-width: 550px; margin: 0 auto 30px auto;">
+      <div style="height: 6px; background: linear-gradient(90deg, rgba(59,130,246,0) 0%, rgba(59,130,246,0.9) 50%, rgba(59,130,246,0) 100%); border-radius: 4px; box-shadow: 0 0 16px rgba(59,130,246,0.6);"></div>
+      <div class="text-center font-weight-bold tracking-wider mt-2" style="color: #60a5fa; font-size: 11.5px; letter-spacing: 3px;">
+        SCREEN &bull; ALL EYES THIS WAY
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="tm-seat-legend mb-4">
+      <div class="tm-seat-legend-item">
+        <span class="tm-seat-btn available" style="width: 20px; height: 20px; font-size: 9px; background: #22C55E;"></span>
+        <span>Available (Green)</span>
+      </div>
+      <div class="tm-seat-legend-item">
+        <span class="tm-seat-btn selected" style="width: 20px; height: 20px; font-size: 9px; background: var(--tm-crimson);"></span>
+        <span>Selected (Blue)</span>
+      </div>
+      <div class="tm-seat-legend-item">
+        <span class="tm-seat-btn reserved" style="width: 20px; height: 20px; font-size: 9px; background: #FF7A18;"></span>
+        <span>Reserved (Orange)</span>
+      </div>
+      <div class="tm-seat-legend-item">
+        <span class="tm-seat-btn booked" style="width: 20px; height: 20px; font-size: 9px; background: #1e293b; color: #64748b;"></span>
+        <span>Booked (Dark/Red)</span>
+      </div>
+      <div class="tm-seat-legend-item">
+        <span class="tm-seat-btn blocked" style="width: 20px; height: 20px; font-size: 9px; background: #475569;"></span>
+        <span>Blocked (Gray)</span>
+      </div>
+    </div>
+
+    <!-- Interactive Grid Table -->
+    {% if rows %}
+      <div class="table-responsive" style="max-width: 100%; overflow-x: auto; padding-bottom: 20px;">
+        <table class="tm-seat-grid-table">
+          <tbody>
+            {% for r in rows %}
+              <tr>
+                <td class="tm-seat-row-label">{{ r.row_label }}</td>
+                <td>
+                  <div class="d-flex align-items-center justify-content-center" style="gap: 8px; flex-wrap: nowrap;">
+                    {% for s in r.seats %}
+                      <button type="button"
+                              class="tm-seat-btn {{ s.status }}"
+                              data-seat-id="{{ s.id }}"
+                              data-seat-number="{{ s.seat_number }}"
+                              data-seat-row="{{ s.row }}"
+                              data-seat-type="{{ s.seat_type }}"
+                              data-seat-status="{{ s.status }}"
+                              data-is-blocked="{{ s.is_blocked|yesno:'true,false' }}"
+                              onclick="selectSeat(this)"
+                              title="Seat {{ s.seat_number }} ({{ s.seat_type }}) - {{ s.status|title }}">
+                        {{ s.seat_number }}
+                      </button>
+                    {% endfor %}
+                  </div>
+                </td>
+                <td class="tm-seat-row-label">{{ r.row_label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-5 text-center text-muted">
+        <i class="fas fa-chair fa-3x mb-3" style="color: #64748b;"></i>
+        <h4 class="text-white">No Seats Configured</h4>
+        <p>This screen does not have any seats yet. Use the Layout Generator to create an auditorium layout.</p>
+        <button type="button" class="tm-btn tm-btn-primary" onclick="tmOpenModal('modalLayoutGenerator')">
+          <i class="fas fa-drafting-compass mr-1"></i> Open Layout Generator
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- VIEW 2: 3D CINEMA VIEW -->
+  <div id="container3D" class="tm-panel-card mb-4" style="display: none; position: relative;">
+    <div class="tm-panel-header d-flex justify-content-between align-items-center">
+      <div class="tm-panel-title">
+        <i class="fas fa-cube text-info mr-2"></i>
+        <span>Realistic 3D Auditorium View &bull; Three.js</span>
+      </div>
+
+      <!-- Camera Presets -->
+      <div class="d-flex align-items-center flex-wrap" style="gap: 6px;">
+        <span class="small text-muted mr-1">Camera:</span>
+        <button type="button" class="tm-btn-sm tm-btn-ghost" onclick="set3DCameraPreset('overview')">
+          <i class="fas fa-eye mr-1"></i> Overview
+        </button>
+        <button type="button" class="tm-btn-sm tm-btn-ghost" onclick="set3DCameraPreset('fromScreen')">
+          <i class="fas fa-tv mr-1"></i> From Screen
+        </button>
+        <button type="button" class="tm-btn-sm tm-btn-ghost" onclick="set3DCameraPreset('sweetSpot')">
+          <i class="fas fa-bullseye mr-1"></i> Sweet Spot
+        </button>
+        <button type="button" class="tm-btn-sm tm-btn-ghost" onclick="set3DCameraPreset('seatPOV')">
+          <i class="fas fa-user mr-1"></i> Seat POV
+        </button>
+        <button type="button" class="tm-btn-sm tm-btn-ghost" onclick="reset3DCamera()">
+          <i class="fas fa-redo-alt"></i> Reset
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div style="position: relative; width: 100%; height: 580px; background: rgba(11, 25, 43, 0.85); border-radius: 0 0 12px 12px; overflow: hidden;">
+      <div id="threeCanvasMount" style="width: 100%; height: 100%;"></div>
+
+      <!-- 3D Controls Help Overlay -->
+      <div style="position: absolute; bottom: 16px; left: 16px; background: rgba(11, 16, 27, 0.85); backdrop-filter: blur(4px); padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: #94A3B8;">
+        <i class="fas fa-mouse mr-1 text-info"></i> Left-click + drag to rotate &bull; Right-click to pan &bull; Scroll to zoom &bull; Click seat to select
+      </div>
+
+      <!-- Floating Seat Details Card -->
+      <div id="seat3DDetailsCard" style="display: none; position: absolute; top: 16px; right: 16px; width: 260px; background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(6px); border: 1px solid var(--tm-border); border-radius: 10px; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="text-white font-weight-bold mb-0" id="seat3DCardNumber">Seat A1</h5>
+          <span class="badge badge-success" id="seat3DCardStatus">Available</span>
+        </div>
+        <div class="small text-muted mb-2">
+          Category: <strong class="text-white" id="seat3DCardCategory">Regular</strong><br>
+          Price: <strong class="text-success font-weight-bold" id="seat3DCardPrice">₹180.00</strong>
+        </div>
+        <div class="d-flex flex-column" style="gap: 6px;">
+          <button type="button" class="btn btn-sm btn-outline-danger py-1" id="btn3DBlockToggle" onclick="toggleSelectedSeatBlock3D()">
+            <i class="fas fa-ban mr-1"></i> Block / Unblock
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-info py-1" onclick="triggerEditSeatPrompt()">
+            <i class="fas fa-edit mr-1"></i> Change Category
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: LAYOUT GENERATOR -->
+<div class="tm-modal-backdrop" id="modalLayoutGenerator">
+  <div class="tm-modal-card" style="max-width: 650px;">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title"><i class="fas fa-drafting-compass text-danger mr-2"></i> Auditorium Seating Generator</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="tmCloseModal('modalLayoutGenerator')">&times;</button>
+    </div>
+    <form onsubmit="submitLayoutGenerator(event)">
+      <div class="tm-modal-body">
+        <p class="text-muted small mb-3">
+          Configure rows, seats per row, tiered categories, and aisle spacing. The layout is saved to the Screen model and automatically propagates to future showtimes.
+        </p>
+
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Number of Rows</label>
+            <input type="number" class="form-control" id="genRowsCount" value="6" min="1" max="15" required>
+            <small class="text-muted">Generates rows A through F</small>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Seats Per Row</label>
+            <input type="number" class="form-control" id="genColsCount" value="10" min="4" max="25" required>
+            <small class="text-muted">e.g. 10 seats per row = 60 total</small>
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Aisle Spacing (Gap after seat numbers)</label>
+          <input type="text" class="form-control" id="genAisles" value="3, 7" placeholder="e.g. 3, 7">
+          <small class="text-muted">Adds walking aisle gap after seat 3 and seat 7</small>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Tier Category Mapping</label>
+          <div class="p-3 rounded" style="background: rgba(27, 41, 64, 0.72); border: 1px solid var(--tm-border); font-size: 13px;">
+            <div class="mb-2 text-white">Front Rows (A - B): <span class="badge badge-secondary ml-2">REGULAR</span></div>
+            <div class="mb-2 text-white">Middle Rows (C - D): <span class="badge badge-info ml-2">PREMIUM</span></div>
+            <div class="mb-2 text-white">Back Rows (E - F): <span class="badge badge-warning ml-2">RECLINER / VIP</span></div>
+            <div class="text-muted small">Wheelchair accessible spaces are automatically placed in Row A (A1, A10).</div>
+          </div>
+        </div>
+      </div>
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmCloseModal('modalLayoutGenerator')">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary"><i class="fas fa-save mr-1"></i> Generate &amp; Save Screen Layout</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: ADD ROW -->
+<div class="tm-modal-backdrop" id="modalAddRow">
+  <div class="tm-modal-card">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title"><i class="fas fa-layer-group text-danger mr-2"></i> Add Row</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="tmCloseModal('modalAddRow')">&times;</button>
+    </div>
+    <form onsubmit="submitAddRow(event)">
+      <div class="tm-modal-body">
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Row Letter *</label>
+          <input type="text" class="form-control text-uppercase" id="addRowLetter" maxlength="2" placeholder="e.g. E" required>
+        </div>
+        <div class="form-group mb-3">
+          <label class="small text-muted font-weight-bold">Number of Seats *</label>
+          <input type="number" class="form-control" id="addRowSeats" value="8" min="1" max="30" required>
+        </div>
+        <div class="form-group mb-2">
+          <label class="small text-muted font-weight-bold">Seat Category</label>
+          <select class="form-control" id="addRowType">
+            <option value="REGULAR">Regular</option>
+            <option value="PREMIUM">Premium</option>
+            <option value="RECLINER">Recliner</option>
+            <option value="VIP">VIP</option>
+            <option value="ACCESSIBLE">Accessible</option>
+          </select>
+        </div>
+      </div>
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmCloseModal('modalAddRow')">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary">Add Row</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: ADD SEAT -->
+<div class="tm-modal-backdrop" id="modalAddSeat">
+  <div class="tm-modal-card">
+    <div class="tm-modal-header">
+      <h3 class="tm-modal-title"><i class="fas fa-chair text-danger mr-2"></i> Add Single Seat</h3>
+      <button type="button" class="tm-modal-close-btn" onclick="tmCloseModal('modalAddSeat')">&times;</button>
+    </div>
+    <form onsubmit="submitAddSeat(event)">
+      <div class="tm-modal-body">
+        <div class="row">
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Row *</label>
+            <input type="text" class="form-control text-uppercase" id="addSeatRow" maxlength="2" placeholder="e.g. C" required>
+          </div>
+          <div class="col-md-6 form-group mb-3">
+            <label class="small text-muted font-weight-bold">Seat Number *</label>
+            <input type="text" class="form-control text-uppercase" id="addSeatNumber" placeholder="e.g. C9" required>
+          </div>
+        </div>
+        <div class="form-group mb-2">
+          <label class="small text-muted font-weight-bold">Seat Category</label>
+          <select class="form-control" id="addSeatType">
+            <option value="REGULAR">Regular</option>
+            <option value="PREMIUM">Premium</option>
+            <option value="RECLINER">Recliner</option>
+            <option value="VIP">VIP</option>
+            <option value="ACCESSIBLE">Accessible</option>
+          </select>
+        </div>
+      </div>
+      <div class="tm-modal-footer">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="tmCloseModal('modalAddSeat')">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary">Add Seat</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Three.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+const SEAT_ACTION_URL = "{% url 'admin_seat_action' %}";
+const SCREEN_ID = "{{ screen.id|default:'' }}";
+const RAW_SEATS = {{ seats_json|default:'[]'|safe }};
+const PRICING = {{ pricing_json|default:'{}'|safe }};
+
+let selectedSeatIds = new Set();
+let selectedSeatNumbers = new Set();
+let selected3DSeat = null;
+
+// VIEW SWITCHING (2D vs 3D)
+function switchView(mode) {
+  const c2D = document.getElementById('container2D');
+  const c3D = document.getElementById('container3D');
+  const b2D = document.getElementById('btnView2D');
+  const b3D = document.getElementById('btnView3D');
+
+  if (mode === '3d') {
+    c2D.style.display = 'none';
+    c3D.style.display = 'block';
+    b3D.style.background = 'var(--tm-primary)';
+    b2D.style.background = 'transparent';
+    initThreeScene();
+  } else {
+    c3D.style.display = 'none';
+    c2D.style.display = 'block';
+    b2D.style.background = 'var(--tm-primary)';
+    b3D.style.background = 'transparent';
+  }
+}
+
+// 2D SELECTION LOGIC
+function selectSeat(btn) {
+  const seatId = btn.getAttribute('data-seat-id');
+  const seatNum = btn.getAttribute('data-seat-number');
+
+  if (selectedSeatIds.has(seatId)) {
+    selectedSeatIds.delete(seatId);
+    selectedSeatNumbers.delete(seatNum);
+    btn.classList.remove('selected');
+  } else {
+    selectedSeatIds.add(seatId);
+    selectedSeatNumbers.add(seatNum);
+    btn.classList.add('selected');
+  }
+  updateSelectionBanner();
+}
+
+function updateSelectionBanner() {
+  const banner = document.getElementById('seatSelectedBanner');
+  const label = document.getElementById('selectedSeatLabel');
+  if (selectedSeatIds.size > 0) {
+    banner.style.display = 'flex';
+    label.innerText = `Selected (${selectedSeatIds.size}): ${Array.from(selectedSeatNumbers).join(', ')}`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function clearSeatSelection() {
+  selectedSeatIds.clear();
+  selectedSeatNumbers.clear();
+  document.querySelectorAll('.tm-seat-btn.selected').forEach(b => b.classList.remove('selected'));
+  updateSelectionBanner();
+  if (selected3DSeat && selected3DSeat.mesh) {
+    selected3DSeat.mesh.material.color.setHex(selected3DSeat.originalColor);
+    selected3DSeat = null;
+    document.getElementById('seat3DDetailsCard').style.display = 'none';
+  }
+}
+
+// THREE.JS 3D AUDITORIUM IMPLEMENTATION
+let scene, camera, renderer, controls, raycaster, mouse;
+let seatMeshes = [];
+let threeInitialized = false;
+
+function initThreeScene() {
+  if (threeInitialized) {
+    onWindowResize();
+    return;
+  }
+  threeInitialized = true;
+
+  const mount = document.getElementById('threeCanvasMount');
+  const width = mount.clientWidth;
+  const height = mount.clientHeight;
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x070B14);
+  scene.fog = new THREE.FogExp2(0x070B14, 0.015);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  camera.position.set(0, 18, 30);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  mount.appendChild(renderer.domElement);
+
+  // OrbitControls
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 5;
+  controls.maxDistance = 80;
+  controls.target.set(0, 4, 0);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(ambientLight);
+
+  const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  mainLight.position.set(10, 25, 20);
+  scene.add(mainLight);
+
+  const screenBacklight = new THREE.PointLight(0x60a5fa, 2.5, 40);
+  screenBacklight.position.set(0, 8, -14);
+  scene.add(screenBacklight);
+
+  // Auditorium Floor
+  const floorGeo = new THREE.PlaneGeometry(60, 50);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x0B101B, roughness: 0.85 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.1;
+  scene.add(floor);
+
+  // Curved Cinema Screen
+  buildCurvedScreen();
+
+  // Build 3D Seats from RAW_SEATS data
+  build3DSeats();
+
+  // Raycasting for click/hover
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  renderer.domElement.addEventListener('pointerdown', onDocumentPointerDown, false);
+  window.addEventListener('resize', onWindowResize, false);
+
+  animate();
+}
+
+function buildCurvedScreen() {
+  const curve = new THREE.CylinderGeometry(24, 24, 10, 32, 1, true, -Math.PI / 6, Math.PI / 3);
+  const screenMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x1e3a8a,
+    emissiveIntensity: 0.45,
+    roughness: 0.2,
+    side: THREE.DoubleSide
+  });
+  const screenMesh = new THREE.Mesh(curve, screenMat);
+  screenMesh.position.set(0, 6, -18);
+  screenMesh.rotation.y = Math.PI;
+  scene.add(screenMesh);
+
+  // Screen Frame
+  const frameGeo = new THREE.BoxGeometry(22, 0.4, 0.4);
+  const frameMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6 });
+  const frame = new THREE.Mesh(frameGeo, frameMat);
+  frame.position.set(0, 1.2, -14);
+  scene.add(frame);
+}
+
+function build3DSeats() {
+  seatMeshes = [];
+  const colorMap = {
+    'available': 0x10B981,
+    'selected': 0x3B82F6,
+    'reserved': 0xF59E0B,
+    'booked': 0xEF4444,
+    'blocked': 0x6B7280
+  };
+
+  const rows = RAW_SEATS;
+  rows.forEach((r, rIdx) => {
+    const seats = r.seats;
+    const numSeats = seats.length;
+    const zPos = -4 + (rIdx * 3.2);
+    const yPos = 0.5 + (rIdx * 0.7);
+
+    // Build row step floor
+    const stepGeo = new THREE.BoxGeometry(numSeats * 2.2 + 6, 0.5, 3.0);
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+    const step = new THREE.Mesh(stepGeo, stepMat);
+    step.position.set(0, yPos - 0.25, zPos);
+    scene.add(step);
+
+    seats.forEach((s, sIdx) => {
+      const xPos = (sIdx - (numSeats - 1) / 2) * 2.0;
+      const hexColor = colorMap[s.status] || 0x10B981;
+      const isRecliner = s.seat_type === 'RECLINER' || s.seat_type === 'VIP';
+      const seatWidth = isRecliner ? 1.5 : 1.2;
+
+      // Chair Base Cushion
+      const cushionGeo = new THREE.BoxGeometry(seatWidth, 0.35, 1.1);
+      const cushionMat = new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.5 });
+      const seatMesh = new THREE.Mesh(cushionGeo, cushionMat);
+      seatMesh.position.set(xPos, yPos + 0.35, zPos);
+
+      // Backrest
+      const backGeo = new THREE.BoxGeometry(seatWidth, 1.2, 0.3);
+      const backMesh = new THREE.Mesh(backGeo, cushionMat);
+      backMesh.position.set(0, 0.6, 0.45);
+      backMesh.rotation.x = 0.15;
+      seatMesh.add(backMesh);
+
+      // Armrests
+      const armGeo = new THREE.BoxGeometry(0.2, 0.5, 0.9);
+      const armMat = new THREE.MeshStandardMaterial({ color: 0x1F2937, roughness: 0.7 });
+      const leftArm = new THREE.Mesh(armGeo, armMat);
+      leftArm.position.set(-(seatWidth / 2 + 0.1), 0.3, 0);
+      seatMesh.add(leftArm);
+      const rightArm = new THREE.Mesh(armGeo, armMat);
+      rightArm.position.set((seatWidth / 2 + 0.1), 0.3, 0);
+      seatMesh.add(rightArm);
+
+      seatMesh.userData = {
+        seatId: s.id,
+        seatNumber: s.seat_number,
+        row: s.row,
+        seatType: s.seat_type,
+        status: s.status,
+        isBlocked: s.is_blocked,
+        originalColor: hexColor,
+        price: PRICING[s.seat_type] || PRICING['REGULAR'] || 180.0
+      };
+
+      scene.add(seatMesh);
+      seatMeshes.push(seatMesh);
+    });
+  });
+}
+
+function onDocumentPointerDown(event) {
+  const mount = document.getElementById('threeCanvasMount');
+  const rect = mount.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / mount.clientWidth) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / mount.clientHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(seatMeshes, true);
+
+  if (intersects.length > 0) {
+    let topMesh = intersects[0].object;
+    while (topMesh.parent && topMesh.parent !== scene) {
+      topMesh = topMesh.parent;
+    }
+    select3DSeat(topMesh);
+  }
+}
+
+function select3DSeat(mesh) {
+  if (selected3DSeat && selected3DSeat !== mesh) {
+    selected3DSeat.material.color.setHex(selected3DSeat.userData.originalColor);
+  }
+
+  selected3DSeat = mesh;
+  mesh.material.color.setHex(0x3B82F6);
+
+  const u = mesh.userData;
+  selectedSeatIds.clear();
+  selectedSeatNumbers.clear();
+  selectedSeatIds.add(String(u.seatId));
+  selectedSeatNumbers.add(u.seatNumber);
+  updateSelectionBanner();
+
+  const card = document.getElementById('seat3DDetailsCard');
+  document.getElementById('seat3DCardNumber').innerText = `Seat ${u.seatNumber}`;
+  document.getElementById('seat3DCardCategory').innerText = u.seatType;
+  document.getElementById('seat3DCardPrice').innerText = `₹${parseFloat(u.price).toFixed(2)}`;
+  const statusEl = document.getElementById('seat3DCardStatus');
+  statusEl.innerText = u.status.toUpperCase();
+  statusEl.className = 'badge badge-' + (u.status === 'available' ? 'success' : (u.status === 'booked' ? 'danger' : 'warning'));
+
+  card.style.display = 'block';
+}
+
+function set3DCameraPreset(preset) {
+  if (!controls) return;
+  if (preset === 'overview') {
+    camera.position.set(0, 22, 34);
+    controls.target.set(0, 3, 0);
+  } else if (preset === 'fromScreen') {
+    camera.position.set(0, 7, -13);
+    controls.target.set(0, 6, 15);
+  } else if (preset === 'sweetSpot') {
+    camera.position.set(0, 8, 8);
+    controls.target.set(0, 5, -15);
+  } else if (preset === 'seatPOV') {
+    if (selected3DSeat) {
+      camera.position.set(selected3DSeat.position.x, selected3DSeat.position.y + 1.2, selected3DSeat.position.z);
+      controls.target.set(0, 6, -18);
+    } else {
+      camera.position.set(0, 4, 10);
+      controls.target.set(0, 6, -18);
+    }
+  }
+  controls.update();
+}
+
+function reset3DCamera() {
+  set3DCameraPreset('overview');
+}
+
+function onWindowResize() {
+  if (!renderer || !camera) return;
+  const mount = document.getElementById('threeCanvasMount');
+  camera.aspect = mount.clientWidth / mount.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (controls) controls.update();
+  if (renderer && scene && camera) renderer.render(scene, camera);
+}
+
+// BATCH SEAT OPERATIONS
+async function performBatchSeatAction(action) {
+  if (selectedSeatIds.size === 0) return;
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: action,
+        seat_ids: Array.from(selectedSeatIds)
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || "Updated successfully.");
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Operation failed.");
+    }
+  } catch (err) {
+    alert("Network error: " + err.message);
+  }
+}
+
+function toggleSelectedSeatBlock3D() {
+  if (!selected3DSeat) return;
+  const isBlocked = selected3DSeat.userData.isBlocked;
+  performBatchSeatAction(isBlocked ? 'unblock' : 'block');
+}
+
+// MODAL CONTROLS & SUBMIT HANDLERS
+function tmOpenModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+function tmCloseModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+async function submitLayoutGenerator(e) {
+  e.preventDefault();
+  const rows = parseInt(document.getElementById('genRowsCount').value || 6);
+  const cols = parseInt(document.getElementById('genColsCount').value || 10);
+  const aislesRaw = document.getElementById('genAisles').value || '3, 7';
+  const aisles = aislesRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+
+  const rowsSpec = [];
+  for (let i = 0; i < rows; i++) {
+    const rLtr = String.fromCharCode(65 + i);
+    let sType = 'REGULAR';
+    if (i >= 2 && i < 4) sType = 'PREMIUM';
+    else if (i >= 4) sType = 'RECLINER';
+
+    const accessible = (i === 0) ? [1, cols] : [];
+    rowsSpec.push({ row: rLtr, cols: cols, seat_type: sType, accessible: accessible });
+  }
+
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'save_screen_layout',
+        screen_id: SCREEN_ID,
+        rows_spec: rowsSpec,
+        aisle_columns: aisles
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || "Layout saved successfully!");
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to save layout.");
+    }
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+async function submitAddRow(e) {
+  e.preventDefault();
+  const rowLetter = document.getElementById('addRowLetter').value.trim().toUpperCase();
+  const numSeats = document.getElementById('addRowSeats').value;
+  const seatType = document.getElementById('addRowType').value;
+
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'add_row',
+        screen_id: SCREEN_ID,
+        row: rowLetter,
+        num_seats: numSeats,
+        seat_type: seatType
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to add row.");
+    }
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+async function submitAddSeat(e) {
+  e.preventDefault();
+  const row = document.getElementById('addSeatRow').value.trim().toUpperCase();
+  const seatNumber = document.getElementById('addSeatNumber').value.trim().toUpperCase();
+  const seatType = document.getElementById('addSeatType').value;
+
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'add_seat',
+        screen_id: SCREEN_ID,
+        row: row,
+        seat_number: seatNumber,
+        seat_type: seatType
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Could not add seat.");
+    }
+  } catch (err) {
+    alert("Error adding seat: " + err.message);
+  }
+}
+
+async function triggerGenerateSeats() {
+  if (!confirm("Quick generate standard 32 AVAILABLE seats (A1-A8, B1-B8, C1-C8, D1-D8)?")) return;
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'generate_seats',
+        screen_id: SCREEN_ID,
+        rows: 4,
+        cols: 8
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || "Seats generated successfully!");
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to generate seats.");
+    }
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+async function triggerEditSeatPrompt() {
+  if (selectedSeatIds.size === 0) {
+    alert("Please select at least one seat first.");
+    return;
+  }
+  const newType = prompt("Enter seat category (REGULAR, PREMIUM, RECLINER, VIP, ACCESSIBLE):", "PREMIUM");
+  if (!newType) return;
+  const seatId = Array.from(selectedSeatIds)[0];
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'edit_seat',
+        seat_id: seatId,
+        seat_type: newType.toUpperCase()
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to edit seat.");
+    }
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+async function triggerRemoveSeatPrompt() {
+  if (selectedSeatIds.size === 0) {
+    alert("Please select the seat you wish to remove.");
+    return;
+  }
+  if (!confirm(`Remove selected seat?`)) return;
+  const seatId = Array.from(selectedSeatIds)[0];
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'remove_seat',
+        seat_id: seatId
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to remove seat.");
+    }
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+async function triggerClearLayout() {
+  if (!confirm("Clear unbooked seats layout? Confirmed customer bookings will NEVER be deleted.")) return;
+  try {
+    const res = await fetch(SEAT_ACTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({
+        action: 'clear_layout',
+        screen_id: SCREEN_ID
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || "Layout cleared.");
+      window.location.href = '{% url 'admin_manage_seats_screen' screen.id %}';
+    } else {
+      alert(data.error || "Failed to clear layout.");
+    }
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+</script>
+{% endblock %}

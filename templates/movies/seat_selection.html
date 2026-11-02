@@ -1,0 +1,1890 @@
+{% extends "users/basic.html" %}
+{% block title %}Select Seats - {{ theaters.movie.get_display_title }} - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ==================================================
+     CINEMATIC SEAT SELECTION DESIGN
+     ================================================== */
+  .seat-header-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    padding: 22px 26px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Curved Cinema Screen */
+  .screen-container {
+    perspective: 500px;
+    margin: 30px auto 40px auto;
+    text-align: center;
+  }
+  .cinema-screen {
+    height: 48px;
+    max-width: 580px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, rgba(220, 38, 61, 0.3) 0%, rgba(220, 38, 61, 0.04) 100%);
+    border-top: 3px solid var(--color-primary);
+    border-radius: 50% 50% 12px 12px / 20px 20px 0px 0px;
+    box-shadow: 0 -10px 30px rgba(220, 38, 61, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--warmstone);
+    text-transform: uppercase;
+  }
+
+  /* Seat Grid */
+  .seat-grid-wrap {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 650px;
+    margin: 0 auto;
+    gap: 12px;
+  }
+  .seat {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  /* 🟢 Available */
+  .seat.seat-available {
+    background: var(--surface-card);
+    border: 2px solid var(--seat-available);
+    color: var(--seat-available);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .seat.seat-available:hover {
+    background: rgba(34, 197, 94, 0.18);
+    transform: scale(1.12);
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.5);
+  }
+
+  /* 🔴 Selected / Held by Me */
+  .seat.seat-selected {
+    background: var(--color-primary);
+    border: 2px solid var(--color-primary-hover);
+    color: #ffffff;
+    transform: scale(1.1);
+    box-shadow: 0 0 16px rgba(220, 38, 61, 0.65);
+  }
+  .seat.seat-selected:hover {
+    transform: scale(1.14);
+  }
+
+  /* 🟠 Reserved by Another User */
+  .seat.seat-reserved {
+    background: rgba(255, 122, 24, 0.15);
+    border: 2px solid var(--color-energy);
+    color: var(--color-energy);
+    cursor: not-allowed;
+    opacity: 0.9;
+  }
+
+  /* ⚫ Booked */
+  .seat.seat-booked {
+    background: var(--seat-booked);
+    border: 2px solid #2d374d;
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* ⚫ Blocked by Administration */
+  .seat.seat-blocked {
+    background: #090d16;
+    border: 2px dashed #64748b;
+    color: #475569;
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  .seat.seat-blocked:hover {
+    transform: none;
+    background: #090d16;
+    box-shadow: none;
+  }
+
+  /* Legend */
+  .legend-strip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 16px;
+    background: transparent;
+    border: 1px solid var(--surface-border-subtle);
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .legend-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+  }
+
+  /* Timer Banner */
+  .reservation-timer-banner {
+    background: transparent;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 14px;
+    padding: 14px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.3s ease, background 0.3s ease;
+  }
+  .reservation-timer-banner.urgent {
+    border-color: var(--status-warning);
+    background: rgba(245, 158, 11, 0.12);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+  .timer-clock {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--status-warning);
+    letter-spacing: 0.05em;
+  }
+
+  /* Compact persistent booking panel */
+  .booking-summary-bar {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    z-index: 12;
+    width: min(310px, calc(100% - 36px));
+    background: rgba(8, 14, 27, .94);
+    border: 1px solid rgba(214, 31, 69, .55);
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 16px 38px rgba(0,0,0,.52), 0 0 22px rgba(214,31,69,.12);
+    backdrop-filter: blur(10px);
+  }
+
+  /* ==================================================
+     3D CINEVERSE CINEMA HALL & SEAT POV STYLES
+     ================================================== */
+  .view-mode-tabs {
+    display: inline-flex;
+    background: rgba(16, 24, 39, 0.75);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+  }
+  .view-mode-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .view-mode-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .view-mode-btn.active {
+    background: var(--surface-elevated, #1a2238);
+    color: #ffffff;
+    border: 1px solid var(--border-editorial, rgba(226, 211, 193, 0.25));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Preset Pills Toolbar (Exact Cineverse Style) */
+  .preset-pills-bar {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16, 24, 39, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 6px 10px;
+    border-radius: 30px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 95%;
+  }
+  .preset-pill-btn {
+    background: transparent;
+    border: none;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .preset-pill-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .preset-pill-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 800;
+    box-shadow: 0 2px 10px rgba(255, 255, 255, 0.35);
+  }
+
+  /* 3D Canvas Viewport Wrap */
+  .three-d-viewport-wrap {
+    position: relative;
+    width: 100%;
+    height: min(72vh, 720px);
+    min-height: 560px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 20%, #151d30 0%, #070b14 100%);
+    border: 1px solid var(--surface-border);
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 10px 30px rgba(0, 0, 0, 0.5);
+    margin-bottom: 24px;
+  }
+  .screen-video-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+  .screen-video-layer iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: auto; background: #02040a; }
+  .screen-video-message {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    display: flex; align-items: center; justify-content: center; padding: 40px;
+    color: #cbd5e1; background: transparent; border: 0;
+    font-size: 30px; font-weight: 700; text-align: center; text-shadow: 0 3px 18px #000;
+    pointer-events: none; transform-origin: 0 0;
+  }
+  .hall-trailer-controls {
+    position: absolute; top: 68px; right: 16px; z-index: 12;
+    display: flex; align-items: center; gap: 7px; padding: 7px;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+    background: rgba(8,14,27,.88); backdrop-filter: blur(8px);
+  }
+  .hall-trailer-controls button { border: 0; border-radius: 8px; padding: 7px 10px; color: #f8fafc; background: rgba(255,255,255,.08); font-size: 12px; }
+  .hall-trailer-controls button:hover { background: rgba(214,31,69,.35); }
+  .hall-trailer-controls input[type="range"] { width: 76px; accent-color: #d61f45; }
+  .booking-summary-seats { max-height: 48px; overflow: auto; overflow-wrap: anywhere; }
+  @media (max-width: 767px) {
+    .three-d-viewport-wrap { height: 74vh; min-height: 600px; }
+    .preset-pills-bar { top: 10px; width: calc(100% - 20px); max-width: none; padding: 5px; }
+    .preset-pill-btn { padding: 6px 8px; font-size: 10px; }
+    .hall-trailer-controls { top: 88px; left: 10px; right: auto; }
+    .three-d-controls-overlay { top: 142px; left: 10px; right: auto; }
+    .booking-summary-bar { right: 10px; bottom: 10px; width: min(270px, calc(100% - 20px)); padding: 11px 12px; }
+  }
+  .three-d-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    outline: none;
+  }
+
+  /* Floating Seat POV HUD Banner */
+  .seat-pov-banner {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(16, 24, 39, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(220, 38, 61, 0.5);
+    border-radius: 30px;
+    padding: 8px 18px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8), 0 0 20px rgba(220, 38, 61, 0.25);
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 600;
+    animation: povSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+  }
+  @keyframes povSlideUp {
+    from { opacity: 0; transform: translate(-50%, 18px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* 3D Tooltip */
+  .seat-3d-tooltip {
+    position: absolute;
+    pointer-events: none;
+    z-index: 25;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #fff;
+    font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    display: none;
+    transform: translate(-50%, -120%);
+    white-space: nowrap;
+  }
+
+  /* Controls Overlay at Bottom of 3D Viewport */
+  .three-d-controls-overlay {
+    position: absolute;
+    top: 126px;
+    left: 14px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .three-d-ctrl-btn {
+    background: rgba(16, 24, 39, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .three-d-ctrl-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .three-d-instructions {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    z-index: 10;
+    background: rgba(16, 24, 39, 0.8);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row">
+    <div class="col-12 mx-auto">
+
+      <!-- THEATER & MOVIE HEADER -->
+      <div class="seat-header-card d-flex justify-content-between align-items-center flex-wrap" style="gap: 14px;">
+        <div>
+          <div class="d-flex align-items-center mb-1" style="gap: 10px;">
+            <h1 class="h3 font-weight-bold text-white mb-0">{{ theaters.movie.get_display_title }}</h1>
+            <span class="badge badge-dark border" style="border-color: var(--color-interactive); color: var(--color-interactive); font-size: 11px;">
+              <i class="fas fa-bolt mr-1"></i> Live Seat Sync
+            </span>
+          </div>
+          <p class="text-secondary small mb-0">
+            <i class="fas fa-film text-info mr-1"></i> {{ theaters.name }}{% if theaters.screen %} — <span class="text-white font-weight-bold">{{ theaters.screen.name }} ({{ theaters.screen.screen_type }})</span>{% endif %}
+            <span class="mx-2">•</span>
+            <i class="far fa-clock text-info mr-1"></i> {{ theaters.time|date:"F d, Y - h:i A" }}
+            {% if theaters.location %}<span class="mx-2">•</span><i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ theaters.location }}{% endif %}
+          </p>
+        </div>
+        <div>
+          <span class="badge badge-dark border py-2 px-3" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4) !important; color: #93c5fd; font-size: 13px; font-weight: 700;">
+            Ticket prices by category · Regular ₹{{ theaters.ticket_prices.REGULAR|default:theaters.price|floatformat:2 }}
+          </span>
+        </div>
+      </div>
+
+      <!-- LIVE RESERVATION TIMER BANNER -->
+      <div id="reservationTimerBanner" class="reservation-timer-banner {% if not user_res %}d-none{% endif %}">
+        <div>
+          <div class="font-weight-bold text-warning mb-0" style="font-size: 15px;">
+            <i class="fas fa-stopwatch mr-2"></i>Seats Held For You
+          </div>
+          <small class="text-secondary">Seats are exclusively locked for 2 minutes to complete checkout.</small>
+        </div>
+        <div class="text-right">
+          <div class="timer-clock" id="timerDisplay">{% if user_res %}{{ user_res.formatted_time_remaining }}{% else %}02:00{% endif %}</div>
+        </div>
+      </div>
+
+      <!-- SEAT MAP CONTAINER -->
+      <div class="cinematic-surface-card mb-4">
+
+        <!-- 3D hall is the default and only customer seat map -->
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px;">
+          <div>
+            <h2 class="h5 text-white font-weight-bold mb-1"><i class="fas fa-cube text-danger mr-2"></i>Choose Your Seats in the Cinema Hall</h2>
+            <small class="text-muted">Select a seat in the hall, or drag to explore the room.</small>
+          </div>
+          <div class="d-flex align-items-center" style="gap: 10px;">
+            <button type="button" class="btn btn-sm text-white" id="quickPovBtn" onclick="previewSelectedSeat3D()" style="background: rgba(214, 31, 69, 0.18); border: 1px solid var(--border-crimson); border-radius: 10px; font-weight: 600; padding: 7px 14px; font-size: 13px;">
+              <i class="fas fa-eye text-danger mr-1"></i> Screen View From Seat
+            </button>
+            <small class="text-muted d-none d-md-inline"><i class="fas fa-sync-alt fa-spin mr-1 text-info"></i> Real-time Sync</small>
+          </div>
+        </div>
+
+        <!-- 3D VIEW CONTAINER (CINEVERSE 3D THEATRE) -->
+        <div id="viewMode3dContainer">
+          <div class="three-d-viewport-wrap" id="threeDViewport">
+            <!-- Cineverse Camera Presets Bar -->
+            <div class="preset-pills-bar">
+              <button type="button" class="preset-pill-btn active" id="presetOverviewBtn" onclick="switchCameraPreset('overview')">
+                <i class="fas fa-video"></i> Overview
+              </button>
+              <button type="button" class="preset-pill-btn" id="presetSeatPovBtn" onclick="switchCameraPreset('from_seat')">
+                <i class="fas fa-chair text-danger"></i> From Seat
+              </button>
+              <button type="button" class="preset-pill-btn" id="presetStageBtn" onclick="switchCameraPreset('from_stage')">
+                <i class="fas fa-theater-masks"></i> From Stage
+              </button>
+              <button type="button" class="preset-pill-btn" id="presetBalconyBtn" onclick="switchCameraPreset('balcony')">
+                <i class="fas fa-arrow-up"></i> Balcony
+              </button>
+              <button type="button" class="preset-pill-btn" id="presetBirdBtn" onclick="switchCameraPreset('birds_eye')">
+                <i class="fas fa-dove"></i> Bird's Eye
+              </button>
+              <button type="button" class="preset-pill-btn" id="presetTourBtn" onclick="toggleAutoTour()">
+                <i class="fas fa-play"></i> Tour
+              </button>
+            </div>
+
+            <!-- WebGL hall and projected video screen -->
+            <div id="canvasMount" style="width: 100%; height: 100%;"></div>
+            <div class="screen-video-layer" id="screenVideoLayer" aria-label="Movie trailer screen">
+              <div class="screen-video-message" id="screenVideoMessage">Loading the movie's trailer…</div>
+            </div>
+
+            <div class="hall-trailer-controls" id="hallTrailerControls" aria-label="Trailer controls" hidden>
+              <button type="button" id="hallPlayPauseBtn" aria-label="Pause trailer"><i class="fas fa-pause"></i></button>
+              <button type="button" id="hallMuteBtn" aria-label="Enable trailer sound"><i class="fas fa-volume-mute"></i> Enable sound</button>
+              <input type="range" id="hallVolumeSlider" min="0" max="100" value="65" aria-label="Trailer volume">
+            </div>
+
+            <!-- Seat POV HUD Banner -->
+            <div id="seatPovBanner" class="seat-pov-banner d-none">
+              <span>
+                <i class="fas fa-eye text-danger mr-1"></i> Screen View from <strong id="povSeatLabel" class="text-white">A1</strong>
+                <span class="badge badge-success ml-1" style="font-size: 10px; background: #059669;">Optimal Sightline</span>
+              </span>
+              <button type="button" class="btn btn-sm btn-outline-light py-0 px-2 ml-2" onclick="exitSeatPov()" style="border-radius: 12px; font-size: 11px;">
+                ✕ Exit POV
+              </button>
+            </div>
+
+            <!-- 3D Hover Tooltip -->
+            <div id="seat3dTooltip" class="seat-3d-tooltip"></div>
+
+            <!-- Bottom Left Instructions -->
+            <div class="three-d-instructions d-none d-sm-block">
+              <i class="fas fa-mouse mr-1 text-info"></i> Drag to orbit • Scroll to zoom • Click seat to sit & preview screen view
+            </div>
+
+            <!-- Bottom Right Controls Overlay -->
+            <div class="three-d-controls-overlay">
+              <button type="button" class="three-d-ctrl-btn" id="houseLightsBtn" onclick="toggleHouseLights()">
+                <i class="far fa-lightbulb mr-1"></i> House Lights: Dim
+              </button>
+              <button type="button" class="three-d-ctrl-btn" onclick="resetThreeDCamera()">
+                <i class="fas fa-compress-arrows-alt mr-1"></i> Reset View
+              </button>
+            </div>
+
+            <div class="booking-summary-bar" aria-live="polite">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="text-secondary small font-weight-bold">YOUR SEATS <span class="text-info" id="selectedSeatCount">(0)</span></div>
+                <small class="text-warning" id="bookingHoldStatus">Select a seat to hold it</small>
+              </div>
+              <div class="font-weight-bold text-white booking-summary-seats mb-1" id="selectedSeatsList" style="font-size: 14px; color: var(--color-interactive) !important;">None selected</div>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <small class="text-secondary">Total ticket price</small>
+                <strong class="text-white" id="totalPriceDisplay">₹0.00</strong>
+              </div>
+              <div class="d-flex align-items-center" style="gap: 8px;">
+                <button type="button" class="btn-cinematic-ghost py-2 px-2 d-none" id="cancelHoldBtn" onclick="cancelReservation()" aria-label="Release held seats">
+                  <i class="fas fa-times"></i>
+                </button>
+                <button type="button" class="btn-cinematic-primary py-2 px-3 flex-grow-1" id="proceedBtn" onclick="proceedToCheckout()" disabled>
+                  Continue Booking <i class="fas fa-arrow-right ml-1"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden Data Payloads for 3D Engine -->
+        <script id="seatsDataJson" type="application/json">
+          [
+            {% for seat in seats %}
+              {
+                "id": {{ seat.id }},
+                "seat_number": "{{ seat.seat_number }}",
+                "row": "{{ seat.row|default:'' }}",
+                "seat_type": "{{ seat.seat_type }}",
+                "price": {{ seat.current_price|default:theaters.price }},
+                "status": "{{ seat.current_status|default:'available' }}"
+              }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+          ]
+        </script>
+        <div id="movieData"
+             data-title="{{ theaters.movie.get_display_title|escape }}"
+             data-poster="{% if theaters.movie.get_poster_url %}{{ theaters.movie.get_poster_url }}{% elif theaters.movie.image %}{{ theaters.movie.image.url }}{% else %}/static/images/top_movies/animals_poster.png{% endif %}"
+             data-trailer-url="{{ theaters.movie.get_trailer_embed_url|default:'' }}"
+             data-trailer-api-url="{% url 'movie_trailer_preview' theaters.movie.id %}"
+             data-screen="{% if theaters.screen %}{{ theaters.screen.name }} ({{ theaters.screen.screen_type }}){% else %}Screen 1{% endif %}"
+             style="display: none;"></div>
+
+        <!-- 5-Color Status Legend -->
+        <div class="legend-strip">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: var(--surface-card); border: 2px solid var(--seat-available);"></span>
+            <span>Available</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: var(--color-interactive); border: 2px solid #60a5fa; box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);"></span>
+            <span>Selected / Reserved by You</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: rgba(255, 122, 24, 0.2); border: 2px solid var(--color-energy);"></span>
+            <span>Reserved (Other User)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: var(--seat-booked); border: 2px solid #2d374d;"></span>
+            <span>Booked</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: #090d16; border: 2px dashed #64748b;"></span>
+            <span>Blocked</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Three.js, OrbitControls and Tween.js for 3D Cineverse Seat Preview -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+<script>
+  const THEATER_ID = {{ theaters.id }};
+  const STATUS_URL = "{% url 'seat_status' theaters.id %}";
+  const RESERVE_URL = "{% url 'reserve_seats' theaters.id %}";
+  const UPDATE_URL = "{% url 'update_reservation' theaters.id %}";
+  const CANCEL_URL = "{% url 'cancel_reservation' theaters.id %}";
+  const CSRF_TOKEN = "{{ csrf_token }}";
+
+  let currentReservationId = {% if user_res %}{{ user_res.id }}{% else %}null{% endif %};
+  let mySelectedSeatIds = new Set([
+    {% if user_res %}
+      {% for s in user_res.seats.all %}
+        {{ s.id }}{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    {% endif %}
+  ]);
+  let seatMapData = {};
+  const seatNumberById = new Map(JSON.parse(document.getElementById('seatsDataJson').textContent).map(seat => [Number(seat.id), seat.seat_number]));
+  let timerInterval = null;
+  let pollInterval = null;
+  let remainingSeconds = {% if user_res %}{{ user_res.time_remaining_seconds }}{% else %}0{% endif %};
+
+  // ==========================================================
+  // 3D ENGINE STATE & OBJECTS
+  // ==========================================================
+  let threeInitialized = false;
+  let scene, camera, renderer, controls;
+  let seatMeshMap = new Map(); // seatId -> Group
+  let clickableMeshes = [];
+  let raycaster, mouse;
+  let hoveredSeatGroup = null;
+  let isAutoTouring = false;
+  let tourAngle = 0;
+  let isHouseLightsDim = true;
+  let ambientLight, ceilingLightGroup;
+  let activePovSeatGroup = null;
+  let screenMesh = null;
+  let screenVideoIframe = null;
+  let trailerLookupStarted = false;
+  let trailerSoundEnabled = false;
+  let trailerPaused = false;
+  let renderFrameId = null;
+
+  function updateSeatUI(seatId, state) {
+    updateSeat3DState(seatId, state);
+  }
+
+  function fetchSeatStatus() {
+    fetch(STATUS_URL)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.seats) return;
+        seatMapData = data.seats;
+
+        for (const [seatId, info] of Object.entries(data.seats)) {
+          const idNum = parseInt(seatId);
+          if (mySelectedSeatIds.has(idNum)) {
+            updateSeatUI(idNum, 'selected');
+          } else {
+            const st = info.status || info.state || 'available';
+            updateSeatUI(idNum, st);
+          }
+        }
+
+        if (data.user_reservation) {
+          currentReservationId = data.user_reservation.id;
+          remainingSeconds = data.user_reservation.seconds_left;
+          startCountdown();
+        } else if (currentReservationId && mySelectedSeatIds.size > 0 && remainingSeconds <= 0) {
+          handleHoldExpired();
+        }
+        updateSummary();
+        scheduleRender();
+      })
+      .catch(err => console.error("Poll error:", err));
+  }
+
+  function handleSeatClick(seatId) {
+    const seatInfo = seatMapData[seatId];
+    const seatStatus = seatInfo ? (seatInfo.status || seatInfo.state) : null;
+    if (seatStatus && (seatStatus === 'booked' || seatStatus === 'blocked' || (seatStatus === 'reserved' && !mySelectedSeatIds.has(seatId)))) {
+      if (seatStatus === 'blocked') {
+        alert("This seat is currently blocked by cinema administration and cannot be selected.");
+      }
+      return; // Unavailable
+    }
+
+    if (mySelectedSeatIds.has(seatId)) {
+      mySelectedSeatIds.delete(seatId);
+      updateSeat3DState(seatId, 'available');
+    } else {
+      mySelectedSeatIds.add(seatId);
+      updateSeat3DState(seatId, 'selected');
+    }
+
+    updateSummary();
+    scheduleRender();
+    syncReservation();
+  }
+
+  function syncReservation() {
+    const seatArray = Array.from(mySelectedSeatIds);
+
+    if (seatArray.length === 0) {
+      if (currentReservationId) {
+        cancelReservation();
+      } else {
+        updateSummary();
+      }
+      return;
+    }
+
+    const targetUrl = currentReservationId ? UPDATE_URL : RESERVE_URL;
+
+    fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN
+      },
+      body: JSON.stringify({ seats: seatArray })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        currentReservationId = data.reservation_id;
+        remainingSeconds = data.seconds_left;
+        startCountdown();
+        fetchSeatStatus();
+      } else {
+        alert(data.error || 'Seat reservation failed. Another user may have just held these seats.');
+        fetchSeatStatus();
+      }
+    })
+    .catch(err => {
+      console.error('Reservation sync error:', err);
+    });
+  }
+
+  function cancelReservation() {
+    if (!currentReservationId) {
+      mySelectedSeatIds.clear();
+      updateSummary();
+      return;
+    }
+
+    fetch(CANCEL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      currentReservationId = null;
+      mySelectedSeatIds.clear();
+      stopCountdown();
+      fetchSeatStatus();
+    })
+    .catch(() => {
+      mySelectedSeatIds.clear();
+      fetchSeatStatus();
+    });
+  }
+
+  function startCountdown() {
+    const banner = document.getElementById('reservationTimerBanner');
+    if (!banner) return;
+    banner.classList.remove('d-none');
+
+    if (timerInterval) clearInterval(timerInterval);
+
+    function tick() {
+      if (remainingSeconds <= 0) {
+        stopCountdown();
+        handleHoldExpired();
+        return;
+      }
+
+      const m = Math.floor(remainingSeconds / 60);
+      const s = remainingSeconds % 60;
+      const displayStr = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      const clockEl = document.getElementById('timerDisplay');
+      if (clockEl) clockEl.innerText = displayStr;
+
+      if (remainingSeconds < 30) {
+        banner.classList.add('urgent');
+      } else {
+        banner.classList.remove('urgent');
+      }
+
+      remainingSeconds--;
+    }
+
+    tick();
+    timerInterval = setInterval(tick, 1000);
+  }
+
+  function stopCountdown() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    const banner = document.getElementById('reservationTimerBanner');
+    if (banner) {
+      banner.classList.add('d-none');
+      banner.classList.remove('urgent');
+    }
+  }
+
+  function handleHoldExpired() {
+    currentReservationId = null;
+    mySelectedSeatIds.clear();
+    stopCountdown();
+    alert('Your 2-minute seat reservation has expired. Please select your seats again.');
+    fetchSeatStatus();
+  }
+
+  function updateSummary() {
+    const listEl = document.getElementById('selectedSeatsList');
+    const priceEl = document.getElementById('totalPriceDisplay');
+    const proceedBtn = document.getElementById('proceedBtn');
+    const cancelBtn = document.getElementById('cancelHoldBtn');
+    const countEl = document.getElementById('selectedSeatCount');
+    const holdStatus = document.getElementById('bookingHoldStatus');
+    if (countEl) countEl.innerText = `(${mySelectedSeatIds.size})`;
+
+    if (mySelectedSeatIds.size === 0) {
+      if (listEl) listEl.innerText = 'None selected';
+      if (priceEl) priceEl.innerText = '₹0.00';
+      if (proceedBtn) proceedBtn.disabled = true;
+      if (cancelBtn) cancelBtn.classList.add('d-none');
+      if (holdStatus) holdStatus.innerText = 'Select a seat to hold it';
+    } else {
+      const seatNames = Array.from(mySelectedSeatIds).map(id => {
+        const mesh = seatMeshMap.get(id);
+        return (mesh && mesh.userData.seatNumber) || seatNumberById.get(Number(id)) || `Seat ${id}`;
+      }).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      if (listEl) listEl.innerText = seatNames.join(', ');
+      const selectionTotal = Array.from(mySelectedSeatIds).reduce((total, id) => {
+        const info = seatMapData[String(id)] || {};
+        return total + Number(info.price || {{ theaters.price|default:150 }});
+      }, 0);
+      if (priceEl) priceEl.innerText = `₹${selectionTotal.toFixed(2)}`;
+      if (proceedBtn) proceedBtn.disabled = !currentReservationId;
+      if (cancelBtn) cancelBtn.classList.remove('d-none');
+      if (holdStatus) holdStatus.innerText = currentReservationId ? 'Seats held · timer running' : 'Securing selected seats…';
+    }
+  }
+
+  function proceedToCheckout() {
+    if (!mySelectedSeatIds.size) {
+      alert('Please select at least one seat to continue.');
+      return;
+    }
+    const unavailable = Array.from(mySelectedSeatIds).some(id => {
+      const seat = seatMapData[String(id)];
+      const status = seat && (seat.status || seat.state);
+      return status === 'booked' || status === 'blocked' || status === 'reserved';
+    });
+    if (unavailable) {
+      fetchSeatStatus();
+      alert('One or more selected seats are no longer available. Please review your selection.');
+      return;
+    }
+    if (!currentReservationId) {
+      alert('Your seat hold is still being confirmed. Please try again in a moment.');
+      return;
+    }
+    window.location.href = `/movies/checkout/${currentReservationId}/`;
+  }
+
+  // ==========================================================
+  // VIEW MODE SWITCHING & QUICK PREVIEW
+  // ==========================================================
+  function switchViewMode(mode) {
+    if (!threeInitialized) initThreeDTheatre();
+    else onWindowResize();
+  }
+
+  function previewSelectedSeat3D() {
+    switchViewMode('3d');
+
+    let targetSeatId = null;
+    if (mySelectedSeatIds.size > 0) {
+      targetSeatId = Array.from(mySelectedSeatIds)[0];
+    } else {
+      // Pick sweet spot (Row C / B or first available)
+      for (const [id, item] of seatMeshMap.entries()) {
+        if (item.userData.status === 'available') {
+          targetSeatId = id;
+          if (item.userData.row === 'C' || item.userData.row === 'B') break;
+        }
+      }
+    }
+
+    if (targetSeatId && seatMeshMap.has(targetSeatId)) {
+      const seatGroup = seatMeshMap.get(targetSeatId);
+      setTimeout(() => {
+        flyToSeatPov(seatGroup);
+      }, 250);
+    } else {
+      switchCameraPreset('overview');
+    }
+  }
+
+  // ==========================================================
+  // 3D CINEMA HALL (CINEVERSE THREE.JS ENGINE)
+  // ==========================================================
+  function getSeatColor(status, seatType) {
+    if (status === 'selected') {
+      return { base: 0xd61f45, emissive: 0xd61f45, intensity: 0.65 }; // Crimson Glow
+    } else if (status === 'reserved') {
+      return { base: 0xd97706, emissive: 0xd97706, intensity: 0.45 }; // Amber
+    } else if (status === 'booked') {
+      return { base: 0x242d3d, emissive: 0x000000, intensity: 0.0 };  // Slate Dark
+    } else if (status === 'blocked') {
+      return { base: 0x0d121c, emissive: 0x000000, intensity: 0.0 };  // Muted Charcoal
+    }
+
+    // Available tiers
+    if (seatType === 'VIP') {
+      return { base: 0xb58a5a, emissive: 0xb58a5a, intensity: 0.18 }; // Antique Brass
+    } else if (seatType === 'PREMIUM') {
+      return { base: 0x4f46e5, emissive: 0x4f46e5, intensity: 0.18 }; // Indigo
+    } else {
+      return { base: 0x0e7490, emissive: 0x0891b2, intensity: 0.14 }; // Cinematic Teal
+    }
+  }
+
+  function updateSeat3DState(seatId, state) {
+    const item = seatMeshMap.get(seatId);
+    if (!item || !item.userData) return;
+
+    item.userData.status = state;
+    const col = getSeatColor(state, item.userData.seatType);
+    item.userData.seatMat.color.setHex(col.base);
+    item.userData.seatMat.emissive.setHex(col.emissive);
+    item.userData.seatMat.emissiveIntensity = col.intensity;
+  }
+
+  function initThreeDTheatre() {
+    const mount = document.getElementById('canvasMount');
+    if (!mount) return;
+
+    threeInitialized = true;
+    const width = mount.clientWidth || 800;
+    const height = mount.clientHeight || 540;
+
+    // 1. Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x060a14);
+    scene.fog = new THREE.FogExp2(0x060a14, 0.015);
+
+    // 2. Camera
+    camera = new THREE.PerspectiveCamera(54, width / height, 0.1, 150);
+    camera.position.set(0, 13, 23);
+
+    // 3. Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.shadowMap.enabled = false;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.domElement.className = 'three-d-canvas';
+    mount.appendChild(renderer.domElement);
+
+    // 4. Controls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // Never go below floor
+    controls.minPolarAngle = 0.08;
+    controls.minDistance = 1.2;
+    controls.maxDistance = 46;
+    controls.target.set(0, 3.5, -7);
+    controls.update();
+
+    // 5. Lighting
+    setupAuditoriumLights(scene);
+
+    // 6. Auditorium Architecture (Walls, Risers, Curtains, Neon Stage)
+    buildAuditoriumEnvironment(scene);
+
+    // 7. Movie Screen
+    const movieDataEl = document.getElementById('movieData');
+    const movieTitle = movieDataEl ? movieDataEl.dataset.title : 'TicketMitra Cinema';
+    createCinemaScreen(scene, movieTitle);
+
+    // 8. 3D Stadium Seats
+    build3DSeats(scene);
+
+    // 9. Raycasting & Listeners
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
+    renderer.domElement.addEventListener('click', onCanvasClick);
+    window.addEventListener('resize', onWindowResize);
+    controls.addEventListener('change', scheduleRender);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    bindHallTrailerControls();
+    loadMovieTrailerForHall(movieDataEl);
+
+    // Render on demand; active camera motion/tweens schedule frames only while needed.
+    scheduleRender();
+  }
+
+  function setupAuditoriumLights(scene) {
+    ambientLight = new THREE.AmbientLight(0x27354a, 0.4);
+    scene.add(ambientLight);
+
+    ceilingLightGroup = new THREE.Group();
+    for (let z = -2; z <= 16; z += 6) {
+      const downlight = new THREE.PointLight(0xffecd2, 0.45, 18, 1.4);
+      downlight.position.set(0, 13, z);
+      ceilingLightGroup.add(downlight);
+    }
+    scene.add(ceilingLightGroup);
+
+    // Subtle side accent lights (midnight blue)
+    const leftFill = new THREE.PointLight(0x38bdf8, 0.35, 25);
+    leftFill.position.set(-16, 6, 2);
+    scene.add(leftFill);
+
+    const rightFill = new THREE.PointLight(0x38bdf8, 0.35, 25);
+    rightFill.position.set(16, 6, 2);
+    scene.add(rightFill);
+  }
+
+  function buildAuditoriumEnvironment(scene) {
+    const roomWidth = 36;
+    const roomDepth = 48;
+    const roomHeight = 16;
+
+    // Floor
+    const floorGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x090e1a,
+      roughness: 0.95,
+      metalness: 0.05
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, 0, 4);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const seatRows = JSON.parse(document.getElementById('seatsDataJson').textContent)
+      .reduce((rows, seat) => rows.add(seat.row || 'A'), new Set());
+    const riserCount = Math.max(7, seatRows.size);
+    // Stadium risers follow the real row configuration attached to this show.
+    for (let r = 0; r < riserCount; r++) {
+      const stepDepth = 2.4;
+      const stepHeight = 0.45 * r;
+      if (stepHeight > 0) {
+        const stepGeo = new THREE.BoxGeometry(26, stepHeight, stepDepth);
+        const stepMat = new THREE.MeshStandardMaterial({
+          color: 0x0b111e,
+          roughness: 0.88,
+          metalness: 0.1
+        });
+        const step = new THREE.Mesh(stepGeo, stepMat);
+        step.position.set(0, stepHeight / 2, -3.5 + r * 2.2);
+        step.receiveShadow = true;
+        scene.add(step);
+
+        // Step LED running lights
+        const ledGeo = new THREE.BoxGeometry(26, 0.03, 0.03);
+        const ledMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+        const led = new THREE.Mesh(ledGeo, ledMat);
+        led.position.set(0, stepHeight + 0.015, -3.5 + r * 2.2 - stepDepth / 2);
+        scene.add(led);
+      }
+    }
+
+    // Side Walls with Acoustic Rib Panels
+    const wallGeo = new THREE.PlaneGeometry(roomDepth, roomHeight);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0a0f1c, roughness: 0.85 });
+
+    const leftWall = new THREE.Mesh(wallGeo, wallMat);
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.position.set(-roomWidth / 2, roomHeight / 2, 4);
+    scene.add(leftWall);
+
+    const rightWall = new THREE.Mesh(wallGeo, wallMat);
+    rightWall.rotation.y = -Math.PI / 2;
+    rightWall.position.set(roomWidth / 2, roomHeight / 2, 4);
+    scene.add(rightWall);
+
+    // Ceiling
+    const ceilGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.95 });
+    const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(0, roomHeight, 4);
+    scene.add(ceiling);
+
+    // Stage beneath screen
+    const stageGeo = new THREE.BoxGeometry(28, 0.75, 5);
+    const stageMat = new THREE.MeshStandardMaterial({
+      color: 0x0f1524,
+      roughness: 0.75,
+      metalness: 0.2
+    });
+    const stage = new THREE.Mesh(stageGeo, stageMat);
+    stage.position.set(0, 0.375, -14);
+    stage.receiveShadow = true;
+    scene.add(stage);
+
+    // Cineverse Glowing Cyan Neon Runner Line across Stage front
+    const neonGeo = new THREE.BoxGeometry(28, 0.09, 0.09);
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe });
+    const neon = new THREE.Mesh(neonGeo, neonMat);
+    neon.position.set(0, 0.76, -11.5);
+    scene.add(neon);
+
+    const neonGlow = new THREE.PointLight(0x00f2fe, 1.4, 14, 1.2);
+    neonGlow.position.set(0, 1.1, -11.4);
+    scene.add(neonGlow);
+
+    // Left & Right Stage Curtains (Deep Velvet)
+    const wingGeo = new THREE.BoxGeometry(3.6, 12, 1.6);
+    const wingMat = new THREE.MeshStandardMaterial({
+      color: 0x3f0707,
+      roughness: 0.92,
+      metalness: 0.05
+    });
+    const leftWing = new THREE.Mesh(wingGeo, wingMat);
+    leftWing.position.set(-15, 6, -14.5);
+    scene.add(leftWing);
+
+    const rightWing = new THREE.Mesh(wingGeo, wingMat);
+    rightWing.position.set(15, 6, -14.5);
+    scene.add(rightWing);
+
+    // Green Glowing EXIT Signs
+    createExitSign(scene, -roomWidth / 2 + 0.1, 3.4, -7, Math.PI / 2);
+    createExitSign(scene, roomWidth / 2 - 0.1, 3.4, -7, -Math.PI / 2);
+  }
+
+  function createExitSign(scene, x, y, z, rotY) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#064e3b';
+    ctx.fillRect(0, 0, 256, 128);
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(4, 4, 248, 120);
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 50px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT ➔', 128, 64);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const geo = new THREE.BoxGeometry(1.2, 0.6, 0.06);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissive: 0x10b981,
+      emissiveIntensity: 0.85,
+      emissiveMap: tex
+    });
+    const sign = new THREE.Mesh(geo, mat);
+    sign.position.set(x, y, z);
+    sign.rotation.y = rotY;
+    scene.add(sign);
+  }
+
+  function createCinemaScreen(scene, movieTitle) {
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(25, 14.1, 0.45),
+      new THREE.MeshStandardMaterial({ color: 0x121b2b, roughness: 0.72, metalness: 0.12 })
+    );
+    frame.position.set(0, 7.5, -15.8);
+    scene.add(frame);
+
+    screenMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(24, 13.5),
+      new THREE.MeshBasicMaterial({ color: 0x02040a, side: THREE.DoubleSide })
+    );
+    screenMesh.position.set(0, 7.5, -15.54);
+    screenMesh.name = `screen-${movieTitle || 'movie'}`;
+    scene.add(screenMesh);
+
+    const screenBeam = new THREE.SpotLight(0xfff3e0, 1.4, 36, Math.PI / 3.2, 0.45, 1.1);
+    screenBeam.position.set(0, 9.2, -14);
+    screenBeam.target.position.set(0, 0, 5);
+    scene.add(screenBeam, screenBeam.target);
+  }
+
+  function loadMovieTrailerForHall(movieDataEl) {
+    if (trailerLookupStarted) return;
+    trailerLookupStarted = true;
+    const initialUrl = movieDataEl && movieDataEl.dataset.trailerUrl;
+    if (initialUrl) {
+      mountHallTrailer(initialUrl);
+      return;
+    }
+    const endpoint = movieDataEl && movieDataEl.dataset.trailerApiUrl;
+    if (!endpoint) {
+      showHallTrailerMessage('No official trailer is available for this movie.');
+      return;
+    }
+    fetch(endpoint, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Trailer lookup failed')))
+      .then(data => data && data.has_trailer && data.embed_url
+        ? mountHallTrailer(data.embed_url)
+        : showHallTrailerMessage('No official trailer is available for this movie.'))
+      .catch(() => showHallTrailerMessage('Trailer could not be loaded. You can still select seats.'));
+  }
+
+  function showHallTrailerMessage(message) {
+    const label = document.getElementById('screenVideoMessage');
+    const controlsBar = document.getElementById('hallTrailerControls');
+    if (label) { label.textContent = message; label.hidden = false; }
+    if (controlsBar) controlsBar.hidden = true;
+  }
+
+  function mountHallTrailer(embedUrl) {
+    const layer = document.getElementById('screenVideoLayer');
+    const label = document.getElementById('screenVideoMessage');
+    if (!layer || !embedUrl) return;
+    let url;
+    try { url = new URL(embedUrl, window.location.origin); } catch (_) {
+      showHallTrailerMessage('Trailer could not be loaded. You can still select seats.');
+      return;
+    }
+    if (/youtube\.com$/i.test(url.hostname) || /youtube\.com$/i.test(url.hostname.replace(/^www\./, ''))) {
+      url.hostname = 'www.youtube-nocookie.com';
+    }
+    url.searchParams.set('autoplay', '1');
+    url.searchParams.set('mute', '1');
+    url.searchParams.set('controls', '1');
+    url.searchParams.set('playsinline', '1');
+    url.searchParams.set('rel', '0');
+    url.searchParams.set('enablejsapi', '1');
+    url.searchParams.set('origin', window.location.origin);
+    url.searchParams.set('widget_referrer', window.location.href);
+
+    const iframe = document.createElement('iframe');
+    iframe.title = 'Movie trailer playing on cinema screen';
+    iframe.src = url.toString();
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.loading = 'eager';
+    iframe.addEventListener('load', function () {
+      if (trailerSoundEnabled) sendTrailerCommand('unMute');
+      if (trailerPaused) sendTrailerCommand('pauseVideo');
+      scheduleRender();
+    }, { once: true });
+    screenVideoIframe = iframe;
+    layer.appendChild(iframe);
+    if (label) label.hidden = true;
+    const controlsBar = document.getElementById('hallTrailerControls');
+    if (controlsBar) controlsBar.hidden = false;
+    projectScreenVideoOverlay();
+  }
+
+  function sendTrailerCommand(func, args = []) {
+    if (!screenVideoIframe || !screenVideoIframe.contentWindow) return;
+    const targetOrigin = screenVideoIframe.src.includes('youtube-nocookie.com') ? 'https://www.youtube-nocookie.com' : 'https://www.youtube.com';
+    screenVideoIframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: args }), targetOrigin);
+  }
+
+  function bindHallTrailerControls() {
+    const playPause = document.getElementById('hallPlayPauseBtn');
+    const mute = document.getElementById('hallMuteBtn');
+    const volume = document.getElementById('hallVolumeSlider');
+    if (playPause) playPause.addEventListener('click', function () {
+      trailerPaused = !trailerPaused;
+      sendTrailerCommand(trailerPaused ? 'pauseVideo' : 'playVideo');
+      playPause.innerHTML = trailerPaused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+      playPause.setAttribute('aria-label', trailerPaused ? 'Play trailer' : 'Pause trailer');
+    });
+    if (mute) mute.addEventListener('click', function () {
+      trailerSoundEnabled = !trailerSoundEnabled;
+      sendTrailerCommand(trailerSoundEnabled ? 'unMute' : 'mute');
+      if (trailerSoundEnabled) sendTrailerCommand('setVolume', [Number(volume && volume.value || 65)]);
+      mute.innerHTML = trailerSoundEnabled ? '<i class="fas fa-volume-up"></i> Sound on' : '<i class="fas fa-volume-mute"></i> Enable sound';
+      mute.setAttribute('aria-label', trailerSoundEnabled ? 'Mute trailer' : 'Enable trailer sound');
+    });
+    if (volume) volume.addEventListener('input', function () {
+      if (!trailerSoundEnabled) {
+        trailerSoundEnabled = true;
+        sendTrailerCommand('unMute');
+        if (mute) {
+          mute.innerHTML = '<i class="fas fa-volume-up"></i> Sound on';
+          mute.setAttribute('aria-label', 'Mute trailer');
+        }
+      }
+      sendTrailerCommand('setVolume', [Number(volume.value)]);
+    });
+  }
+
+  function projectScreenVideoOverlay() {
+    if (!camera || !screenMesh) return;
+    const layer = document.getElementById('screenVideoLayer');
+    const iframe = screenVideoIframe;
+    const message = document.getElementById('screenVideoMessage');
+    if (!layer || (!iframe && !message)) return;
+    const width = layer.clientWidth;
+    const height = layer.clientHeight;
+    if (!width || !height) return;
+
+    const center = new THREE.Vector3(0, 7.5, -15.54);
+    const towardCamera = center.clone().sub(camera.position);
+    if (towardCamera.z >= 0) {
+      if (iframe) iframe.style.visibility = 'hidden';
+      if (message) message.style.visibility = 'hidden';
+      return;
+    }
+    const halfW = 12, halfH = 6.75;
+    const points = [
+      new THREE.Vector3(-halfW, 7.5 + halfH, -15.54),
+      new THREE.Vector3(halfW, 7.5 + halfH, -15.54),
+      new THREE.Vector3(halfW, 7.5 - halfH, -15.54),
+      new THREE.Vector3(-halfW, 7.5 - halfH, -15.54),
+    ].map(point => point.project(camera));
+    if (points.every(point => point.z < -1 || point.z > 1)) {
+      if (iframe) iframe.style.visibility = 'hidden';
+      if (message) message.style.visibility = 'hidden';
+      return;
+    }
+    const quad = points.map(point => ({ x: (point.x * 0.5 + 0.5) * width, y: (-point.y * 0.5 + 0.5) * height }));
+    const [p1, p2, p3, p4] = quad;
+    const dx1 = p2.x - p3.x, dx2 = p4.x - p3.x, dx3 = p1.x - p2.x + p3.x - p4.x;
+    const dy1 = p2.y - p3.y, dy2 = p4.y - p3.y, dy3 = p1.y - p2.y + p3.y - p4.y;
+    const denominator = dx1 * dy2 - dx2 * dy1;
+    let g = 0, h = 0;
+    if (Math.abs(dx3) + Math.abs(dy3) > 0.01 && Math.abs(denominator) > 0.001) {
+      g = (dx3 * dy2 - dx2 * dy3) / denominator;
+      h = (dx1 * dy3 - dx3 * dy1) / denominator;
+    }
+    const a = p2.x - p1.x + g * p2.x, b = p4.x - p1.x + h * p4.x;
+    const d = p2.y - p1.y + g * p2.y, e = p4.y - p1.y + h * p4.y;
+    const transform = `matrix3d(${a / 1920},${d / 1080},0,${g / 1920},${b / 1920},${e / 1080},0,${h / 1080},0,0,1,0,${p1.x},${p1.y},0,1)`;
+    if (iframe) { iframe.style.transform = transform; iframe.style.visibility = 'visible'; }
+    if (message) { message.style.transform = transform; message.style.visibility = 'visible'; }
+  }
+
+  function build3DSeats(scene) {
+    const rawSeatsEl = document.getElementById('seatsDataJson');
+    if (!rawSeatsEl) return;
+    const rawSeats = JSON.parse(rawSeatsEl.textContent);
+
+    // Group seats by row
+    const rowMap = {};
+    rawSeats.forEach(s => {
+      const r = s.row || (s.seat_number ? s.seat_number.replace(/[0-9]/g, '') : 'A') || 'A';
+      if (!rowMap[r]) rowMap[r] = [];
+      rowMap[r].push(s);
+    });
+
+    const sortedRows = Object.keys(rowMap).sort();
+
+    sortedRows.forEach((rowKey, rowIndex) => {
+      const rowSeats = rowMap[rowKey];
+      // Sort seats by numeric value
+      rowSeats.sort((a, b) => {
+        const numA = parseInt(a.seat_number.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.seat_number.replace(/\D/g, '')) || 0;
+        return numA - numB;
+      });
+
+      const zPos = -3.5 + rowIndex * 2.2;
+      const yPos = rowIndex * 0.45;
+      const numSeats = rowSeats.length;
+
+      // Floor Row Marker Text (e.g. "Row A")
+      createRowFloorMarker(scene, rowKey, - (numSeats * 1.35) / 2 - 1.2, yPos, zPos);
+      createRowFloorMarker(scene, rowKey, (numSeats * 1.35) / 2 + 1.2, yPos, zPos);
+
+      rowSeats.forEach((seatData, colIndex) => {
+        let xPos = (colIndex - (numSeats - 1) / 2) * 1.35;
+        // Center aisle separation if more than 5 seats
+        if (numSeats >= 6) {
+          if (colIndex >= numSeats / 2) {
+            xPos += 0.45;
+          } else {
+            xPos -= 0.45;
+          }
+        }
+
+        const seatGroup = createCinemaSeatMesh(seatData, xPos, yPos, zPos);
+        scene.add(seatGroup);
+        seatMeshMap.set(seatData.id, seatGroup);
+      });
+    });
+  }
+
+  function createCinemaSeatMesh(seatData, x, y, z) {
+    const seatGroup = new THREE.Group();
+    seatGroup.position.set(x, y, z);
+
+    // Initial status check
+    const currentStatus = mySelectedSeatIds.has(seatData.id) ? 'selected' : (seatData.status || 'available');
+    seatData.status = currentStatus;
+
+    // Pedestal Post (Dark Metal)
+    const postGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.42, 8);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+    const post = new THREE.Mesh(postGeo, postMat);
+    post.position.y = 0.21;
+    seatGroup.add(post);
+
+    // Seat Material
+    const col = getSeatColor(currentStatus, seatData.seat_type);
+    const seatMat = new THREE.MeshStandardMaterial({
+      color: col.base,
+      emissive: col.emissive,
+      emissiveIntensity: col.intensity,
+      roughness: 0.6,
+      metalness: 0.1
+    });
+
+    // Seat Base Cushion
+    const cushionGeo = new THREE.BoxGeometry(0.86, 0.18, 0.82);
+    const cushion = new THREE.Mesh(cushionGeo, seatMat);
+    cushion.position.y = 0.46;
+    cushion.castShadow = true;
+    cushion.receiveShadow = true;
+    seatGroup.add(cushion);
+
+    // Reclined Ergonomic Backrest
+    const backGeo = new THREE.BoxGeometry(0.84, 0.92, 0.16);
+    const backrest = new THREE.Mesh(backGeo, seatMat);
+    backrest.position.set(0, 0.96, 0.35);
+    backrest.rotation.x = 0.1;
+    backrest.castShadow = true;
+    seatGroup.add(backrest);
+
+    // Headrest Cushion
+    const headGeo = new THREE.BoxGeometry(0.68, 0.26, 0.14);
+    const headrest = new THREE.Mesh(headGeo, seatMat);
+    headrest.position.set(0, 1.5, 0.39);
+    headrest.rotation.x = 0.1;
+    headrest.castShadow = true;
+    seatGroup.add(headrest);
+
+    // A small seat-number plate keeps the real database seat identifier visible in the hall.
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 256;
+    labelCanvas.height = 96;
+    const labelContext = labelCanvas.getContext('2d');
+    labelContext.fillStyle = 'rgba(4, 8, 16, 0.88)';
+    labelContext.fillRect(0, 0, labelCanvas.width, labelCanvas.height);
+    labelContext.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+    labelContext.lineWidth = 5;
+    labelContext.strokeRect(3, 3, labelCanvas.width - 6, labelCanvas.height - 6);
+    labelContext.fillStyle = '#f8fafc';
+    labelContext.font = 'bold 54px sans-serif';
+    labelContext.textAlign = 'center';
+    labelContext.textBaseline = 'middle';
+    labelContext.fillText(seatData.seat_number || '', 128, 49);
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const label = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.54, 0.2),
+      new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true, side: THREE.DoubleSide })
+    );
+    label.position.set(0, 1.12, 0.45);
+    seatGroup.add(label);
+
+    // Armrests (Left & Right)
+    const armGeo = new THREE.BoxGeometry(0.12, 0.1, 0.66);
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+
+    const leftArm = new THREE.Mesh(armGeo, armMat);
+    leftArm.position.set(-0.48, 0.64, 0.08);
+    seatGroup.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeo, armMat);
+    rightArm.position.set(0.48, 0.64, 0.08);
+    seatGroup.add(rightArm);
+
+    // Cup holders
+    const cupGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8);
+    const cupMat = new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.6 });
+    const leftCup = new THREE.Mesh(cupGeo, cupMat);
+    leftCup.position.set(-0.48, 0.7, -0.18);
+    seatGroup.add(leftCup);
+    const rightCup = new THREE.Mesh(cupGeo, cupMat);
+    rightCup.position.set(0.48, 0.7, -0.18);
+    seatGroup.add(rightCup);
+
+    seatGroup.userData = {
+      seatId: seatData.id,
+      seatNumber: seatData.seat_number,
+      row: seatData.row,
+      seatType: seatData.seat_type,
+      status: currentStatus,
+      seatMat: seatMat,
+      x: x,
+      y: y,
+      z: z
+    };
+
+    // Register clickable meshes for raycasting
+    clickableMeshes.push(cushion, backrest, headrest);
+
+    return seatGroup;
+  }
+
+  function createRowFloorMarker(scene, rowLetter, x, y, z) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 84px "DM Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(rowLetter, 64, 64);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const geo = new THREE.PlaneGeometry(0.8, 0.8);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.75 });
+    const marker = new THREE.Mesh(geo, mat);
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.set(x, y + 0.02, z);
+    scene.add(marker);
+  }
+
+  // ==========================================================
+  // RAYCASTING: HOVER & CLICK
+  // ==========================================================
+  function onCanvasMouseMove(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(clickableMeshes);
+    const tooltip = document.getElementById('seat3dTooltip');
+
+    if (intersects.length > 0) {
+      let obj = intersects[0].object;
+      while (obj && (!obj.userData || !obj.userData.seatId)) {
+        obj = obj.parent;
+      }
+
+      if (obj && obj.userData && obj.userData.seatId) {
+        renderer.domElement.style.cursor = 'pointer';
+
+        if (hoveredSeatGroup !== obj) {
+          if (hoveredSeatGroup && hoveredSeatGroup.userData) {
+            resetSeatHover(hoveredSeatGroup);
+          }
+          hoveredSeatGroup = obj;
+          highlightSeatHover(hoveredSeatGroup);
+        }
+
+        if (tooltip) {
+          const d = obj.userData;
+          const statusText = d.status.charAt(0).toUpperCase() + d.status.slice(1);
+          const statusCol = d.status === 'available' ? '#22c55e' : (d.status === 'selected' ? '#ef4444' : '#f59e0b');
+          tooltip.innerHTML = `
+            <div style="font-size: 13px; font-weight: 700; color: #fff;">Seat ${d.seatNumber}</div>
+            <div style="font-size: 11px; color: #94a3b8;">${d.seatType || 'Regular'} • ₹${Number(d.price || 0).toFixed(2)}</div>
+            <div style="font-size: 11px; font-weight: 600; color: ${statusCol};">${statusText}</div>
+            <div style="font-size: 10px; color: #38bdf8; margin-top: 3px;"><i class="fas fa-eye"></i> Click to sit & preview screen view</div>
+          `;
+          tooltip.style.left = `${event.clientX - rect.left}px`;
+          tooltip.style.top = `${event.clientY - rect.top - 12}px`;
+          tooltip.style.display = 'block';
+        }
+        return;
+      }
+    }
+
+    // No seat hovered
+    renderer.domElement.style.cursor = 'default';
+    if (hoveredSeatGroup) {
+      resetSeatHover(hoveredSeatGroup);
+      hoveredSeatGroup = null;
+    }
+    if (tooltip) tooltip.style.display = 'none';
+  }
+
+  function highlightSeatHover(seatGroup) {
+    if (!seatGroup || !seatGroup.userData) return;
+    seatGroup.userData.seatMat.emissiveIntensity = 0.85;
+    new TWEEN.Tween(seatGroup.position)
+      .to({ y: seatGroup.userData.y + 0.12 }, 150)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
+    scheduleRender();
+  }
+
+  function resetSeatHover(seatGroup) {
+    if (!seatGroup || !seatGroup.userData) return;
+    const col = getSeatColor(seatGroup.userData.status, seatGroup.userData.seatType);
+    seatGroup.userData.seatMat.emissiveIntensity = col.intensity;
+    new TWEEN.Tween(seatGroup.position)
+      .to({ y: seatGroup.userData.y }, 150)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
+    scheduleRender();
+  }
+
+  function onCanvasClick(event) {
+    if (isAutoTouring) stopAutoTour();
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(clickableMeshes);
+
+    if (intersects.length > 0) {
+      let obj = intersects[0].object;
+      while (obj && (!obj.userData || !obj.userData.seatId)) {
+        obj = obj.parent;
+      }
+
+      if (obj && obj.userData && obj.userData.seatId) {
+        const seatData = obj.userData;
+        if (seatData.status === 'booked' || seatData.status === 'blocked' || (seatData.status === 'reserved' && !mySelectedSeatIds.has(seatData.seatId))) {
+          shakeSeat(obj);
+          return;
+        }
+
+        // Toggle selection
+        handleSeatClick(seatData.seatId);
+
+        // Fly to Seat POV (Screen View from this Seat)
+        flyToSeatPov(obj);
+      }
+    }
+  }
+
+  function shakeSeat(seatGroup) {
+    const origX = seatGroup.userData.x;
+    new TWEEN.Tween(seatGroup.position)
+      .to({ x: origX - 0.08 }, 50)
+      .yoyo(true)
+      .repeat(3)
+      .onComplete(() => {
+        seatGroup.position.x = origX;
+      })
+      .start();
+    scheduleRender();
+  }
+
+  // ==========================================================
+  // SEAT POV: FIRST-PERSON SCREEN SIGHTLINE PREVIEW
+  // ==========================================================
+  function flyToSeatPov(seatGroup) {
+    if (!seatGroup || !seatGroup.userData) return;
+    activePovSeatGroup = seatGroup;
+    const { x, y, z, seatNumber, seatType } = seatGroup.userData;
+
+    // Show POV banner HUD
+    const banner = document.getElementById('seatPovBanner');
+    const label = document.getElementById('povSeatLabel');
+    if (banner && label) {
+      label.innerText = `${seatNumber} (${seatType || 'Regular'})`;
+      banner.classList.remove('d-none');
+    }
+
+    setActivePresetBtn('presetSeatPovBtn');
+
+    // Eye-level camera position: sitting in the chair looking forward
+    const eyePos = {
+      x: x,
+      y: y + 1.25,
+      z: z + 0.15
+    };
+
+    // Center of curved movie screen
+    const screenCenter = {
+      x: 0,
+      y: 4.8,
+      z: -15.5
+    };
+
+    animateCameraTo(eyePos, screenCenter, 1100);
+  }
+
+  function exitSeatPov() {
+    activePovSeatGroup = null;
+    const banner = document.getElementById('seatPovBanner');
+    if (banner) banner.classList.add('d-none');
+    switchCameraPreset('overview');
+  }
+
+  // ==========================================================
+  // CAMERA PRESETS (CINEVERSE STYLE)
+  // ==========================================================
+  function switchCameraPreset(preset) {
+    if (isAutoTouring) stopAutoTour();
+    const banner = document.getElementById('seatPovBanner');
+
+    if (preset === 'overview') {
+      setActivePresetBtn('presetOverviewBtn');
+      if (banner) banner.classList.add('d-none');
+      animateCameraTo({ x: 0, y: 13, z: 23 }, { x: 0, y: 3.5, z: -7 }, 1000);
+    } else if (preset === 'from_seat') {
+      if (activePovSeatGroup) {
+        flyToSeatPov(activePovSeatGroup);
+      } else if (mySelectedSeatIds.size > 0) {
+        const firstSelectedId = Array.from(mySelectedSeatIds)[0];
+        if (seatMeshMap.has(firstSelectedId)) {
+          flyToSeatPov(seatMeshMap.get(firstSelectedId));
+        }
+      } else {
+        // Pick optimal seat (e.g. C4 or first available)
+        for (const [id, item] of seatMeshMap.entries()) {
+          if (item.userData.status === 'available') {
+            flyToSeatPov(item);
+            break;
+          }
+        }
+      }
+    } else if (preset === 'from_stage') {
+      setActivePresetBtn('presetStageBtn');
+      if (banner) banner.classList.add('d-none');
+      animateCameraTo({ x: 0, y: 3.2, z: -12.5 }, { x: 0, y: 4.5, z: 12 }, 1000);
+    } else if (preset === 'balcony') {
+      setActivePresetBtn('presetBalconyBtn');
+      if (banner) banner.classList.add('d-none');
+      animateCameraTo({ x: 0, y: 16, z: 25 }, { x: 0, y: 4.5, z: -12 }, 1000);
+    } else if (preset === 'birds_eye') {
+      setActivePresetBtn('presetBirdBtn');
+      if (banner) banner.classList.add('d-none');
+      animateCameraTo({ x: 0, y: 28, z: 2 }, { x: 0, y: 0, z: 0 }, 1000);
+    }
+  }
+
+  function setActivePresetBtn(btnId) {
+    document.querySelectorAll('.preset-pill-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    const target = document.getElementById(btnId);
+    if (target) target.classList.add('active');
+  }
+
+  function animateCameraTo(targetPos, targetLookAt, duration = 1000) {
+    new TWEEN.Tween(camera.position)
+      .to(targetPos, duration)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+
+    new TWEEN.Tween(controls.target)
+      .to(targetLookAt, duration)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(() => controls.update())
+      .onComplete(() => controls.update())
+      .start();
+    scheduleRender();
+  }
+
+  function resetThreeDCamera() {
+    switchCameraPreset('overview');
+  }
+
+  // ==========================================================
+  // AUTO TOUR & HOUSE LIGHTS
+  // ==========================================================
+  function toggleAutoTour() {
+    isAutoTouring = !isAutoTouring;
+    const btn = document.getElementById('presetTourBtn');
+    if (isAutoTouring) {
+      if (btn) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="fas fa-pause mr-1 text-danger"></i> Tour';
+      }
+      const banner = document.getElementById('seatPovBanner');
+      if (banner) banner.classList.add('d-none');
+      document.querySelectorAll('.preset-pill-btn').forEach(b => {
+        if (b !== btn) b.classList.remove('active');
+      });
+      scheduleRender();
+    } else {
+      stopAutoTour();
+    }
+  }
+
+  function stopAutoTour() {
+    isAutoTouring = false;
+    const btn = document.getElementById('presetTourBtn');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.innerHTML = '<i class="fas fa-play mr-1"></i> Tour';
+    }
+  }
+
+  function toggleHouseLights() {
+    isHouseLightsDim = !isHouseLightsDim;
+    const btn = document.getElementById('houseLightsBtn');
+
+    if (isHouseLightsDim) {
+      new TWEEN.Tween(ambientLight).to({ intensity: 0.28 }, 500).start();
+      ceilingLightGroup.children.forEach(l => {
+        new TWEEN.Tween(l).to({ intensity: 0.25 }, 500).start();
+      });
+      if (btn) btn.innerHTML = '<i class="far fa-lightbulb mr-1"></i> House Lights: Dim';
+    } else {
+      new TWEEN.Tween(ambientLight).to({ intensity: 0.85 }, 500).start();
+      ceilingLightGroup.children.forEach(l => {
+        new TWEEN.Tween(l).to({ intensity: 0.88 }, 500).start();
+      });
+      if (btn) btn.innerHTML = '<i class="fas fa-lightbulb text-warning mr-1"></i> House Lights: On';
+    }
+    scheduleRender();
+  }
+
+  function onWindowResize() {
+    if (!renderer || !camera) return;
+    const mount = document.getElementById('canvasMount');
+    if (!mount) return;
+    const w = mount.clientWidth;
+    const h = mount.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    projectScreenVideoOverlay();
+  }
+
+  function scheduleRender() {
+    if (!renderer || document.hidden || renderFrameId !== null) return;
+    renderFrameId = requestAnimationFrame(renderSceneFrame);
+  }
+
+  function renderSceneFrame(time) {
+    renderFrameId = null;
+    if (!renderer || document.hidden) return;
+    TWEEN.update(time);
+    if (isAutoTouring) {
+      tourAngle += 0.0035;
+      camera.position.x = Math.sin(tourAngle) * 20;
+      camera.position.z = Math.cos(tourAngle) * 20 + 3;
+      camera.position.y = 10 + Math.sin(tourAngle * 1.5) * 2.5;
+      controls.target.set(0, 3.5, -4);
+    }
+    controls.update();
+    renderer.render(scene, camera);
+    projectScreenVideoOverlay();
+    if (isAutoTouring || TWEEN.getAll().length > 0) scheduleRender();
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      if (renderFrameId !== null) cancelAnimationFrame(renderFrameId);
+      renderFrameId = null;
+      sendTrailerCommand('pauseVideo');
+    } else {
+      if (!trailerPaused) sendTrailerCommand('playVideo');
+      scheduleRender();
+    }
+  }
+
+  // ==========================================================
+  // INITIALIZE
+  // ==========================================================
+  updateSummary();
+  fetchSeatStatus();
+  pollInterval = setInterval(fetchSeatStatus, 3500);
+  initThreeDTheatre();
+
+  if (remainingSeconds > 0 && currentReservationId) {
+    startCountdown();
+  }
+</script>
+{% endblock %}

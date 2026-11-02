@@ -1,0 +1,30 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "env",
+    "*/migrations/*",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "RUF012",  # Mutable class attributes (standard in Django models/admins/forms)
+    "BLE001",  # Blind Exception catch (common in payment/webhook fallbacks)
+    "S110",    # try-except-pass (benign session/cleanup handling)
+    "SIM102",  # nested if statements
+    "N999",    # module name Ticketmitra
+    "DTZ007",  # naive strptime parsed before timezone.make_aware
+]
+
+[tool.pyright]
+pythonPath = "C:/Users/Vishnu Karanth A/AppData/Local/Python/bin/python.exe"
+extraPaths = [
+    ".",
+    "C:/Users/Vishnu Karanth A/AppData/Local/Python/pythoncore-3.14-64/Lib/site-packages",
+    "C:/Users/Vishnu Karanth A/AppData/Local/Python/pythoncore-3.14-64/Lib",
+    "C:/Users/Vishnu Karanth A/AppData/Roaming/Python/Python314/site-packages"
+]

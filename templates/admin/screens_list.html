@@ -1,0 +1,290 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Auditorium & Screen Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER & CONTROLS -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-tv text-info mr-2"></i> Screen Management
+      </h2>
+      <p class="text-muted mb-0 small">
+        Manage auditoriums across multiplexes. Support for IMAX, 4DX, PXL, Gold, Standard and custom formats.
+      </p>
+    </div>
+    <div class="d-flex" style="gap: 10px;">
+      <button type="button" class="tm-btn tm-btn-primary" onclick="openAddScreenModal()">
+        <i class="fas fa-plus mr-1"></i> + Add Screen
+      </button>
+    </div>
+  </div>
+
+  <!-- THEATRE FILTER BAR -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/screens/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="font-weight: 600; color: #fff; font-size: 13.5px;">Filter by Theatre:</div>
+        <div style="min-width: 250px;">
+          <select name="theatre" class="form-control" onchange="this.form.submit()" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Theatres ({{ all_theatres|length }})</option>
+            {% for th in all_theatres %}
+              <option value="{{ th }}" {% if selected_theatre == th %}selected{% endif %}>{{ th }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if selected_theatre %}
+          <a href="/admin/screens/" class="tm-btn tm-btn-ghost py-1 px-3">Show All</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREENS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if screens_data %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Screen Name</th>
+                <th style="padding: 14px 18px;">Theatre / Complex</th>
+                <th style="padding: 14px 18px; text-align: center;">Format / Type</th>
+                <th style="padding: 14px 18px; text-align: center;">Capacity</th>
+                <th style="padding: 14px 18px; text-align: center;">Seats Configured</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in screens_data %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Screen Name -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white mb-0" style="font-size: 15px;">
+                      <i class="fas fa-desktop text-info mr-2"></i> {{ item.screen.name }}
+                    </div>
+                  </td>
+
+                  <!-- Theatre -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ item.screen.theater_name }}</div>
+                  </td>
+
+                  <!-- Type Badge -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if item.screen.screen_type == 'IMAX' %}
+                      <span class="tm-badge tm-badge-blue" style="font-weight: 700; letter-spacing: 1px;">IMAX</span>
+                    {% elif item.screen.screen_type == '4DX' %}
+                      <span class="tm-badge tm-badge-red" style="font-weight: 700; letter-spacing: 1px;">4DX</span>
+                    {% elif item.screen.screen_type == 'PXL' %}
+                      <span class="tm-badge tm-badge-purple" style="font-weight: 700; letter-spacing: 1px;">PXL</span>
+                    {% elif item.screen.screen_type == 'Gold' %}
+                      <span class="tm-badge tm-badge-orange" style="font-weight: 700; letter-spacing: 1px;">GOLD</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-gray" style="font-weight: 600;">{{ item.screen.screen_type|upper }}</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Capacity -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="text-white font-weight-bold">{{ item.screen.capacity|default:32 }}</span> seats
+                  </td>
+
+                  <!-- Seats in DB -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="text-success font-weight-bold">{{ item.seats_count }}</span> seats
+                  </td>
+
+                  <!-- Status -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if item.screen.active %}
+                      <span class="tm-badge tm-badge-green">ACTIVE</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-gray">INACTIVE</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      <a href="/admin/seats/?screen_id={{ item.screen.id }}" class="tm-btn tm-btn-primary py-1 px-2 small" title="Open Visual Seat Map">
+                        <i class="fas fa-chair mr-1"></i> Seat Map
+                      </a>
+                      <button type="button" class="tm-btn tm-btn-secondary py-1 px-2 small" onclick="openEditScreenModal('{{ item.screen.id }}', '{{ item.screen.theater_name|escapejs }}', '{{ item.screen.name|escapejs }}', '{{ item.screen.screen_type|escapejs }}', '{{ item.screen.capacity|default:32 }}', {{ item.screen.active|yesno:'true,false' }}, '{{ item.screen.screen_number|default:'' }}', '{{ item.screen.turnaround_minutes }}', '{{ item.screen.operational_status }}')" title="Edit Screen">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <form method="POST" action="/admin/screens/" onsubmit="return confirm('Delete screen \'{{ item.screen.name|escapejs }}\'?');" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_screen">
+                        <input type="hidden" name="screen_id" value="{{ item.screen.id }}">
+                        <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Delete Screen">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-tv text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Screens Found</h4>
+          <p class="text-muted mb-4">No auditoriums have been added yet for this filter.</p>
+          <button type="button" class="tm-btn tm-btn-primary" onclick="openAddScreenModal()">
+            <i class="fas fa-plus mr-1"></i> Add Screen
+          </button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ADD SCREEN MODAL -->
+<div id="addScreenModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-plus-circle text-info mr-2"></i> Add Screen</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeAddScreenModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="POST" action="/admin/screens/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_screen">
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Select Theatre *</label>
+        <select name="theater_name" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for th in all_theatres %}
+            <option value="{{ th }}" {% if selected_theatre == th %}selected{% endif %}>{{ th }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Screen Name / Number *</label>
+        <input type="text" name="name" required placeholder="e.g. Screen 1" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Screen Type / Format</label>
+        <select name="screen_type" id="addScreenTypeSelect" class="form-control" onchange="toggleCustomScreenType(this, 'addCustomTypeDiv')" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          <option value="IMAX">IMAX</option>
+          <option value="4DX">4DX</option>
+          <option value="PXL">PXL</option>
+          <option value="Gold">Gold</option>
+          <option value="Standard" selected>Standard</option>
+          <option value="Premium">Premium</option>
+          <option value="CUSTOM">+ Custom Format</option>
+        </select>
+      </div>
+      <div class="form-group mb-3" id="addCustomTypeDiv" style="display: none;">
+        <label class="text-muted small font-weight-bold">Custom Format Name</label>
+        <input type="text" name="custom_screen_type" placeholder="e.g. DOLBY ATMOS" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Seat Capacity</label>
+        <input type="number" name="capacity" value="32" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="row"><div class="col-md-6 form-group"><label class="text-muted small">Screen number</label><input type="number" name="screen_number" min="1" class="form-control"></div><div class="col-md-6 form-group"><label class="text-muted small">Turnaround (min)</label><input type="number" name="turnaround_minutes" min="0" value="30" class="form-control"></div></div>
+      <div class="form-group"><label class="text-muted small">Operational status</label><select name="operational_status" class="form-control"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="MAINTENANCE">Under maintenance</option></select></div>
+      <div class="form-check mb-4">
+        <input type="checkbox" name="active" id="screenActiveCheck" class="form-check-input" checked>
+        <label class="form-check-label text-white small" for="screenActiveCheck">Active auditorium</label>
+      </div>
+      <div class="d-flex justify-content-end" style="gap: 10px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeAddScreenModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary">Create Screen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT SCREEN MODAL -->
+<div id="editScreenModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-edit text-info mr-2"></i> Edit Screen</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeEditScreenModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="POST" action="/admin/screens/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_screen">
+      <input type="hidden" name="screen_id" id="editScreenId">
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Theatre</label>
+        <select name="theater_name" id="editScreenTheatre" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          {% for th in all_theatres %}
+            <option value="{{ th }}">{{ th }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Screen Name / Number *</label>
+        <input type="text" name="name" id="editScreenName" required class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Format / Screen Type</label>
+        <select name="screen_type" id="editScreenType" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+          <option value="IMAX">IMAX</option>
+          <option value="4DX">4DX</option>
+          <option value="PXL">PXL</option>
+          <option value="Gold">Gold</option>
+          <option value="Standard">Standard</option>
+          <option value="Premium">Premium</option>
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <label class="text-muted small font-weight-bold">Capacity</label>
+        <input type="number" name="capacity" id="editScreenCap" class="form-control" style="background: rgba(27, 41, 64, 0.72); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px;">
+      </div>
+      <div class="row"><div class="col-md-6 form-group"><label class="text-muted small">Screen number</label><input type="number" name="screen_number" id="editScreenNumber" min="1" class="form-control"></div><div class="col-md-6 form-group"><label class="text-muted small">Turnaround (min)</label><input type="number" name="turnaround_minutes" id="editScreenTurnaround" min="0" class="form-control"></div></div>
+      <div class="form-group"><label class="text-muted small">Operational status</label><select name="operational_status" id="editScreenStatus" class="form-control"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="MAINTENANCE">Under maintenance</option></select></div>
+      <div class="form-check mb-4">
+        <input type="checkbox" name="active" id="editScreenActive" class="form-check-input">
+        <label class="form-check-label text-white small" for="editScreenActive">Active</label>
+      </div>
+      <div class="d-flex justify-content-end" style="gap: 10px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeEditScreenModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-primary">Update Screen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleCustomScreenType(selectElem, targetDivId) {
+  const target = document.getElementById(targetDivId);
+  if (selectElem.value === 'CUSTOM') {
+    target.style.display = 'block';
+  } else {
+    target.style.display = 'none';
+  }
+}
+function openAddScreenModal() {
+  document.getElementById('addScreenModal').style.display = 'flex';
+}
+function closeAddScreenModal() {
+  document.getElementById('addScreenModal').style.display = 'none';
+}
+function openEditScreenModal(id, thName, name, type, cap, active, number, turnaround, status) {
+  document.getElementById('editScreenId').value = id;
+  document.getElementById('editScreenTheatre').value = thName;
+  document.getElementById('editScreenName').value = name;
+  document.getElementById('editScreenType').value = type;
+  document.getElementById('editScreenCap').value = cap;
+  document.getElementById('editScreenActive').checked = active;
+  document.getElementById('editScreenNumber').value = number || '';
+  document.getElementById('editScreenTurnaround').value = turnaround || 30;
+  document.getElementById('editScreenStatus').value = status || 'ACTIVE';
+  document.getElementById('editScreenModal').style.display = 'flex';
+}
+function closeEditScreenModal() {
+  document.getElementById('editScreenModal').style.display = 'none';
+}
+</script>
+{% endblock %}

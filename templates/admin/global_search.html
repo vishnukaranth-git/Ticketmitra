@@ -1,0 +1,184 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- Header -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Dashboard</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Search Results</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-search text-warning"></i>
+        <span>Search: "{{ q }}"</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Found <strong>{{ total_matches }}</strong> matching record{{ total_matches|pluralize }} across cinema operations database.
+      </p>
+    </div>
+  </div>
+
+  {% if total_matches > 0 %}
+    <!-- Movies Results -->
+    {% if results.movies %}
+      <div class="tm-panel-card mb-4">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-film text-danger"></i>
+            <span>Movies ({{ results.movies|length }})</span>
+          </div>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for m in results.movies %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div class="d-flex align-items-center" style="gap: 14px;">
+                  <img src="{{ m.get_poster_url }}" style="width: 38px; height: 52px; object-fit: cover; border-radius: 4px;">
+                  <div>
+                    <h4 class="font-weight-bold text-white mb-0" style="font-size: 14px;">{{ m.get_display_title }}</h4>
+                    <small class="text-muted">{{ m.original_language|upper }} | Released: {{ m.release_date|default:"TBA" }}</small>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center" style="gap: 8px;">
+                  <a href="{% url 'admin:movies_movie_change' m.id %}" class="tm-btn tm-btn-ghost py-1 px-3">Edit</a>
+                  <a href="{% url 'movie_detail' m.id %}" target="_blank" class="tm-btn tm-btn-secondary py-1 px-3">View</a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Bookings Results -->
+    {% if results.bookings %}
+      <div class="tm-panel-card mb-4">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-ticket-alt text-success"></i>
+            <span>Bookings ({{ results.bookings|length }})</span>
+          </div>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for b in results.bookings %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div>
+                  <div class="text-white font-weight-bold" style="font-size: 13px;">Booking #{{ b.id }} — {{ b.movie.get_display_title }}</div>
+                  <small class="text-muted">User: {{ b.user.username }} | Seat: {{ b.seat.seat_number }} | {{ b.theater.name }}</small>
+                </div>
+                <div>
+                  <a href="{% url 'booking_ticket' b.id %}" target="_blank" class="tm-btn tm-btn-ghost py-1 px-3">Ticket</a>
+                  <a href="{% url 'admin:movies_booking_change' b.id %}" class="tm-btn tm-btn-secondary py-1 px-3">Admin</a>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Payments Results -->
+    {% if results.payments %}
+      <div class="tm-panel-card mb-4">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fab fa-stripe text-info"></i>
+            <span>Payments ({{ results.payments|length }})</span>
+          </div>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for p in results.payments %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div>
+                  <div class="text-white font-weight-bold" style="font-size: 13px;">
+                    Order {{ p.order_id }} — ₹{{ p.amount }}
+                    <span class="tm-badge tm-badge-{% if p.status == 'SUCCESS' %}success{% elif p.status == 'FAILED' %}danger{% else %}blue{% endif %} ml-2">{{ p.status }}</span>
+                  </div>
+                  <small class="text-muted">Customer: {{ p.user.username }} ({{ p.user.email }}) | {{ p.created_at|date:"M d, Y H:i" }}</small>
+                </div>
+                <a href="{% url 'admin:movies_payment_change' p.id %}" class="tm-btn tm-btn-ghost py-1 px-3">View</a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Theaters & Screens Results -->
+    {% if results.theaters or results.screens %}
+      <div class="tm-panel-card mb-4">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-building text-warning"></i>
+            <span>Theaters & Screens ({{ results.theaters|length|add:results.screens|length }})</span>
+          </div>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for t in results.theaters %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div>
+                  <div class="text-white font-weight-bold" style="font-size: 13px;">{{ t.name }} — {{ t.movie.get_display_title }}</div>
+                  <small class="text-muted">{{ t.city }} | {{ t.time|date:"M d, Y - h:i A" }}</small>
+                </div>
+                <a href="{% url 'admin_manage_seats_theater' t.id %}" class="tm-btn tm-btn-secondary py-1 px-3">Seats</a>
+              </div>
+            {% endfor %}
+            {% for s in results.screens %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div>
+                  <div class="text-white font-weight-bold" style="font-size: 13px;">{{ s.theater_name }} — {{ s.name }} ({{ s.screen_type }})</div>
+                  <small class="text-muted">Capacity: {{ s.capacity }} seats</small>
+                </div>
+                <a href="{% url 'admin_screen_detail' s.id %}" class="tm-btn tm-btn-ghost py-1 px-3">Details</a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Users Results -->
+    {% if results.users %}
+      <div class="tm-panel-card mb-4">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-users text-primary"></i>
+            <span>Users ({{ results.users|length }})</span>
+          </div>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for u in results.users %}
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between" style="border-color: var(--tm-border) !important;">
+                <div class="d-flex align-items-center" style="gap: 12px;">
+                  <div class="tm-user-avatar" style="width: 32px; height: 32px; font-size: 12px;">{{ u.username|slice:":1"|upper }}</div>
+                  <div>
+                    <div class="text-white font-weight-bold" style="font-size: 13px;">{{ u.username }} ({{ u.get_full_name|default:"-" }})</div>
+                    <small class="text-muted">{{ u.email }} | Joined: {{ u.date_joined|date:"M d, Y" }}</small>
+                  </div>
+                </div>
+                <a href="{% url 'admin:auth_user_change' u.id %}" class="tm-btn tm-btn-ghost py-1 px-3">Edit User</a>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div class="p-5 text-center text-muted">
+      <i class="fas fa-search fa-3x mb-3" style="color: #64748b;"></i>
+      <h3 class="text-white">No Matching Records Found</h3>
+      <p>Try searching with another keyword such as movie name, user email, booking ID, or theater location.</p>
+      <a href="{% url 'admin:index' %}" class="tm-btn tm-btn-primary mt-2">Back to Dashboard</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

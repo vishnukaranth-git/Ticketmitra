@@ -1,0 +1,256 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Payments & Transactions Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fab fa-stripe text-info mr-2"></i> Payments & Transactions
+      </h2>
+      <p class="text-muted mb-0 small">
+        Stripe integration audit log with real payment IDs, order references, statuses and transaction amounts.
+      </p>
+    </div>
+  </div>
+
+  <!-- SEARCH & STATUS FILTERS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/payments/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="flex: 1; min-width: 250px;">
+          <input type="text" name="q" value="{{ q }}" placeholder="Search Stripe ID, order ref, customer username, email..." class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 14px; font-size: 13.5px;">
+        </div>
+        <div style="min-width: 170px;">
+          <select name="status" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 12px; font-size: 13.5px;">
+            <option value="">All Statuses</option>
+            <option value="SUCCESS" {% if status_filter == 'SUCCESS' %}selected{% endif %}>SUCCESS</option>
+            <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>PENDING</option>
+            <option value="FAILED" {% if status_filter == 'FAILED' %}selected{% endif %}>FAILED</option>
+            <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>CANCELLED</option>
+            <option value="REFUNDED" {% if status_filter == 'REFUNDED' %}selected{% endif %}>REFUNDED</option>
+          </select>
+        </div>
+        <button type="submit" class="tm-btn tm-btn-primary py-2 px-3">
+          <i class="fas fa-search mr-1"></i> Filter
+        </button>
+        {% if q or status_filter %}
+          <a href="/admin/payments/" class="tm-btn tm-btn-ghost py-2 px-3">Reset</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- PAYMENTS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if payments %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Payment ID</th>
+                <th style="padding: 14px 18px;">Customer</th>
+                <th style="padding: 14px 18px;">Order / Transaction Ref</th>
+                <th style="padding: 14px 18px;">Provider</th>
+                <th style="padding: 14px 18px; text-align: right;">Amount</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px;">Date & Time</th>
+                <th style="padding: 14px 18px; text-align: right;">Inspect</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in payments %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Payment ID -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <span class="font-weight-bold text-white">#{{ p.id }}</span>
+                    {% if p.booking %}
+                      <div class="text-muted small">Booking #{{ p.booking.id }}</div>
+                    {% endif %}
+                  </td>
+
+                  <!-- User -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white font-weight-bold">{{ p.user.get_full_name|default:p.user.username }}</div>
+                    <div class="text-muted small">{{ p.user.email }}</div>
+                  </td>
+
+                  <!-- References -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white font-mono" style="font-size: 12.5px;">
+                      {{ p.payment_id|default:p.transaction_id|default:p.order_id|truncatechars:26 }}
+                    </div>
+                    {% if p.order_id %}
+                      <div class="text-muted small font-mono" style="font-size: 11px;">Order: {{ p.order_id|truncatechars:22 }}</div>
+                    {% endif %}
+                  </td>
+
+                  <!-- Provider -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <span class="text-info font-weight-bold" style="font-size: 12px;">
+                      <i class="fab fa-stripe mr-1"></i> {{ p.payment_gateway|default:"Stripe" }}
+                    </span>
+                  </td>
+
+                  <!-- Amount -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <span class="font-weight-bold text-success" style="font-size: 15px;">
+                      ₹{{ p.amount|floatformat:2 }}
+                    </span>
+                    <div class="text-muted" style="font-size: 11px;">{{ p.currency|default:"INR" }}</div>
+                  </td>
+
+                  <!-- Status Badge -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if p.status == 'SUCCESS' %}
+                      <span class="tm-badge tm-badge-green">SUCCESS</span>
+                    {% elif p.status == 'FAILED' %}
+                      <span class="tm-badge tm-badge-red">FAILED</span>
+                    {% elif p.status == 'PENDING' or p.status == 'CREATED' %}
+                      <span class="tm-badge tm-badge-blue">{{ p.status }}</span>
+                    {% elif p.status == 'CANCELLED' %}
+                      <span class="tm-badge tm-badge-orange">CANCELLED</span>
+                    {% elif p.status == 'REFUNDED' %}
+                      <span class="tm-badge tm-badge-purple">REFUNDED</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-gray">{{ p.status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Date -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white small">{{ p.created_at|date:"M d, Y" }}</div>
+                    <div class="text-muted small">{{ p.created_at|date:"h:i:s A" }}</div>
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-flex justify-content-end align-items-center" style="gap: 6px;">
+                      <button type="button" class="tm-btn tm-btn-ghost py-1 px-2 small" onclick="openPaymentDetails('{{ p.id }}', '{{ p.user.username }}', '{{ p.amount }}', '{{ p.currency|default:'INR' }}', '{{ p.status }}', '{{ p.payment_id|default:''|escapejs }}', '{{ p.order_id|default:''|escapejs }}', '{{ p.transaction_id|default:''|escapejs }}', '{{ p.created_at|date:'M d, Y H:i:s' }}')" title="View Full Payment Metadata">
+                        <i class="fas fa-eye"></i> Details
+                      </button>
+                      {% if p.status == 'SUCCESS' %}
+                        <button type="button" class="tm-btn tm-btn-danger py-1 px-2 small" onclick="openRefundModal('{{ p.id }}', '{{ p.amount }}', '{{ p.user.username }}')" title="Process Refund">
+                          <i class="fas fa-undo-alt mr-1"></i> Refund
+                        </button>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fab fa-stripe text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Payments Recorded</h4>
+          <p class="text-muted mb-2">No Stripe transactions recorded yet.</p>
+          <small class="text-muted">Live test Stripe transactions will appear here immediately after user checkout.</small>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- REFUND MODAL -->
+<div id="refundModal" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid #D61F45; border-radius: 12px; width: 100%; max-width: 480px; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-undo-alt text-danger mr-2"></i> Process Refund</h4>
+      <button type="button" class="btn text-white p-0" onclick="closeRefundModal()" style="font-size: 20px;">&times;</button>
+    </div>
+    <form method="post" id="refundForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="refund_payment">
+      <input type="hidden" name="payment_id" id="refundPaymentId" value="">
+      <p class="text-muted small mb-3">
+        Refunding payment <strong class="text-white" id="refundModalInfo"></strong> will issue a refund via Stripe, mark the booking as CANCELLED, and immediately release reserved/booked seats.
+      </p>
+      <div class="form-group mb-3">
+        <label class="small text-muted font-weight-bold">Reason for Refund *</label>
+        <input type="text" class="form-control" name="refund_reason" placeholder="e.g. Customer cancelled / screening rescheduled" required>
+      </div>
+      <div class="d-flex justify-content-end" style="gap: 8px;">
+        <button type="button" class="tm-btn tm-btn-ghost" onclick="closeRefundModal()">Cancel</button>
+        <button type="submit" class="tm-btn tm-btn-danger"><i class="fas fa-check mr-1"></i> Confirm &amp; Process Refund</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openRefundModal(id, amount, user) {
+  document.getElementById('refundPaymentId').value = id;
+  document.getElementById('refundModalInfo').innerText = '#' + id + ' (₹' + parseFloat(amount).toFixed(2) + ' - ' + user + ')';
+  document.getElementById('refundModal').style.display = 'flex';
+}
+function closeRefundModal() {
+  document.getElementById('refundModal').style.display = 'none';
+}
+</script>
+
+<!-- PAYMENT DETAILS MODAL -->
+<div id="paymentDetailsModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #111827; border: 1px solid var(--tm-border); border-radius: 12px; width: 100%; max-width: 540px; padding: 25px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="text-white font-weight-bold mb-0"><i class="fas fa-shield-alt text-success mr-2"></i> Payment Audit Details</h4>
+      <button type="button" class="btn text-white p-0" onclick="closePaymentDetails()" style="font-size: 20px;">&times;</button>
+    </div>
+    <div id="paymentDetailsBody" class="text-white" style="font-size: 13.5px;">
+      <!-- Populated via JS -->
+    </div>
+    <div class="d-flex justify-content-end mt-4">
+      <button type="button" class="tm-btn tm-btn-ghost" onclick="closePaymentDetails()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openPaymentDetails(id, user, amount, cur, status, payId, ordId, txId, dt) {
+  const content = `
+    <div class="p-3 rounded mb-3" style="background: rgba(27, 41, 64, 0.72); border: 1px solid var(--tm-border);">
+      <div class="mb-2"><span class="text-muted">Transaction ID:</span> <strong>#${id}</strong></div>
+      <div class="mb-2"><span class="text-muted">Customer:</span> <strong>${user}</strong></div>
+      <div class="mb-2"><span class="text-muted">Amount:</span> <strong class="text-success font-weight-bold">₹${parseFloat(amount).toFixed(2)} ${cur}</strong></div>
+      <div class="mb-2"><span class="text-muted">Status:</span> <strong>${status}</strong></div>
+      <div class="mb-2"><span class="text-muted">Created:</span> <strong>${dt}</strong></div>
+    </div>
+    <div class="p-3 rounded" style="background: rgba(11, 25, 43, 0.85); border: 1px solid var(--tm-border); font-family: monospace; font-size: 12px; word-break: break-all;">
+      <div><span class="text-muted">Stripe Payment ID:</span> ${payId || 'N/A'}</div>
+      <div><span class="text-muted">Order Reference:</span> ${ordId || 'N/A'}</div>
+      <div><span class="text-muted">Gateway Ref:</span> ${txId || 'N/A'}</div>
+    </div>
+  `;
+  document.getElementById('paymentDetailsBody').innerHTML = content;
+  document.getElementById('paymentDetailsModal').style.display = 'flex';
+}
+function closePaymentDetails() {
+  document.getElementById('paymentDetailsModal').style.display = 'none';
+}
+</script>
+{% endblock %}

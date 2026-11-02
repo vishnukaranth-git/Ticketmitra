@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}Review Reports Moderation{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-flag text-danger mr-2"></i> Review Reports Moderation
+      </h2>
+      <p class="text-muted mb-0 small">
+        Inspect flagged reviews reported by the community. Total pending reports: {{ total_count }}.
+      </p>
+    </div>
+    <div class="d-flex" style="gap: 10px;">
+      <a href="/admin/reviews/" class="tm-btn tm-btn-ghost">
+        <i class="fas fa-arrow-left mr-1"></i> Back to Reviews
+      </a>
+    </div>
+  </div>
+
+  <!-- REPORTS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if reports %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Reported Review</th>
+                <th style="padding: 14px 18px;">Reporter</th>
+                <th style="padding: 14px 18px;">Reason / Details</th>
+                <th style="padding: 14px 18px;">Date</th>
+                <th style="padding: 14px 18px; text-align: center;">Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rep in reports %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Reported Review -->
+                  <td style="padding: 12px 18px; vertical-align: middle; max-width: 280px;">
+                    <div class="font-weight-bold text-white mb-1">{{ rep.review.movie.get_display_title }}</div>
+                    <p class="text-muted small mb-0 font-italic" style="white-space: normal;">
+                      "{{ rep.review.review_text|truncatechars:100 }}"
+                    </p>
+                    <div class="text-muted" style="font-size: 11px;">By @{{ rep.review.user.username }} &bull; Rating: {{ rep.review.rating }}/5</div>
+                  </td>
+
+                  <!-- Reporter -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white">{{ rep.reported_by.get_full_name|default:rep.reported_by.username }}</div>
+                    <div class="text-muted small">@{{ rep.reported_by.username }}</div>
+                  </td>
+
+                  <!-- Reason -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <span class="tm-badge tm-badge-red mb-1">{{ rep.reason }}</span>
+                  </td>
+
+                  <!-- Date -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white small">{{ rep.created_at|date:"M d, Y" }}</div>
+                  </td>
+
+                  <!-- Status -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="tm-badge tm-badge-orange">UNDER REVIEW</span>
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      <form method="POST" action="/admin/reports/" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="dismiss">
+                        <input type="hidden" name="report_id" value="{{ rep.id }}">
+                        <button type="submit" class="tm-btn tm-btn-ghost py-1 px-2 small text-success" title="Dismiss Report">
+                          <i class="fas fa-check mr-1"></i> Dismiss
+                        </button>
+                      </form>
+                      <form method="POST" action="/admin/reports/" onsubmit="return confirm('Delete reported review permanently?');" style="margin: 0; display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_review">
+                        <input type="hidden" name="report_id" value="{{ rep.id }}">
+                        <button type="submit" class="tm-btn tm-btn-danger py-1 px-2 small" title="Delete Reported Review">
+                          <i class="fas fa-trash-alt mr-1"></i> Delete Review
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-flag text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No review reports</h4>
+          <p class="text-muted">No reviews have been flagged or reported by users.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "users/basic.html" %}
+{% block title %}Booking Confirmed - {{ movie.get_display_title }} - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .ticket-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    position: relative;
+  }
+  .ticket-header-strip {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(59, 130, 246, 0.15) 100%);
+    border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+    padding: 24px;
+    text-align: center;
+  }
+  .ticket-check-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--status-success);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 0 24px rgba(34, 197, 94, 0.6);
+    margin-bottom: 12px;
+  }
+  .ticket-body {
+    padding: 32px 36px;
+  }
+  .ticket-notch-left, .ticket-notch-right {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #070B14;
+    top: 55%;
+    z-index: 5;
+  }
+  .ticket-notch-left {
+    left: -15px;
+    border-right: 1px solid var(--surface-border);
+  }
+  .ticket-notch-right {
+    right: -15px;
+    border-left: 1px solid var(--surface-border);
+  }
+  .ticket-seat-pill {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid var(--color-interactive);
+    color: #93c5fd;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ticket-meta-grid {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  @media print {
+    .cinematic-navbar, .cinematic-footer, .no-print {
+      display: none !important;
+    }
+    body {
+      background: #fff !important;
+      color: #000 !important;
+    }
+    .ticket-card {
+      border: 1px solid #ccc !important;
+      box-shadow: none !important;
+      background: #fff !important;
+      color: #000 !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- DIGITAL TICKET CARD -->
+      <div class="ticket-card" id="digitalTicket">
+        <div class="ticket-notch-left"></div>
+        <div class="ticket-notch-right"></div>
+
+        <!-- HEADER CONFIRMATION BANNER -->
+        <div class="ticket-header-strip">
+          <div class="ticket-check-circle">
+            <i class="fas fa-check"></i>
+          </div>
+          <h1 class="h3 font-weight-bold text-white mb-1">Booking Confirmed!</h1>
+          <p class="text-secondary small mb-0">
+            Your payment was successfully verified via Stripe. We look forward to seeing you at the movies!
+          </p>
+        </div>
+
+        <!-- TICKET DETAILS BODY -->
+        <div class="ticket-body">
+          <div class="row align-items-center mb-4">
+            <div class="col-md-3 text-center mb-3 mb-md-0">
+              <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="rounded shadow" style="width: 120px; height: 170px; object-fit: cover; border: 1px solid rgba(255,255,255,0.15);">
+            </div>
+            <div class="col-md-9">
+              <div class="d-flex align-items-center mb-2" style="gap: 8px;">
+                <h2 class="h4 font-weight-bold text-white mb-0">{{ movie.get_display_title }}</h2>
+                {% if movie.age_certification %}
+                  <span class="badge badge-dark border" style="border-color: var(--color-energy); color: var(--color-energy); font-size: 11px;">{{ movie.age_certification }}</span>
+                {% endif %}
+              </div>
+              <p class="text-secondary mb-2">
+                <i class="fas fa-film text-info mr-1"></i> <strong>{{ theater.name }}</strong>
+              </p>
+              <p class="text-secondary mb-2">
+                <i class="far fa-calendar-alt text-info mr-1"></i> {{ theater.time|date:"l, F d, Y" }}
+                <span class="mx-2">•</span>
+                <i class="far fa-clock text-info mr-1"></i> {{ theater.time|date:"h:i A" }}
+              </p>
+              <p class="text-secondary small mb-0">
+                <i class="fas fa-language text-secondary mr-1"></i> {{ movie.languages.first.name|default:"Original Audio" }}
+                {% if movie.runtime %}<span class="mx-2">•</span><i class="fas fa-hourglass-half text-secondary mr-1"></i> {{ movie.get_runtime_display }}{% endif %}
+              </p>
+            </div>
+          </div>
+
+          <!-- SEAT ALLOCATION -->
+          <div class="mb-4">
+            <label class="text-secondary small font-weight-bold text-uppercase mb-2 d-block" style="letter-spacing: 0.05em;">
+              Confirmed Seats ({{ seats_count }})
+            </label>
+            <div>
+              {% for s in all_seats %}
+                <span class="ticket-seat-pill"><i class="fas fa-chair"></i> Seat {{ s }}</span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- TRANSACTION & BOOKING REFERENCE GRID -->
+          <div class="ticket-meta-grid mb-4">
+            <div class="row">
+              <div class="col-sm-6 mb-3 mb-sm-0">
+                <div class="text-muted small">Booking Reference ID</div>
+                <div class="font-weight-bold text-white font-monospace" style="font-size: 15px;">#BK-{{ booking.id|stringformat:"06d" }}</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="text-muted small">Stripe Payment / Intent ID</div>
+                <div class="font-weight-bold text-info font-monospace" style="font-size: 14px;">
+                  {{ payment.payment_id|default:"pay_verified_stripe" }}
+                </div>
+              </div>
+            </div>
+            <hr class="my-3" style="border-color: var(--surface-border) !important;">
+            <div class="row">
+              <div class="col-sm-4 mb-2 mb-sm-0">
+                <div class="text-muted small">Amount Paid</div>
+                <div class="font-weight-bold text-success" style="font-size: 16px;">₹{{ total_amount|floatformat:2 }}</div>
+              </div>
+              <div class="col-sm-4 mb-2 mb-sm-0">
+                <div class="text-muted small">Payment Status</div>
+                <div class="badge badge-success px-2 py-1" style="font-size: 11px;">
+                  <i class="fas fa-check-circle mr-1"></i> SUCCESS
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="text-muted small">Booked At</div>
+                <div class="text-white small">{{ booking.booked_at|date:"M d, Y - h:i A" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between no-print" style="gap: 10px;">
+            <div>
+              <a href="{% url 'download_ticket_pdf' booking.id %}" class="btn btn-danger mr-2 font-weight-bold" style="border-radius: 8px; background: #E63946;">
+                <i class="fas fa-file-pdf mr-1"></i> Download PDF Ticket
+              </a>
+              <button onclick="window.print()" class="btn btn-outline-light mr-2 font-weight-bold" style="border-radius: 8px;">
+                <i class="fas fa-print mr-1"></i> Print
+              </button>
+              <a href="{% url 'my_bookings' %}" class="btn btn-cinematic-secondary" style="border-radius: 8px;">
+                <i class="fas fa-ticket-alt mr-1"></i> My Bookings
+              </a>
+            </div>
+            <a href="{% url 'home' %}" class="btn btn-cinematic-primary">
+              <i class="fas fa-home mr-1"></i> Back to Home
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

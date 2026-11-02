@@ -1,0 +1,83 @@
+<div class="carousel-card-item" data-movie-id="{{ movie.id }}" data-bookable="{% if movie.is_booking_available %}true{% else %}false{% endif %}">
+  <div class="movie-card-uniform">
+    <div class="card-poster-container">
+      <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
+        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+        <div class="poster-gradient-overlay"></div>
+      </a>
+
+      <!-- Rating badge -->
+      <div class="card-badge-top-right">
+        <i class="fas fa-star text-warning"></i>
+        {% if movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% else %}{{ movie.rating|default:"8.0" }}{% endif %}
+      </div>
+
+      <!-- Demand / Status Badge -->
+      {% if movie.demand_badge == 'ADVANCE OPEN' %}
+      <div class="card-badge-top-left" style="background: rgba(220, 20, 60, 0.95); color: #fff; font-weight: 700; font-size: 10px; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        <i class="fas fa-ticket-alt mr-1"></i> ADVANCE OPEN
+      </div>
+      {% elif movie.demand_badge == 'FRANCHISE' %}
+      <div class="card-badge-top-left" style="background: rgba(245, 158, 11, 0.95); color: #000; font-weight: 800; font-size: 10px; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        <i class="fas fa-crown mr-1"></i> FRANCHISE
+      </div>
+      {% elif movie.demand_badge == 'TRENDING' %}
+      <div class="card-badge-top-left" style="background: rgba(239, 68, 68, 0.95); color: #fff; font-weight: 700; font-size: 10px; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        <i class="fas fa-fire mr-1"></i> TRENDING
+      </div>
+      {% elif movie.demand_badge == 'HIGH DEMAND' %}
+      <div class="card-badge-top-left" style="background: rgba(214, 31, 69, 0.95); color: #fff; font-weight: 700; font-size: 10px; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        <i class="fas fa-chart-line mr-1"></i> HIGH DEMAND
+      </div>
+      {% elif movie.demand_badge == 'NEW RELEASE' %}
+      <div class="card-badge-top-left" style="background: rgba(16, 185, 129, 0.95); color: #fff; font-weight: 700; font-size: 10px; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        <i class="fas fa-film mr-1"></i> NEW
+      </div>
+      {% elif not movie.is_booking_available and movie.release_date %}
+      <div class="card-badge-top-left" style="background: rgba(30, 41, 59, 0.9); color: #F2E9DC; font-weight: 600; font-size: 10px; letter-spacing: 0.04em; padding: 3px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15);">
+        <i class="fas fa-calendar-alt mr-1 text-warning"></i> {{ movie.release_date|date:"M d" }}
+      </div>
+      {% endif %}
+
+      {% if movie.get_trailer_embed_url or movie.trailer_url %}
+      <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
+        <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="card-content-uniform">
+      <div>
+        <a href="{% url 'movie_detail' movie.id %}" class="card-title-clamped" title="{{ movie.get_display_title }}">
+          {{ movie.get_display_title }}
+        </a>
+        <div class="card-meta-clamped">
+          {% for lang in movie.languages.all|slice:":1" %}{{ lang.name }}{% empty %}{{ movie.original_language|upper }}{% endfor %} • 
+          {% for g in movie.genres.all|slice:":1" %}{{ g.name }}{% empty %}Cinema{% endfor %}{% if movie.release_date %} • {{ movie.release_date|date:"M d" }}{% endif %}
+        </div>
+        {% if movie.ai_verdict %}
+        <div style="font-size: 11px; color: #F59E0B; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35;">
+          <i class="fas fa-sparkles" style="font-size: 9px; margin-right: 3px;"></i>{{ movie.ai_verdict }}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card-action-bar">
+        {% if movie.is_booking_available %}
+        <a href="{% url 'theater_list' movie.id %}" class="btn-card-action book-now" title="Book tickets for {{ movie.get_display_title }}" style="background: var(--crimson, #D61F45) !important; color: #FFFFFF !important;">
+          <i class="fas fa-ticket-alt mr-1"></i> BOOK NOW
+        </a>
+        {% elif movie.release_date and movie.release_date > today %}
+        <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon" title="View details and release date">
+          <i class="far fa-bell mr-1"></i> COMING SOON
+        </a>
+        {% else %}
+        <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon" title="View movie details">
+          <i class="fas fa-info-circle mr-1"></i> VIEW DETAILS
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+

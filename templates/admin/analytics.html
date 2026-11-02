@@ -1,0 +1,907 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <!-- Chart.js CDN for lightweight, high-performance canvas charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .tm-filter-bar {
+      background: var(--tm-card);
+      border: 1px solid var(--tm-border);
+      border-radius: var(--tm-radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .tm-preset-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tm-preset-btn {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 500;
+      background: var(--tm-elevated);
+      color: var(--tm-text-muted);
+      border: 1px solid var(--tm-border);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .tm-preset-btn:hover {
+      background: rgba(230, 57, 70, 0.15);
+      color: #fff;
+      border-color: var(--tm-primary);
+    }
+    .tm-preset-btn.active {
+      background: var(--tm-primary);
+      color: #fff;
+      border-color: var(--tm-primary);
+      box-shadow: 0 2px 8px rgba(230, 57, 70, 0.4);
+    }
+    .tm-custom-date-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tm-date-input {
+      background: var(--tm-elevated);
+      border: 1px solid var(--tm-border);
+      color: var(--tm-text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    .tm-date-input:focus {
+      border-color: var(--tm-blue);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    .tm-export-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .tm-export-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 6px;
+      background: var(--tm-card);
+      border: 1px solid var(--tm-border-strong);
+      border-radius: 10px;
+      box-shadow: var(--tm-shadow);
+      min-width: 260px;
+      z-index: 1000;
+      overflow: hidden;
+    }
+    .tm-export-dropdown:hover .tm-export-menu {
+      display: block;
+    }
+    .tm-export-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      color: var(--tm-text);
+      text-decoration: none;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background 0.15s ease;
+    }
+    .tm-export-item:last-child {
+      border-bottom: none;
+    }
+    .tm-export-item:hover {
+      background: var(--tm-elevated);
+      color: var(--tm-primary);
+    }
+    .tm-badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tm-badge-live::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+    .tm-progress-bar-bg {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      height: 8px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .tm-progress-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.4s ease;
+    }
+    .tm-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .tm-table th {
+      text-align: left;
+      padding: 12px 14px;
+      background: var(--tm-elevated);
+      color: var(--tm-text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--tm-border);
+    }
+    .tm-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--tm-text);
+      vertical-align: middle;
+    }
+    .tm-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .tm-table-card {
+      background: var(--tm-card);
+      border: 1px solid var(--tm-border);
+      border-radius: var(--tm-radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .tm-table-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--tm-border);
+    }
+    .tm-section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- 1. EXECUTIVE HERO BANNER -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <div class="d-flex align-items-center mb-2" style="gap: 10px;">
+        <a href="{% url 'admin:index' %}" class="text-muted small"><i class="fas fa-arrow-left mr-1"></i> Operations Center</a>
+        <span class="text-muted small">/</span>
+        <span class="text-white small">Executive Analytics Dashboard</span>
+      </div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-chart-line text-danger"></i>
+        <span>Business Intelligence & Analytics</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Enterprise insights for ticket sales, multi-period revenue, venue occupancy, peak traffic, cancellations, and user growth.
+      </p>
+    </div>
+    <div class="d-flex align-items-center" style="gap: 12px; flex-wrap: wrap;">
+      <span class="tm-badge-live">Real-Time Aggregations</span>
+      <!-- CSV Export Center Dropdown -->
+      <div class="tm-export-dropdown">
+        <button class="tm-btn tm-btn-primary" style="padding: 9px 18px; font-size: 13px;">
+          <i class="fas fa-file-csv mr-1"></i> Export Reports (CSV) <i class="fas fa-chevron-down ml-1" style="font-size: 10px;"></i>
+        </button>
+        <div class="tm-export-menu">
+          <a href="{% url 'admin_analytics_export' %}?report=comprehensive&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-file-invoice text-success"></i> Comprehensive Executive Report
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=revenue_trend&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-chart-line text-primary"></i> Revenue & Booking Trends CSV
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=movies&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-film text-danger"></i> Most Booked Movies CSV
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=theaters&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-building text-info"></i> Theater Occupancy & Performance CSV
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=peak_hours&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-clock text-warning"></i> Peak Booking Hours Distribution CSV
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=cancellations&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-ban text-danger"></i> Cancellation & Refund Statistics CSV
+          </a>
+          <a href="{% url 'admin_analytics_export' %}?report=users&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-export-item">
+            <i class="fas fa-users text-purple"></i> User Growth Metrics CSV
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. DATE FILTER CONTROLS BAR -->
+  <div class="tm-filter-bar">
+    <div class="tm-preset-group">
+      <span class="text-muted small d-flex align-items-center mr-1"><i class="fas fa-calendar-alt mr-1"></i> Timeframe:</span>
+      <a href="?preset=today" class="tm-preset-btn {% if preset == 'today' %}active{% endif %}">Today</a>
+      <a href="?preset=last_7_days" class="tm-preset-btn {% if preset == 'last_7_days' %}active{% endif %}">Last 7 Days</a>
+      <a href="?preset=last_30_days" class="tm-preset-btn {% if preset == 'last_30_days' %}active{% endif %}">Last 30 Days</a>
+      <a href="?preset=this_month" class="tm-preset-btn {% if preset == 'this_month' %}active{% endif %}">This Month</a>
+      <a href="?preset=this_year" class="tm-preset-btn {% if preset == 'this_year' %}active{% endif %}">This Year</a>
+      <a href="?preset=all_time" class="tm-preset-btn {% if preset == 'all_time' %}active{% endif %}">All Time</a>
+    </div>
+
+    <!-- Custom Date Range Form -->
+    <form method="GET" action="" class="tm-custom-date-form">
+      <span class="text-muted small">Custom:</span>
+      <input type="date" name="start_date" value="{{ start_date }}" class="tm-date-input" title="From Date" aria-label="From Date">
+      <span class="text-muted small">to</span>
+      <input type="date" name="end_date" value="{{ end_date }}" class="tm-date-input" title="To Date" aria-label="To Date">
+      <button type="submit" class="tm-btn tm-btn-ghost" style="padding: 6px 14px; font-size: 13px;">
+        <i class="fas fa-filter mr-1"></i> Apply
+      </button>
+      {% if preset != 'last_30_days' or start_date or end_date %}
+        <a href="?preset=last_30_days" class="text-muted small ml-1" title="Reset filter"><i class="fas fa-undo"></i> Reset</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Active Range Alert Banner -->
+  <div class="mb-4 d-flex align-items-center justify-content-between p-2 px-3 rounded" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2);">
+    <div class="small text-muted">
+      <i class="fas fa-info-circle text-primary mr-1"></i> Active Analytics Window: <strong class="text-white">{{ date_range_display }}</strong>
+      &bull; Aggregating confirmed ticket bookings, Stripe/Razorpay payments, venue occupancy, and cancellations.
+    </div>
+    <div class="small text-muted">
+      Status: <span class="text-success font-weight-bold">Optimized DB Indexes Active</span>
+    </div>
+  </div>
+
+  <!-- 3. TOP KPI CARDS GRID -->
+  <div class="tm-metrics-grid mb-4">
+    <!-- REVENUE CARD -->
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Period Box Office Revenue</div>
+        <div class="tm-metric-icon-box green"><i class="fas fa-rupee-sign"></i></div>
+      </div>
+      <div class="tm-metric-value">₹{{ period_revenue|floatformat:2 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-check-circle"></i> Successful Gateway Payments
+      </div>
+    </div>
+
+    <!-- BOOKINGS CARD -->
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Confirmed Bookings</div>
+        <div class="tm-metric-icon-box blue"><i class="fas fa-ticket-alt"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ confirmed_period_bookings }}</div>
+      <div class="tm-metric-subtext">
+        Total attempted: {{ total_period_bookings }} tickets
+      </div>
+    </div>
+
+    <!-- OCCUPANCY CARD -->
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Network Seat Occupancy</div>
+        <div class="tm-metric-icon-box orange"><i class="fas fa-percentage"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ overall_occupancy_pct }}%</div>
+      <div class="tm-metric-subtext">
+        {{ total_network_booked_seats }} / {{ total_network_seats }} seats occupied
+      </div>
+    </div>
+
+    <!-- CANCELLATION CARD -->
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Cancellation Rate</div>
+        <div class="tm-metric-icon-box red"><i class="fas fa-undo-alt"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ cancellation_rate }}%</div>
+      <div class="tm-metric-subtext negative">
+        {{ cancelled_period_bookings }} cancelled (₹{{ total_refund_amount|floatformat:2 }} refunded)
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. MULTI-PERIOD REVENUE INSIGHTS SUMMARY (DAILY, WEEKLY, MONTHLY, YEARLY) -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-coins text-warning"></i>
+        <span>Multi-Horizon Revenue & Sales Breakdown</span>
+      </div>
+      <small class="text-muted">Real-time aggregations (zero memory buffer load)</small>
+    </div>
+    <div class="tm-panel-body">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <!-- Daily -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">Today (Daily)</div>
+          <div class="h4 text-white mb-1">₹{{ rev_daily|floatformat:2 }}</div>
+          <div class="small text-muted"><i class="fas fa-ticket-alt mr-1"></i> {{ bookings_daily }} bookings today</div>
+        </div>
+
+        <!-- Weekly -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">This Week (Weekly)</div>
+          <div class="h4 text-white mb-1">₹{{ rev_weekly|floatformat:2 }}</div>
+          <div class="small text-muted"><i class="fas fa-ticket-alt mr-1"></i> {{ bookings_weekly }} bookings this week</div>
+        </div>
+
+        <!-- Monthly -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">This Month (Monthly)</div>
+          <div class="h4 text-white mb-1">₹{{ rev_monthly|floatformat:2 }}</div>
+          <div class="small text-muted"><i class="fas fa-ticket-alt mr-1"></i> {{ bookings_monthly }} bookings this month</div>
+        </div>
+
+        <!-- Yearly -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">This Year (Yearly)</div>
+          <div class="h4 text-white mb-1">₹{{ rev_yearly|floatformat:2 }}</div>
+          <div class="small text-muted"><i class="fas fa-ticket-alt mr-1"></i> {{ bookings_yearly }} bookings this year</div>
+        </div>
+
+        <!-- Peak Hour -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">Peak Booking Hour</div>
+          <div class="h4 text-warning mb-1">{{ peak_hour_display }}</div>
+          <div class="small text-muted"><i class="fas fa-fire mr-1"></i> {{ peak_hour_count }} bookings in window</div>
+        </div>
+
+        <!-- Users -->
+        <div class="p-3 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+          <div class="text-muted small text-uppercase font-weight-bold mb-1">Customer Accounts</div>
+          <div class="h4 text-info mb-1">{{ user_total }} users</div>
+          <div class="small text-success"><i class="fas fa-user-plus mr-1"></i> +{{ user_period_new }} new in period</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. CHARTS ROW 1: BOOKING & REVENUE TRENDS + OCCUPANCY -->
+  <div class="row mb-4" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Booking & Revenue Trends -->
+    <div style="flex: 2; min-width: 340px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-chart-area text-primary"></i>
+            <span>Booking & Revenue Trend Over Time</span>
+          </div>
+          <small class="text-muted">Daily breakdown for active window</small>
+        </div>
+        <div class="tm-panel-body" style="height: 320px; position: relative;">
+          <canvas id="chartBookingTrends"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Occupancy Percentage for Each Theater -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-building text-info"></i>
+            <span>Theater Occupancy Rates (%)</span>
+          </div>
+          <small class="text-muted">Seats booked / Total capacity</small>
+        </div>
+        <div class="tm-panel-body" style="height: 320px; position: relative;">
+          <canvas id="chartTheaterOccupancy"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. CHARTS ROW 2: MOST BOOKED MOVIES + PEAK BOOKING HOURS -->
+  <div class="row mb-4" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Most Booked Movies -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-film text-danger"></i>
+            <span>Most Booked Movies</span>
+          </div>
+          <small class="text-muted">Top movies by ticket sales</small>
+        </div>
+        <div class="tm-panel-body" style="height: 300px; position: relative;">
+          <canvas id="chartTopMovies"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Peak Booking Hours (24 Hour Distribution) -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-clock text-warning"></i>
+            <span>Peak Booking Hours (24-Hour Distribution)</span>
+          </div>
+          <small class="text-muted">Aggregated by hour of day</small>
+        </div>
+        <div class="tm-panel-body" style="height: 300px; position: relative;">
+          <canvas id="chartPeakHours"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. CHARTS ROW 3: CANCELLATIONS & PAYMENT HEALTH + USER GROWTH -->
+  <div class="row mb-4" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Cancellation & Payment Health Ratio -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fab fa-stripe text-success"></i>
+            <span>Payment & Transaction Health</span>
+          </div>
+          <small class="text-muted">Status breakdown</small>
+        </div>
+        <div class="tm-panel-body" style="height: 280px; position: relative; display: flex; align-items: center; justify-content: center;">
+          <canvas id="chartPaymentRatio"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Growth Trend -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-user-plus text-purple"></i>
+            <span>User Growth Report</span>
+          </div>
+          <small class="text-muted">New registrations over time</small>
+        </div>
+        <div class="tm-panel-body" style="height: 280px; position: relative;">
+          <canvas id="chartUserGrowth"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. DETAILED PERFORMANCE DATA TABLES -->
+
+  <!-- TABLE 1: MOST BOOKED MOVIES -->
+  <div class="tm-table-card">
+    <div class="tm-table-header">
+      <h3 class="tm-section-title">
+        <i class="fas fa-film text-danger"></i> Most Booked Movies
+      </h3>
+      <a href="{% url 'admin_analytics_export' %}?report=movies&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-btn tm-btn-ghost" style="padding: 6px 12px; font-size: 12.5px;">
+        <i class="fas fa-download mr-1"></i> CSV
+      </a>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="tm-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;">Rank</th>
+            <th>Movie Title</th>
+            <th>Language</th>
+            <th>Rating</th>
+            <th>Total Bookings</th>
+            <th>Gross Box Office Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in top_movies %}
+            <tr>
+              <td><strong class="text-muted">#{{ forloop.counter }}</strong></td>
+              <td>
+                <div class="font-weight-bold text-white">{{ m.title }}</div>
+              </td>
+              <td><span class="badge badge-secondary text-uppercase">{{ m.language }}</span></td>
+              <td><span class="text-warning">★ {{ m.rating|floatformat:1 }}</span></td>
+              <td><strong class="text-white">{{ m.booking_count }}</strong> tickets</td>
+              <td><span class="text-success font-weight-bold">₹{{ m.total_revenue|floatformat:2 }}</span></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">No movie bookings recorded for this timeframe.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TABLE 2: THEATER OCCUPANCY & PERFORMANCE -->
+  <div class="tm-table-card">
+    <div class="tm-table-header">
+      <h3 class="tm-section-title">
+        <i class="fas fa-building text-info"></i> Theater Occupancy & Performance Matrix
+      </h3>
+      <a href="{% url 'admin_analytics_export' %}?report=theaters&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-btn tm-btn-ghost" style="padding: 6px 12px; font-size: 12.5px;">
+        <i class="fas fa-download mr-1"></i> CSV
+      </a>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="tm-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;">Rank</th>
+            <th>Theater Name</th>
+            <th>City</th>
+            <th>Total Capacity</th>
+            <th>Booked Seats</th>
+            <th style="min-width: 180px;">Occupancy Rate (%)</th>
+            <th>Period Bookings</th>
+            <th>Revenue (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in theaters_list %}
+            <tr>
+              <td><strong class="text-muted">#{{ forloop.counter }}</strong></td>
+              <td>
+                <div class="font-weight-bold text-white">{{ t.name }}</div>
+              </td>
+              <td><span class="text-muted">{{ t.city }}</span></td>
+              <td>{{ t.total_seats }} seats</td>
+              <td>{{ t.booked_seats }}</td>
+              <td>
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="font-weight-bold {% if t.occupancy_pct >= 70 %}text-success{% elif t.occupancy_pct >= 35 %}text-info{% else %}text-warning{% endif %}">
+                    {{ t.occupancy_pct }}%
+                  </span>
+                  <small class="text-muted">{{ t.booked_seats }}/{{ t.total_seats }}</small>
+                </div>
+                <div class="tm-progress-bar-bg">
+                  <div class="tm-progress-bar-fill {% if t.occupancy_pct >= 70 %}bg-success{% elif t.occupancy_pct >= 35 %}bg-info{% else %}bg-warning{% endif %}" style="width: {{ t.occupancy_pct }}%;"></div>
+                </div>
+              </td>
+              <td>{{ t.period_bookings }}</td>
+              <td><strong class="text-success">₹{{ t.period_revenue|floatformat:2 }}</strong></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">No theaters found in system.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TABLE 3 & 4: CANCELLATIONS & USER GROWTH SUMMARY ROW -->
+  <div class="row" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Cancellation Statistics -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-table-card">
+        <div class="tm-table-header">
+          <h3 class="tm-section-title">
+            <i class="fas fa-ban text-danger"></i> Cancellation & Refund Summary
+          </h3>
+          <a href="{% url 'admin_analytics_export' %}?report=cancellations&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-btn tm-btn-ghost" style="padding: 5px 10px; font-size: 12px;">
+            <i class="fas fa-download mr-1"></i> CSV
+          </a>
+        </div>
+        <table class="tm-table">
+          <tbody>
+            <tr>
+              <td class="text-muted">Total Attempted Bookings</td>
+              <td><strong class="text-white">{{ total_period_bookings }}</strong></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Confirmed Active Bookings</td>
+              <td><span class="text-success font-weight-bold">{{ confirmed_period_bookings }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Cancelled Bookings</td>
+              <td><span class="text-danger font-weight-bold">{{ cancelled_period_bookings }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Overall Cancellation Rate</td>
+              <td><span class="badge badge-danger font-weight-bold">{{ cancellation_rate }}%</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Total Refunds Disbursed</td>
+              <td><strong class="text-warning">₹{{ total_refund_amount|floatformat:2 }}</strong></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Payment Gateway Success Rate</td>
+              <td>
+                <span class="text-success">
+                  {{ success_payments_count }} successful / {{ failed_payments_count }} failed
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- User Growth Statistics -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-table-card">
+        <div class="tm-table-header">
+          <h3 class="tm-section-title">
+            <i class="fas fa-users text-purple"></i> User Growth Metrics
+          </h3>
+          <a href="{% url 'admin_analytics_export' %}?report=users&preset={{ preset }}&start_date={{ start_date }}&end_date={{ end_date }}" class="tm-btn tm-btn-ghost" style="padding: 5px 10px; font-size: 12px;">
+            <i class="fas fa-download mr-1"></i> CSV
+          </a>
+        </div>
+        <table class="tm-table">
+          <tbody>
+            <tr>
+              <td class="text-muted">Total Registered Accounts</td>
+              <td><strong class="text-white">{{ user_total }}</strong></td>
+            </tr>
+            <tr>
+              <td class="text-muted">New Signups in Filtered Period</td>
+              <td><span class="text-info font-weight-bold">+{{ user_period_new }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">New Signups Today</td>
+              <td><span class="text-success">+{{ user_new_today }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">New Signups This Week</td>
+              <td><span class="text-success">+{{ user_new_week }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">New Signups This Month</td>
+              <td><span class="text-success">+{{ user_new_month }}</span></td>
+            </tr>
+            <tr>
+              <td class="text-muted">New Signups This Year</td>
+              <td><span class="text-success">+{{ user_new_year }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 9. SCRIPT TO INITIALIZE ALL INTERACTIVE CHART.JS CHARTS -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+    // 1. Booking Trends Over Time Chart (Line & Bar)
+    const ctxTrends = document.getElementById('chartBookingTrends');
+    if (ctxTrends) {
+      new Chart(ctxTrends, {
+        type: 'line',
+        data: {
+          labels: {{ trend_labels_json|safe }},
+          datasets: [
+            {
+              label: 'Confirmed Bookings',
+              data: {{ trend_booking_counts_json|safe }},
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Daily Revenue (₹)',
+              data: {{ trend_revenues_json|safe }},
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.05)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.3,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              beginAtZero: true,
+              grid: { color: 'rgba(255,255,255,0.06)' },
+              title: { display: true, text: 'Bookings' }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              beginAtZero: true,
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: 'Revenue (₹)' }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 2. Theater Occupancy Bar Chart
+    const ctxOccupancy = document.getElementById('chartTheaterOccupancy');
+    if (ctxOccupancy) {
+      new Chart(ctxOccupancy, {
+        type: 'bar',
+        data: {
+          labels: {{ top_theater_labels_json|safe }},
+          datasets: [{
+            label: 'Occupancy %',
+            data: {{ top_theater_occupancy_json|safe }},
+            backgroundColor: 'rgba(6, 182, 212, 0.75)',
+            borderColor: '#06b6d4',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) { return context.raw + '% Occupancy'; }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              grid: { color: 'rgba(255,255,255,0.06)' },
+              ticks: { callback: function(val) { return val + '%'; } }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 3. Most Booked Movies Horizontal Bar Chart
+    const ctxMovies = document.getElementById('chartTopMovies');
+    if (ctxMovies) {
+      new Chart(ctxMovies, {
+        type: 'bar',
+        data: {
+          labels: {{ top_movie_labels_json|safe }},
+          datasets: [{
+            label: 'Ticket Bookings',
+            data: {{ top_movie_counts_json|safe }},
+            backgroundColor: 'rgba(230, 57, 70, 0.75)',
+            borderColor: '#e63946',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 4. Peak Booking Hours Chart (24 Hour Curve)
+    const ctxHours = document.getElementById('chartPeakHours');
+    if (ctxHours) {
+      new Chart(ctxHours, {
+        type: 'bar',
+        data: {
+          labels: {{ hourly_labels_json|safe }},
+          datasets: [{
+            label: 'Bookings Count',
+            data: {{ hourly_distribution_json|safe }},
+            backgroundColor: 'rgba(245, 158, 11, 0.7)',
+            borderColor: '#f59e0b',
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 5. Payment & Cancellation Ratio Doughnut Chart
+    const ctxPay = document.getElementById('chartPaymentRatio');
+    if (ctxPay) {
+      new Chart(ctxPay, {
+        type: 'doughnut',
+        data: {
+          labels: ['Success', 'Failed', 'Pending', 'Cancelled'],
+          datasets: [{
+            data: {{ payment_status_data_json|safe }},
+            backgroundColor: ['#22c55e', '#ef4444', '#3b82f6', '#64748b'],
+            borderWidth: 2,
+            borderColor: '#141a29'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } }
+          }
+        }
+      });
+    }
+
+    // 6. User Growth Line Chart
+    const ctxUsers = document.getElementById('chartUserGrowth');
+    if (ctxUsers) {
+      new Chart(ctxUsers, {
+        type: 'line',
+        data: {
+          labels: {{ user_growth_labels_json|safe }},
+          datasets: [{
+            label: 'New Users',
+            data: {{ user_growth_counts_json|safe }},
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

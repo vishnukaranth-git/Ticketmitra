@@ -1,0 +1,161 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}User Account Management{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- TOP HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap" style="gap: 15px;">
+    <div>
+      <h2 class="text-white font-weight-bold mb-1" style="font-size: 24px;">
+        <i class="fas fa-users text-primary mr-2"></i> User Account Management
+      </h2>
+      <p class="text-muted mb-0 small">
+        Overview of registered customers. Total active accounts: {{ total_count }}. Passwords remain securely salted and hashed.
+      </p>
+    </div>
+  </div>
+
+  <!-- SEARCH BAR -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="GET" action="/admin/users/" class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+        <div style="flex: 1; min-width: 250px;">
+          <input type="text" name="q" value="{{ q }}" placeholder="Search username, real name, email..." class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; padding: 8px 14px; font-size: 13.5px;">
+        </div>
+        <button type="submit" class="tm-btn tm-btn-primary py-2 px-3">
+          <i class="fas fa-search mr-1"></i> Search
+        </button>
+        {% if q %}
+          <a href="/admin/users/" class="tm-btn tm-btn-ghost py-2 px-3">Reset</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- USERS TABLE -->
+  <div class="tm-panel-card">
+    <div class="tm-panel-body p-0">
+      {% if users %}
+        <div class="table-responsive">
+          <table class="table mb-0 text-white" style="border-collapse: separate; border-spacing: 0; font-size: 13.5px;">
+            <thead>
+              <tr style="background: rgba(7, 11, 20, 0.6); color: var(--tm-text-muted); border-bottom: 1px solid var(--tm-border);">
+                <th style="padding: 14px 18px;">Customer Name</th>
+                <th style="padding: 14px 18px;">Email Address</th>
+                <th style="padding: 14px 18px;">Joined Date</th>
+                <th style="padding: 14px 18px; text-align: center;">Bookings</th>
+                <th style="padding: 14px 18px; text-align: center;">Reviews</th>
+                <th style="padding: 14px 18px; text-align: center;">Account Status</th>
+                <th style="padding: 14px 18px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in users %}
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                  <!-- Name & Username -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="font-weight-bold text-white mb-0" style="font-size: 14.5px;">
+                      {{ u.get_full_name|default:u.username }}
+                      {% if u.is_superuser %}
+                        <span class="tm-badge tm-badge-red ml-1" style="font-size: 9.5px;">SUPERUSER</span>
+                      {% elif u.is_staff %}
+                        <span class="tm-badge tm-badge-blue ml-1" style="font-size: 9.5px;">STAFF</span>
+                      {% endif %}
+                    </div>
+                    <div class="text-muted small">@{{ u.username }}</div>
+                  </td>
+
+                  <!-- Email -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white">{{ u.email|default:"No email recorded" }}</div>
+                  </td>
+
+                  <!-- Joined Date -->
+                  <td style="padding: 12px 18px; vertical-align: middle;">
+                    <div class="text-white small">{{ u.date_joined|date:"M d, Y" }}</div>
+                    <div class="text-muted" style="font-size: 11px;">{{ u.date_joined|timesince }} ago</div>
+                  </td>
+
+                  <!-- Bookings Count -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="badge badge-secondary p-2" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2);">
+                      <i class="fas fa-ticket-alt mr-1"></i> {{ u.bookings_count }}
+                    </span>
+                  </td>
+
+                  <!-- Reviews Count -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    <span class="badge badge-secondary p-2" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2);">
+                      <i class="fas fa-star mr-1"></i> {{ u.reviews_count }}
+                    </span>
+                  </td>
+
+                  <!-- Status -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: center;">
+                    {% if u.is_active %}
+                      <span class="tm-badge tm-badge-green">ACTIVE</span>
+                    {% else %}
+                      <span class="tm-badge tm-badge-red">DISABLED</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 12px 18px; vertical-align: middle; text-align: right;">
+                    <div class="d-inline-flex" style="gap: 6px;">
+                      <a href="/admin/bookings/?q={{ u.username }}" class="tm-btn tm-btn-ghost py-1 px-2 small" title="View User Bookings">
+                        <i class="fas fa-ticket-alt"></i> Bookings
+                      </a>
+                      {% if not u.is_superuser %}
+                        <form method="POST" action="/admin/users/" onsubmit="return confirm('{% if u.is_active %}Disable{% else %}Enable{% endif %} account for {{ u.username }}?');" style="margin: 0; display: inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="toggle_user">
+                          <input type="hidden" name="user_id" value="{{ u.id }}">
+                          <button type="submit" class="tm-btn tm-btn-secondary py-1 px-2 small" title="{% if u.is_active %}Disable{% else %}Enable{% endif %} Account">
+                            {% if u.is_active %}
+                              <i class="fas fa-user-slash text-danger"></i> Disable
+                            {% else %}
+                              <i class="fas fa-user-check text-success"></i> Enable
+                            {% endif %}
+                          </button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {% if page_obj.has_other_pages %}
+          <div class="p-3 border-top d-flex justify-content-between align-items-center" style="border-color: var(--tm-border) !important;">
+            <div class="text-muted small">
+              Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="d-flex" style="gap: 6px;">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}" class="tm-btn tm-btn-ghost py-1 px-3">Previous</a>
+              {% endif %}
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&q={{ q }}" class="tm-btn tm-btn-ghost py-1 px-3">Next</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="text-center py-5">
+          <i class="fas fa-users text-muted mb-3" style="font-size: 48px;"></i>
+          <h4 class="text-white">No Users Found</h4>
+          <p class="text-muted">No accounts match the query.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

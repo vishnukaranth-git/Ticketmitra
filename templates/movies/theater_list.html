@@ -1,0 +1,284 @@
+{% extends "users/basic.html" %}
+{% block title %}Theaters & Showtimes - {{ movie.get_display_title }} - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .theaters-page-header {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-card);
+  }
+  .movie-thumb-img {
+    width: 90px;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .theaters-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.25s ease, border-color 0.25s ease;
+  }
+  .theaters-card:hover {
+    border-color: rgba(220, 38, 61, 0.25);
+    transform: translateY(-2px);
+  }
+  .facility-badge {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--surface-border-subtle);
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .showtime-pill {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    min-width: 140px;
+  }
+  .showtime-pill:hover {
+    background: rgba(220, 38, 61, 0.1);
+    border-color: var(--color-primary);
+    color: var(--text-primary);
+    text-decoration: none;
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 6px 20px rgba(220, 38, 61, 0.25);
+  }
+  .showtime-pill .time-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .showtime-pill .action-subtext {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: var(--color-primary);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .showtime-pill:hover .action-subtext {
+    color: var(--warmstone);
+  }
+  .theaters-page-container {
+    padding-top: 88px !important;
+  }
+  @media (max-width: 991px) {
+    .theaters-page-container {
+      padding-top: 76px !important;
+    }
+  }
+  .nearby-theatres-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .nearby-theatres-grid .theaters-card {
+    min-width: 0;
+    margin: 0;
+    padding: 21px;
+    background: linear-gradient(145deg, rgba(23, 32, 51, .94), rgba(13, 20, 34, .96));
+    border-radius: 15px;
+  }
+  .nearby-theatres-grid .theaters-card:hover {
+    border-color: rgba(214, 31, 69, .45);
+    transform: translateY(-3px);
+  }
+  .theatre-card-address { min-height: 40px; line-height: 1.5; }
+  .theatre-partner-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 8px; border: 1px solid rgba(181, 138, 90, .38);
+    border-radius: 999px; color: #dfbd88; background: rgba(181, 138, 90, .1);
+    font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  }
+  .explore-shows-btn {
+    border: 1px solid rgba(214, 31, 69, .58); border-radius: 8px;
+    background: rgba(214, 31, 69, .12); color: #fff;
+    font-weight: 700; padding: 9px 12px; transition: .2s ease;
+  }
+  .explore-shows-btn:hover { background: #D61F45; color: #fff; box-shadow: 0 8px 22px rgba(214, 31, 69, .25); }
+  .theatre-shows-panel {
+    grid-column: 1 / -1; padding: 16px; margin-top: 16px;
+    border-radius: 11px; border: 1px solid rgba(226, 211, 193, .12);
+    background: rgba(5, 9, 16, .42);
+  }
+  .theatre-showtime {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(226, 211, 193, .09);
+  }
+  .theatre-showtime:last-child { border-bottom: 0; padding-bottom: 0; }
+  .showtime-movie { color: #f4eadc; font-weight: 700; }
+  .showtime-meta { color: #b7b1a8; font-size: 12px; }
+  .theatre-more-row { display: flex; justify-content: center; margin: 22px 0 8px; }
+  .theatre-more-btn { border: 1px solid rgba(226, 211, 193, .2); border-radius: 999px; background: rgba(20, 29, 47, .85); color: #f2e9dc; padding: 10px 20px; font-weight: 700; }
+  .theatre-more-btn:hover { border-color: #D61F45; color: #fff; }
+  .theatre-hidden { display: none !important; }
+  .theatre-empty-state { padding: 32px; border-radius: 14px; text-align: center; background: rgba(17, 26, 43, .82); border: 1px solid rgba(226, 211, 193, .12); }
+  @media (max-width: 991px) { .nearby-theatres-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 575px) {
+    .nearby-theatres-grid { grid-template-columns: 1fr; gap: 12px; }
+    .nearby-theatres-grid .theaters-card { padding: 17px; }
+    .theatre-card-address { min-height: 0; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 theaters-page-container">
+  {% if is_all_theaters %}
+  <div class="theaters-page-header d-flex justify-content-between align-items-center flex-wrap" style="gap: 16px;">
+    <div>
+      <div class="discovery-kicker"><span></span> FIND YOUR NEAREST CINEMA</div>
+      <h1 class="h2 font-weight-bold text-white mb-1">Theatres near you</h1>
+      <p class="text-secondary mb-0">Browse nearby cinemas, then explore their current shows.</p>
+    </div>
+    <button class="btn btn-sm btn-outline-info" onclick="openLocationModal()">
+      <i class="fas fa-map-marker-alt mr-1"></i> {% if user_location %}Change Location{% else %}Choose Location{% endif %}
+    </button>
+  </div>
+  {% else %}
+  <!-- Movie Banner Header -->
+  <div class="theaters-page-header">
+    <div class="d-flex align-items-center flex-wrap" style="gap: 20px;">
+      <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="movie-thumb-img">
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center mb-1" style="gap: 10px;">
+          <h1 class="h3 font-weight-bold text-white mb-0">{{ movie.get_display_title }}</h1>
+          {% if movie.age_certification %}
+            <span class="badge badge-dark border" style="border-color: var(--color-energy); color: var(--color-energy); font-weight: 700;">{{ movie.age_certification }}</span>
+          {% endif %}
+        </div>
+        <p class="text-secondary small mb-2">
+          {% for g in movie.genres.all %}{{ g.name }}{% if not forloop.last %} • {% endif %}{% endfor %}
+          {% if movie.get_runtime_display %} | {{ movie.get_runtime_display }}{% endif %}
+          {% if movie.release_date %} | {{ movie.release_date|date:"Y" }}{% endif %}
+        </p>
+        <div class="d-flex align-items-center" style="gap: 12px;">
+          <a href="{% url 'movie_detail' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">
+            <i class="fas fa-arrow-left mr-1"></i> Movie Details
+          </a>
+          <span class="badge badge-dark border" style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3) !important; color: var(--status-success); font-size: 11px;">
+            <i class="fas fa-shield-alt mr-1"></i> 2-Min Guaranteed Seat Hold
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if has_explicit_location %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="h4 font-weight-bold text-white mb-0">Select Cinema & Showtime</h2>
+      <div class="text-muted small mt-1">
+        Showing theaters within <span class="text-white font-weight-bold">{{ radius_km|default:"30" }} km</span> of 
+        <span class="text-info font-weight-bold">📍 {{ user_location.city|default:"your location" }}</span>
+      </div>
+    </div>
+    <div class="d-flex align-items-center" style="gap: 8px;">
+      <button class="btn btn-sm btn-outline-info" onclick="openLocationModal()">
+        <i class="fas fa-map-marker-alt mr-1"></i> Change Location
+      </button>
+    </div>
+  </div>
+
+  {% if nearby_theaters %}
+    <div class="nearby-theatres-grid" id="nearbyTheatresGrid">
+    {% for th in nearby_theaters %}
+      <article class="theaters-card theatre-card-item{% if forloop.counter > 8 %} theatre-hidden{% endif %}">
+        <div class="d-flex justify-content-between align-items-start" style="gap: 12px;">
+          <div>
+            <div class="d-flex align-items-center flex-wrap mb-2" style="gap: 8px;">
+              <h3 class="h5 font-weight-bold text-white mb-0">{{ th.name }}</h3>
+              {% if th.is_partner %}<span class="theatre-partner-badge"><i class="fas fa-check-circle"></i> Partner Theatre</span>{% endif %}
+            </div>
+            <p class="theatre-card-address text-muted small mb-2"><i class="fas fa-map-marker-alt text-danger mr-1"></i>{{ th.address|default:th.location|default:th.city }}</p>
+            <div class="small text-info"><i class="fas fa-location-arrow mr-1"></i>{{ th.distance_display|default:"Distance unavailable" }}</div>
+          </div>
+        </div>
+        {% if th.showtimes_count %}
+          <button class="explore-shows-btn btn btn-block mt-3" type="button" data-toggle="collapse" data-target="#theatreShows{{ forloop.counter }}" aria-expanded="false" aria-controls="theatreShows{{ forloop.counter }}">
+            Explore Shows <i class="fas fa-chevron-down ml-1"></i>
+          </button>
+          <div class="collapse" id="theatreShows{{ forloop.counter }}">
+            <div class="theatre-shows-panel">
+              {% for sc in th.screens_list %}
+                {% for st in sc.showtimes %}
+                  <div class="theatre-showtime">
+                    <div>
+                      <div class="showtime-movie">{{ st.movie.get_display_title }}</div>
+                      <div class="showtime-meta">{{ sc.name }} · {{ sc.screen_type }} · {{ st.date_formatted }} · {{ st.time_formatted }}</div>
+                    </div>
+                    <div class="d-flex align-items-center" style="gap: 12px;">
+                      <span class="showtime-meta">From ₹{{ st.ticket_prices.REGULAR|default:st.price|floatformat:0 }}</span>
+                      <a href="{% url 'book_seats' st.theater_id %}" class="btn-cinematic-primary py-2 px-3" style="font-size: 12px;"><i class="fas fa-ticket-alt mr-1"></i>Book</a>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% empty %}
+                <p class="text-muted small mb-0">No current shows at this theatre.</p>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </article>
+    {% endfor %}
+    </div>
+    {% if nearby_theaters|length > 8 %}
+      <div class="theatre-more-row"><button type="button" class="theatre-more-btn" id="showMoreTheatres">Show More Theatres</button></div>
+    {% endif %}
+  {% else %}
+    <div class="theatre-empty-state">
+      <i class="fas fa-map-marker-alt fa-2x text-danger mb-3"></i>
+      <h4 class="text-white">{% if has_explicit_location %}No nearby theatres found{% else %}Choose a location to find nearby theatres{% endif %}</h4>
+      <p class="text-muted mb-3">{% if has_explicit_location %}Try a wider search radius or choose another city.{% else %}Allow location access or select your city to see the closest cinemas.{% endif %}</p>
+      <button type="button" class="btn-cinematic-primary py-2 px-3 mr-2" onclick="requestBrowserGeolocation()"><i class="fas fa-location-arrow mr-1"></i>Use My Location</button>
+      <button type="button" class="btn-cinematic-ghost py-2 px-3" onclick="openLocationModal()"><i class="fas fa-city mr-1"></i>Choose City</button>
+    </div>
+  {% endif %}
+  {% else %}
+    <div class="theatre-empty-state">
+      <h4 class="text-white">Choose a location to find nearby theatres</h4>
+      <p class="text-muted mb-3">Allow location access or select your city to see the closest cinemas.</p>
+      <button type="button" class="btn-cinematic-primary py-2 px-3 mr-2" onclick="requestBrowserGeolocation()"><i class="fas fa-location-arrow mr-1"></i>Use My Location</button>
+      <button type="button" class="btn-cinematic-ghost py-2 px-3" onclick="openLocationModal()"><i class="fas fa-city mr-1"></i>Choose City</button>
+    </div>
+  {% endif %}
+
+  {% if has_explicit_location %}<div class="d-flex align-items-center text-muted small mt-4" style="gap: 8px;">
+    <i class="fas fa-info-circle text-warning"></i>
+    <span>Showtimes and seat availability are updated in real-time. Seats are reserved upon selection.</span>
+  </div>{% endif %}
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const moreButton = document.getElementById('showMoreTheatres');
+    if (!moreButton) return;
+    moreButton.addEventListener('click', function () {
+      document.querySelectorAll('.theatre-card-item.theatre-hidden').forEach(function (card) {
+        card.classList.remove('theatre-hidden');
+      });
+      moreButton.remove();
+    });
+  });
+</script>
+{% endblock %}

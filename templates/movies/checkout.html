@@ -1,0 +1,456 @@
+{% extends "users/basic.html" %}
+{% block title %}Checkout & Payment - {{ movie.get_display_title }} - TicketMitra{% endblock %}
+
+{% block extra_css %}
+<style>
+  .checkout-container-card {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .checkout-timer-banner {
+    background: transparent;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 14px;
+    padding: 16px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: all 0.3s ease;
+  }
+  .checkout-timer-banner.urgent {
+    border-color: var(--status-error);
+    background: rgba(239, 68, 68, 0.12);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+  .checkout-timer-clock {
+    font-family: 'Outfit', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--status-warning);
+    letter-spacing: 0.05em;
+  }
+  .seat-pill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(220, 38, 61, 0.1);
+    border: 1px solid var(--color-primary);
+    color: var(--warmstone);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 3px;
+  }
+  .breakdown-box {
+    background: transparent;
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- LIVE COUNTDOWN TIMER BANNER -->
+      <div class="checkout-timer-banner mb-4" id="checkoutTimerBanner">
+        <div>
+          <div class="font-weight-bold text-warning mb-0" style="font-size: 15px;">
+            <i class="fas fa-stopwatch mr-2"></i>Seats Held Exclusively
+          </div>
+          <small class="text-secondary">Complete payment before the 2-minute timer expires.</small>
+        </div>
+        <div class="text-right">
+          <small class="text-muted d-block" style="font-size: 11px;">Time Remaining</small>
+          <div class="checkout-timer-clock" id="timerDisplay">{{ formatted_time }}</div>
+        </div>
+      </div>
+
+      <!-- ORDER SUMMARY CARD -->
+      <div class="checkout-container-card mb-4">
+        <div class="p-4 border-bottom" style="border-color: var(--surface-border) !important;">
+          <h2 class="h4 font-weight-bold text-white mb-0">
+            <i class="fas fa-receipt mr-2" style="color: var(--color-primary);"></i> Order Summary & Payment
+          </h2>
+        </div>
+
+        <div class="p-4">
+          <!-- Movie & Theater Details -->
+          <div class="d-flex align-items-center mb-4 pb-3 border-bottom" style="gap: 20px; border-color: var(--surface-border) !important;">
+            <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="rounded shadow-sm" style="width: 80px; height: 115px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);">
+            <div>
+              <div class="d-flex align-items-center mb-1" style="gap: 8px;">
+                <h3 class="h5 font-weight-bold text-white mb-0">{{ movie.get_display_title }}</h3>
+                {% if movie.age_certification %}
+                  <span class="badge badge-dark border" style="border-color: var(--color-energy); color: var(--color-energy); font-size: 10px;">{{ movie.age_certification }}</span>
+                {% endif %}
+              </div>
+              <p class="text-secondary small mb-1"><i class="fas fa-film text-info mr-1"></i> {{ theater.name }}</p>
+              <p class="text-secondary small mb-0"><i class="far fa-clock text-info mr-1"></i> {{ theater.time|date:"F d, Y - h:i A" }}</p>
+            </div>
+          </div>
+
+          <!-- SELECTED SEATS -->
+          <div class="mb-4">
+            <div class="text-secondary small font-weight-bold text-uppercase mb-2" style="letter-spacing: 0.05em;">
+              Selected Seats ({{ seats|length }})
+            </div>
+            <div>
+              {% for s in seats %}
+                <span class="seat-pill-chip"><i class="fas fa-chair"></i> Seat {{ s.seat_number }}</span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- PRICE BREAKDOWN -->
+          <div class="breakdown-box mb-4">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-secondary small">Ticket Price ({{ seats|length }} × ₹{{ price_per_seat|floatformat:2 }})</span>
+              <strong class="text-white">₹{{ total_amount|floatformat:2 }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-secondary small">Convenience Fee & Online Booking Fee</span>
+              <strong class="text-success small">FREE</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-secondary small">Integrated Cinema GST (18%)</span>
+              <span class="text-muted small">Included</span>
+            </div>
+            <hr class="my-3" style="border-color: var(--surface-border) !important;">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="h6 font-weight-bold text-white mb-0">Total Payable</span>
+              <span class="h4 font-weight-bold mb-0" style="color: var(--status-success);">₹{{ total_amount|floatformat:2 }}</span>
+            </div>
+          </div>
+
+          <!-- STRIPE PAYMENT CONTAINER -->
+          <div id="paymentAlertContainer"></div>
+
+          <div class="d-flex align-items-center p-3 rounded mb-3" style="background: rgba(99, 91, 255, 0.08); border: 1px solid rgba(99, 91, 255, 0.25); gap: 12px;">
+            <i class="fab fa-stripe fa-2x" style="color: #635bff;"></i>
+            <div class="small text-secondary">
+              <strong class="text-white d-block"><i class="fas fa-lock text-success mr-1"></i> Stripe 256-Bit SSL Encrypted</strong>
+              Dynamically powered by Stripe Payment Element.
+            </div>
+          </div>
+
+          <!-- Stripe Payment Element Container -->
+          <div class="p-3 rounded mb-3" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--surface-border);">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="text-white small font-weight-bold mb-0">
+                <i class="fas fa-shield-alt mr-1 text-info"></i> Payment Method
+              </label>
+              <div class="small text-muted">
+                <i class="fab fa-stripe fa-lg text-info"></i>
+              </div>
+            </div>
+            <div id="payment-element" style="min-height: 120px;">
+              <!-- Stripe Payment Element dynamically mounts here -->
+              <div class="text-center py-4 text-muted" id="paymentElementLoader">
+                <i class="fas fa-spinner fa-spin fa-2x mb-2" style="color: var(--color-interactive);"></i>
+                <div class="small">Loading Stripe payment methods...</div>
+              </div>
+            </div>
+            <div id="payment-message" class="text-danger small mt-2" role="alert" style="display: none;"></div>
+          </div>
+
+          <button type="button" class="btn-cinematic-primary w-100 py-3 justify-content-center font-weight-bold" style="font-size: 16px;" id="payButton" onclick="initiateStripePayment()">
+            <i class="fab fa-stripe fa-lg mr-2"></i> Pay ₹{{ total_amount|floatformat:2 }} via Stripe
+          </button>
+
+          <!-- MODIFY & CANCEL ACTIONS -->
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+            <a href="{% url 'book_seats' theater.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">
+              <i class="fas fa-edit mr-1"></i> Modify Seats
+            </a>
+
+            <form method="POST" action="{% url 'cancel_reservation' theater.id %}" class="d-inline" onsubmit="return confirm('Cancel seat hold and return to seat selection?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-link text-danger p-0 small" style="text-decoration: none;">
+                <i class="fas fa-times mr-1"></i> Release Seats
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Stripe Standard Web SDK -->
+<script src="https://js.stripe.com/v3/"></script>
+
+<script>
+  let secondsLeft = {{ seconds_left }};
+  const timerEl = document.getElementById('timerDisplay');
+  const payBtn = document.getElementById('payButton');
+  const timerBanner = document.getElementById('checkoutTimerBanner');
+  const alertContainer = document.getElementById('paymentAlertContainer');
+
+  const CREATE_ORDER_URL = "{% url 'create_payment_order' reservation.id %}";
+  const VERIFY_PAYMENT_URL = "{% url 'verify_payment' reservation.id %}";
+  const FAILURE_URL = "{% url 'payment_failure' reservation.id %}";
+  const CSRF_TOKEN = "{{ csrf_token }}";
+
+  function showAlert(message, type = 'danger') {
+    alertContainer.innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        <i class="fas ${type === 'danger' ? 'fa-exclamation-triangle' : 'fa-info-circle'} mr-2"></i>
+        ${message}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    `;
+  }
+
+  function updateTimer() {
+    if (secondsLeft <= 0) {
+      timerEl.textContent = "00:00";
+      timerEl.style.color = "var(--status-error)";
+      if (payBtn) {
+        payBtn.disabled = true;
+        payBtn.innerHTML = '<i class="fas fa-clock mr-2"></i> Reservation Expired';
+      }
+      alert("Your 2-minute seat reservation has expired. Please select your seats again.");
+      window.location.href = "{% url 'book_seats' theater.id %}";
+      return;
+    }
+
+    const mins = Math.floor(secondsLeft / 60);
+    const secs = secondsLeft % 60;
+    timerEl.textContent = (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs);
+
+    if (secondsLeft <= 30) {
+      timerBanner.classList.add('urgent');
+      timerEl.style.color = "var(--status-error)";
+    }
+
+    secondsLeft--;
+    setTimeout(updateTimer, 1000);
+  }
+
+  updateTimer();
+
+  // Initialize Stripe and Payment Element
+  const stripePublishableKey = "{{ stripe_publishable_key|default:'' }}" || "pk_test_51ULKUZPiqr8FPcgo6Uy8TOSGV7JLZBCcUyhuNOrkw2tHVuxt52kGEIqAtt32FnXqCdrWFryMqKaA6CmWZJozMRe000B76NfanB";
+  const stripe = Stripe(stripePublishableKey);
+  let elements = null;
+  let paymentElement = null;
+  let activePaymentIntentId = "{{ payment_intent_id|default:'' }}";
+
+  const appearance = {
+    theme: 'night',
+    variables: {
+      colorPrimary: '#e63946',
+      colorBackground: '#0f172a',
+      colorText: '#f8fafc',
+      colorDanger: '#ef4444',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      borderRadius: '8px',
+      spacingUnit: '4px',
+    },
+    rules: {
+      '.Tab': {
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+      },
+      '.Tab:hover': {
+        borderColor: '#e63946',
+      },
+      '.Tab--selected': {
+        borderColor: '#e63946',
+        backgroundColor: 'rgba(230, 57, 70, 0.15)',
+      },
+      '.Input': {
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        backgroundColor: '#0f172a',
+        color: '#f8fafc',
+      },
+      '.Input:focus': {
+        borderColor: '#e63946',
+        boxShadow: '0 0 0 2px rgba(230, 57, 70, 0.25)',
+      },
+      '.Label': {
+        color: '#94a3b8',
+        fontSize: '13px',
+        fontWeight: '600',
+      }
+    }
+  };
+
+  async function mountPaymentElement() {
+    let clientSecret = "{{ client_secret|default:'' }}";
+
+    // If clientSecret was not pre-populated, request from server
+    if (!clientSecret) {
+      try {
+        const res = await fetch(CREATE_ORDER_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          }
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showAlert(data.error || "Failed to initialize payment. Please refresh the page.");
+          return;
+        }
+        clientSecret = data.client_secret;
+        activePaymentIntentId = data.payment_intent_id || data.order_id;
+      } catch (err) {
+        showAlert(`Failed to connect to payment server: ${err.message}`);
+        return;
+      }
+    }
+
+    try {
+      elements = stripe.elements({ clientSecret, appearance });
+      paymentElement = elements.create('payment', {
+        layout: 'tabs',
+      });
+      paymentElement.mount('#payment-element');
+
+      paymentElement.on('ready', function() {
+        const loader = document.getElementById('paymentElementLoader');
+        if (loader) loader.style.display = 'none';
+      });
+
+      paymentElement.on('change', function(event) {
+        const messageContainer = document.getElementById('payment-message');
+        if (event.complete) {
+          messageContainer.style.display = 'none';
+          messageContainer.textContent = '';
+        }
+      });
+    } catch (e) {
+      showAlert(`Error loading Stripe Payment Element: ${e.message}`);
+    }
+  }
+
+  mountPaymentElement();
+
+  async function initiateStripePayment() {
+    if (secondsLeft <= 0) {
+      showAlert("Your reservation has expired. Please re-select your seats.");
+      return;
+    }
+
+    if (!elements) {
+      showAlert("Payment system is still initializing. Please wait a moment.");
+      return;
+    }
+
+    payBtn.disabled = true;
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing via Stripe...';
+
+    const messageContainer = document.getElementById('payment-message');
+    messageContainer.style.display = 'none';
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin + "{% url 'verify_payment' reservation.id %}",
+          payment_method_data: {
+            billing_details: {
+              name: "{{ user.get_full_name|default:user.username }}",
+              email: "{{ user.email|default:'customer@ticketmitra.com' }}",
+            }
+          }
+        },
+        redirect: 'if_required',
+      });
+
+      if (error) {
+        payBtn.disabled = false;
+        payBtn.innerHTML = '<i class="fas fa-lock mr-2"></i> Retry Payment';
+        messageContainer.textContent = error.message;
+        messageContainer.style.display = 'block';
+        showAlert(`Payment Failed: ${error.message}`, "danger");
+        notifyServerFailure(activePaymentIntentId, error.message, "failed");
+        return;
+      }
+
+      if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+        payBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Confirming Booking & Locking Seats...';
+        verifyPaymentOnServer(paymentIntent.id, activePaymentIntentId);
+      } else {
+        payBtn.disabled = false;
+        payBtn.innerHTML = '<i class="fas fa-lock mr-2"></i> Retry Payment';
+        showAlert("Payment was not completed. Please try again.", "warning");
+      }
+    } catch (err) {
+      payBtn.disabled = false;
+      payBtn.innerHTML = '<i class="fab fa-stripe fa-lg mr-2"></i> Pay ₹{{ total_amount|floatformat:2 }} via Stripe';
+      showAlert(`Unexpected error: ${err.message}`, "danger");
+    }
+  }
+
+  // Alias for backward compatibility
+  const initiateRazorpayPayment = initiateStripePayment;
+
+  function verifyPaymentOnServer(paymentIntentId, fallbackOrderId) {
+    const targetId = paymentIntentId || fallbackOrderId;
+    fetch(VERIFY_PAYMENT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN
+      },
+      body: JSON.stringify({
+        payment_intent_id: targetId,
+        order_id: targetId,
+        payment_id: targetId
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        payBtn.innerHTML = '<i class="fas fa-check-circle text-success mr-2"></i> Booking Confirmed!';
+        window.location.href = data.redirect_url;
+      } else {
+        payBtn.disabled = false;
+        payBtn.innerHTML = '<i class="fas fa-lock mr-2"></i> Retry Payment';
+        showAlert(data.error || "Payment verification failed. Your booking was not confirmed.", "danger");
+      }
+    })
+    .catch(err => {
+      payBtn.disabled = false;
+      payBtn.innerHTML = '<i class="fas fa-lock mr-2"></i> Retry Payment';
+      showAlert(`Verification error: ${err.message}`, "danger");
+    });
+  }
+
+  function notifyServerFailure(orderId, description, action) {
+    fetch(FAILURE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN
+      },
+      body: JSON.stringify({
+        order_id: orderId,
+        payment_intent_id: orderId,
+        error_description: description,
+        action: action
+      })
+    }).catch(() => {});
+  }
+</script>
+{% endblock %}
+

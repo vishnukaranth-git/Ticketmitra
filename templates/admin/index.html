@@ -1,0 +1,474 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content_title %}{% endblock %}
+
+{% block content %}
+<div class="tm-dashboard-container">
+
+  <!-- 1. DASHBOARD HERO BANNER -->
+  <div class="tm-dashboard-hero">
+    <div>
+      <h1 class="tm-hero-title">
+        <i class="fas fa-ticket-alt text-danger"></i>
+        <span>TicketMitra Operations</span>
+      </h1>
+      <p class="tm-hero-subtitle">
+        Manage movies, theatres, screens, seats, showtimes, bookings and payments.
+      </p>
+    </div>
+    <div class="d-flex align-items-center" style="gap: 12px;">
+      <a href="/admin/seats/" class="tm-btn tm-btn-primary" style="padding: 10px 20px; font-size: 13.5px;">
+        <i class="fas fa-chair mr-1"></i> Manage Seats
+      </a>
+      <a href="/admin/showtimes/" class="tm-btn tm-btn-ghost" style="padding: 10px 18px;">
+        <i class="far fa-clock mr-1"></i> + Create Showtime
+      </a>
+    </div>
+  </div>
+
+  <!-- OPERATIONAL FILTERS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-body p-3">
+      <form method="get" class="d-flex align-items-end flex-wrap" style="gap: 12px;">
+        <div style="min-width: 140px;">
+          <label class="text-muted small font-weight-bold mb-1">Date From</label>
+          <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; font-size: 13px;">
+        </div>
+        <div style="min-width: 140px;">
+          <label class="text-muted small font-weight-bold mb-1">Date To</label>
+          <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; font-size: 13px;">
+        </div>
+        <div style="min-width: 170px;">
+          <label class="text-muted small font-weight-bold mb-1">Theatre</label>
+          <select name="theatre" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; font-size: 13px;">
+            <option value="">All Theatres</option>
+            {% for item in theatre_options %}
+              <option value="{{ item.id }}" {% if selected_theatre == item.id|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width: 170px;">
+          <label class="text-muted small font-weight-bold mb-1">Movie</label>
+          <select name="movie" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; font-size: 13px;">
+            <option value="">All Movies</option>
+            {% for item in movie_options %}
+              <option value="{{ item.id }}" {% if selected_movie == item.id|stringformat:'s' %}selected{% endif %}>{{ item.get_display_title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width: 140px;">
+          <label class="text-muted small font-weight-bold mb-1">Booking Status</label>
+          <select name="status" class="form-control" style="background: var(--tm-elevated); color: #fff; border: 1px solid var(--tm-border); border-radius: 8px; font-size: 13px;">
+            <option value="">All Statuses</option>
+            <option value="CONFIRMED" {% if selected_status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
+            <option value="CANCELLED" {% if selected_status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <button class="tm-btn tm-btn-primary py-2 px-3" type="submit"><i class="fas fa-filter mr-1"></i> Filter</button>
+          {% if date_from or date_to or selected_theatre or selected_movie or selected_status %}
+            <a class="tm-btn tm-btn-ghost py-2 px-3 ml-2" href="/admin/dashboard/">Reset</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. QUICK ACTIONS BAR -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-bolt text-warning"></i>
+        <span>Quick Actions</span>
+      </div>
+      <small class="text-muted">Direct operations shortcuts</small>
+    </div>
+    <div class="tm-panel-body">
+      <div class="tm-quick-actions-bar">
+        <a href="/admin/movies/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-plus-circle text-danger"></i> + Add Movie
+        </a>
+        <a href="/admin/theatres/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-plus-circle text-warning"></i> + Add Theatre
+        </a>
+        <a href="/admin/screens/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-plus-circle text-info"></i> + Add Screen
+        </a>
+        <a href="/admin/seats/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-chair text-success"></i> Manage Seats
+        </a>
+        <a href="/admin/showtimes/" class="tm-btn tm-btn-ghost">
+          <i class="far fa-clock text-info"></i> + Create Showtime
+        </a>
+        <a href="/admin/bookings/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-ticket-alt text-primary"></i> View Bookings
+        </a>
+        <a href="/admin/payments/" class="tm-btn tm-btn-ghost">
+          <i class="fab fa-stripe text-info"></i> View Payments
+        </a>
+        <a href="/admin/reviews/" class="tm-btn tm-btn-ghost">
+          <i class="fas fa-star text-warning"></i> Manage Reviews
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVENUE & OPERATIONAL METRICS -->
+  <div class="tm-metrics-grid mb-4">
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Gross Verified Revenue</div>
+        <div class="tm-metric-icon-box green"><i class="fas fa-rupee-sign"></i></div>
+      </div>
+      <div class="tm-metric-value text-success">₹{{ gross_revenue|floatformat:2 }}</div>
+      <div class="tm-metric-subtext positive"><i class="fas fa-shield-alt"></i> Stripe verified</div>
+    </div>
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Refunds Processed</div>
+        <div class="tm-metric-icon-box orange"><i class="fas fa-undo-alt"></i></div>
+      </div>
+      <div class="tm-metric-value text-warning">₹{{ refunds|floatformat:2 }}</div>
+      <div class="tm-metric-subtext"><i class="fas fa-history"></i> Released & audited</div>
+    </div>
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Theatre Occupancy</div>
+        <div class="tm-metric-icon-box purple"><i class="fas fa-chart-pie"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ occupancy }}%</div>
+      <div class="tm-metric-subtext positive"><i class="fas fa-user-check"></i> Capacity utilized</div>
+    </div>
+    <div class="tm-metric-card">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label">Active Holds & Unsettled</div>
+        <div class="tm-metric-icon-box red"><i class="fas fa-hourglass-half"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ active_holds|default:pending_payments }} <span style="font-size: 14px; color: var(--tm-text-muted); font-weight: normal;">holds</span></div>
+      <div class="tm-metric-subtext"><i class="fas fa-clock"></i> 8-minute TTL</div>
+    </div>
+  </div>
+
+  <!-- 3. TOP ROW METRICS (CLICKABLE) -->
+  <div class="tm-metrics-grid">
+    <!-- TOTAL MOVIES -->
+    <a href="/admin/movies/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Total Movies</div>
+        <div class="tm-metric-icon-box red"><i class="fas fa-film"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ total_movies|default:0 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-arrow-up"></i> In cinema catalog
+      </div>
+    </a>
+
+    <!-- TOTAL THEATRES -->
+    <a href="/admin/theatres/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Total Theatres</div>
+        <div class="tm-metric-icon-box orange"><i class="fas fa-building"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ total_theaters|default:0 }}</div>
+      <div class="tm-metric-subtext">
+        <i class="fas fa-map-marker-alt"></i> Active locations
+      </div>
+    </a>
+
+    <!-- TOTAL SCREENS -->
+    <a href="/admin/screens/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Total Screens</div>
+        <div class="tm-metric-icon-box blue"><i class="fas fa-tv"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ total_screens|default:0 }}</div>
+      <div class="tm-metric-subtext">
+        <i class="fas fa-layer-group"></i> IMAX, 4DX, PXL, Gold, Std
+      </div>
+    </a>
+
+    <!-- TOTAL SEATS -->
+    <a href="/admin/seats/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Total Seats</div>
+        <div class="tm-metric-icon-box purple"><i class="fas fa-chair"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ total_seats|default:0 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-check-circle"></i> Configured capacity
+      </div>
+    </a>
+  </div>
+
+  <!-- 4. SECOND ROW METRICS (CLICKABLE) -->
+  <div class="tm-metrics-grid">
+    <!-- TODAY'S SHOWTIMES -->
+    <a href="/admin/showtimes/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Today's Showtimes</div>
+        <div class="tm-metric-icon-box purple"><i class="far fa-clock"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ today_showtimes|default:0 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-calendar-day"></i> Scheduled shows today
+      </div>
+    </a>
+
+    <!-- TODAY'S BOOKINGS -->
+    <a href="/admin/bookings/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Today's Bookings</div>
+        <div class="tm-metric-icon-box green"><i class="fas fa-ticket-alt"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ today_bookings|default:0 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-chart-line"></i> Confirmed bookings
+      </div>
+    </a>
+
+    <!-- ACTIVE SEAT RESERVATIONS -->
+    <a href="/admin/reservations/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Active Seat Reservations</div>
+        <div class="tm-metric-icon-box orange"><i class="fas fa-stopwatch"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ active_reservations|default:0 }}</div>
+      <div class="tm-metric-subtext warning">
+        <i class="fas fa-clock"></i> 2-min exclusive holds
+      </div>
+    </a>
+
+    <!-- SUCCESSFUL PAYMENTS -->
+    <a href="/admin/payments/" class="tm-metric-card" style="text-decoration: none;">
+      <div class="tm-metric-top">
+        <div class="tm-metric-label" style="text-transform: uppercase;">Successful Payments</div>
+        <div class="tm-metric-icon-box blue"><i class="fab fa-stripe"></i></div>
+      </div>
+      <div class="tm-metric-value">{{ successful_payments|default:0 }}</div>
+      <div class="tm-metric-subtext positive">
+        <i class="fas fa-shield-alt"></i> Verified Stripe payments
+      </div>
+    </a>
+  </div>
+
+  <!-- 5. LIVE SEAT STATUS -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-circle-notch text-success fa-spin"></i>
+        <span>Live Seat Status</span>
+      </div>
+      <div class="d-flex align-items-center" style="gap: 10px;">
+        <a href="{% url 'admin_manage_seats_default' %}" class="tm-btn tm-btn-secondary" style="font-size: 11px;">
+          <i class="fas fa-chair"></i> Open Visual Map
+        </a>
+      </div>
+    </div>
+
+    <div class="tm-panel-body">
+      <!-- Status Pills -->
+      <div class="tm-seat-status-bar">
+        <div class="tm-seat-stat-pill">
+          <div class="tm-seat-stat-dot available"></div>
+          <div>
+            <div class="tm-seat-stat-num text-success">{{ available_count|default:0 }}</div>
+            <div class="tm-seat-stat-title">Available Seats</div>
+          </div>
+        </div>
+
+        <div class="tm-seat-stat-pill">
+          <div class="tm-seat-stat-dot reserved"></div>
+          <div>
+            <div class="tm-seat-stat-num text-warning">{{ reserved_count|default:0 }}</div>
+            <div class="tm-seat-stat-title">Reserved (Held)</div>
+          </div>
+        </div>
+
+        <div class="tm-seat-stat-pill">
+          <div class="tm-seat-stat-dot booked"></div>
+          <div>
+            <div class="tm-seat-stat-num text-danger">{{ booked_count|default:0 }}</div>
+            <div class="tm-seat-stat-title">Booked Seats</div>
+          </div>
+        </div>
+
+        <div class="tm-seat-stat-pill">
+          <div class="tm-seat-stat-dot blocked"></div>
+          <div>
+            <div class="tm-seat-stat-num text-muted">{{ blocked_count|default:0 }}</div>
+            <div class="tm-seat-stat-title">Blocked / Maintenance</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Jump Dropdowns -->
+      <div class="d-flex flex-wrap align-items-center p-3 rounded" style="background: rgba(7, 11, 20, 0.4); border: 1px solid var(--tm-border); gap: 14px;">
+        <span class="small font-weight-bold text-white"><i class="fas fa-filter text-info mr-1"></i> Filter Seat Map:</span>
+
+        <select class="form-control-sm" style="max-width: 240px;" onchange="if(this.value) window.location.href=this.value;">
+          <option value="">-- Jump to Theater Showtime --</option>
+          {% for th in all_theaters %}
+            <option value="{% url 'admin_manage_seats_theater' th.id %}">{{ th.name }} ({{ th.movie.name|truncatechars:18 }})</option>
+          {% endfor %}
+        </select>
+
+        <select class="form-control-sm" style="max-width: 240px;" onchange="if(this.value) window.location.href=this.value;">
+          <option value="">-- Jump to Screen --</option>
+          {% for sc in all_screens %}
+            <option value="{% url 'admin_manage_seats_screen' sc.id %}">{{ sc.theater_name }} — {{ sc.name }} ({{ sc.screen_type }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. THEATER OVERVIEW SECTION -->
+  <div class="tm-panel-card mb-4">
+    <div class="tm-panel-header">
+      <div class="tm-panel-title">
+        <i class="fas fa-building text-info"></i>
+        <span>Theater Management Overview</span>
+      </div>
+      <a href="{% url 'admin:movies_theater_changelist' %}" class="tm-btn tm-btn-ghost" style="font-size: 11px;">
+        View All Theaters
+      </a>
+    </div>
+
+    <div class="tm-panel-body">
+      <div class="tm-theater-grid">
+        {% for v in venues_list %}
+          <div class="tm-theater-card">
+            <div>
+              <div class="tm-theater-header">
+                <div>
+                  <h3 class="tm-theater-name">{{ v.name }}</h3>
+                  <div class="tm-theater-loc">
+                    <i class="fas fa-map-marker-alt text-danger"></i> {{ v.location }}
+                  </div>
+                </div>
+                <span class="tm-badge tm-badge-blue">{{ v.screens_count }} Screen{{ v.screens_count|pluralize }}</span>
+              </div>
+
+              <!-- Seat Stats Grid -->
+              <div class="tm-theater-stats">
+                <div>
+                  <div class="tm-tstat-val text-white">{{ v.total_seats }}</div>
+                  <div class="tm-tstat-lbl">Total Seats</div>
+                </div>
+                <div>
+                  <div class="tm-tstat-val text-success">{{ v.available_seats }}</div>
+                  <div class="tm-tstat-lbl">Available</div>
+                </div>
+                <div>
+                  <div class="tm-tstat-val text-danger">{{ v.booked_seats }}</div>
+                  <div class="tm-tstat-lbl">Booked</div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                <small class="text-muted"><i class="far fa-clock mr-1"></i> Today's Shows:</small>
+                <strong class="text-white">{{ v.today_shows }}</strong>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="tm-theater-actions">
+              <a href="{% url 'admin_theater_detail' v.id %}" class="tm-btn tm-btn-primary" style="flex: 1; justify-content: center;">
+                <i class="fas fa-eye"></i> View Theater
+              </a>
+              <a href="{% url 'admin_manage_seats_theater' v.id %}" class="tm-btn tm-btn-secondary">
+                <i class="fas fa-chair"></i> Seats
+              </a>
+              <a href="{% url 'admin:movies_theater_add' %}" class="tm-btn tm-btn-ghost" title="Add Showtime">
+                <i class="far fa-clock"></i>
+              </a>
+            </div>
+          </div>
+        {% empty %}
+          <div class="p-4 text-center text-muted">
+            <i class="fas fa-building fa-2x mb-2"></i>
+            <div>No theaters found in database.</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. RECENT ACTIVITY & SYSTEM ENTITIES -->
+  <div class="row" style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <!-- Recent Activity -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-history text-orange"></i>
+            <span>Recent Activity</span>
+          </div>
+          <small class="text-muted">Real-time database stream</small>
+        </div>
+        <div class="tm-panel-body p-0">
+          <div class="list-group list-group-flush">
+            {% for act in recent_activity %}
+              <div class="p-3 border-bottom d-flex align-items-start" style="border-color: var(--tm-border) !important; gap: 14px;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; color: {{ act.color }}; flex-shrink: 0;">
+                  <i class="fas {{ act.icon }}"></i>
+                </div>
+                <div style="flex: 1; line-height: 1.3;">
+                  <div class="font-weight-bold text-white mb-1" style="font-size: 13px;">{{ act.title }}</div>
+                  <div class="text-muted" style="font-size: 12px;">{{ act.desc }}</div>
+                </div>
+                <small class="text-muted" style="font-size: 11px;">{{ act.time|timesince }} ago</small>
+              </div>
+            {% empty %}
+              <div class="p-4 text-center text-muted">
+                No recent activity recorded yet.
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Django Standard Admin Models Matrix -->
+    <div style="flex: 1; min-width: 320px;">
+      <div class="tm-panel-card h-100">
+        <div class="tm-panel-header">
+          <div class="tm-panel-title">
+            <i class="fas fa-sliders-h text-primary"></i>
+            <span>Django Model CRUD Operations</span>
+          </div>
+        </div>
+        <div class="tm-panel-body">
+          {% if app_list %}
+            {% for app in app_list %}
+              <div class="mb-3">
+                <div class="small font-weight-bold text-uppercase text-muted mb-2">{{ app.name }}</div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  {% for model in app.models %}
+                    <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: var(--tm-elevated); border: 1px solid var(--tm-border);">
+                      <a href="{{ model.admin_url }}" class="font-weight-bold text-white" style="font-size: 13px;">
+                        <i class="fas fa-chevron-right text-muted mr-1" style="font-size: 10px;"></i> {{ model.name }}
+                      </a>
+                      <div>
+                        {% if model.add_url %}
+                          <a href="{{ model.add_url }}" class="tm-btn tm-btn-ghost py-1 px-2" style="font-size: 11px;">
+                            <i class="fas fa-plus"></i> Add
+                          </a>
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted">You do not have permission to view or edit any models.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
