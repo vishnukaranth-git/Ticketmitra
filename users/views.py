@@ -7,13 +7,47 @@ from django.db.models import Count, Q
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from movies.models import Booking, Movie, Payment
+from movies.models import Booking, Movie, Payment, UserLocationPreference
 from movies.services.location_service import (
     SUPPORTED_CITIES,
     get_nearby_theaters_and_movies,
 )
 
 from .forms import UserRegisterForm, UserUpdateForm
+
+
+def _restore_location_after_login(request, user, prior_location=None):
+    """Reuse a saved/pre-login location, or prompt once for a new preference."""
+    preference = UserLocationPreference.objects.filter(user=user).first()
+    if preference and preference.latitude is not None and preference.longitude is not None:
+        loc = {
+            'lat': float(preference.latitude), 'lng': float(preference.longitude),
+            'lon': float(preference.longitude), 'city': preference.city,
+            'radius': min(50, preference.radius_km), 'method': preference.location_method,
+            'is_detected': preference.location_method == 'geolocation',
+        }
+        request.session['user_location'] = loc
+        request.session['location_prompt_pending'] = False
+        return
+    if preference and preference.prompt_dismissed:
+        request.session['location_prompt_pending'] = False
+        return
+    if prior_location and prior_location.get('city'):
+        UserLocationPreference.objects.update_or_create(
+            user=user,
+            defaults={
+                'latitude': prior_location.get('lat'),
+                'longitude': prior_location.get('lng', prior_location.get('lon')),
+                'city': prior_location.get('city', ''),
+                'radius_km': min(50, max(1, int(prior_location.get('radius', 50)))),
+                'location_method': prior_location.get('method', 'city'),
+                'prompt_dismissed': True,
+            },
+        )
+        request.session['user_location'] = prior_location
+        request.session['location_prompt_pending'] = False
+        return
+    request.session['location_prompt_pending'] = True
 
 
 def home(request):
@@ -29,7 +63,7 @@ def home(request):
     today = timezone.now().date()
     now = timezone.now()
 
-    # 1. Location-based discovery & 30 km theater radius
+    # 1. Location-based discovery & 50 km theatre radius
     selected_lang = request.GET.get('lang', '').strip().lower()
     discovery_data = get_nearby_theaters_and_movies(request, language_code=selected_lang if selected_lang else None)
 
@@ -37,42 +71,36 @@ def home(request):
     user_location = discovery_data['user_location']
     radius_km = discovery_data['radius_km']
     total_theaters = discovery_data['total_theaters']
+    verified_showtimes_count = discovery_data['verified_showtimes_count']
 
-    # 2. Query ONLY the curated active TMDB catalog (~25-30 movies) excluding OTT-only titles
+    # The catalogue supplies release discovery; local availability is based on
+    # valid future showtimes in the selected market.
     city_name = (user_location.get('city') if user_location else None) or 'Bengaluru'
     active_catalog = (
         Movie.objects.filter(is_in_active_catalog=True, is_ott_only=False)
-        .prefetch_related('genres', 'languages', 'theaters')
+        .filter(
+            Q(status='CURRENT', release_date__lte=today) |
+            Q(status__in=('UPCOMING', 'ADVANCE_BOOKING'), release_date__gt=today)
+        )
+        .prefetch_related('genres', 'languages', 'theaters', 'posters')
         .annotate(
             active_future_showtimes_count=Count(
                 'theaters',
-                filter=Q(theaters__active=True, theaters__city__iexact=city_name, theaters__time__gte=now)
+                filter=Q(theaters__active=True, theaters__city__iexact=city_name, theaters__time__gte=now,
+                         theaters__admin_verified=True,
+                         theaters__operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+                         theaters__screen__active=True, theaters__screen__operational_status='ACTIVE')
             ),
             all_active_future_showtimes_count=Count(
                 'theaters',
-                filter=Q(theaters__active=True, theaters__time__gte=now)
+                filter=Q(theaters__active=True, theaters__time__gte=now,
+                         theaters__admin_verified=True,
+                         theaters__operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+                         theaters__screen__active=True, theaters__screen__operational_status='ACTIVE')
             )
         )
     )
     
-    # Fallback to any current/upcoming movies if sync hasn't run yet
-    if not active_catalog.exists():
-        active_catalog = (
-            Movie.objects.filter(is_ott_only=False)
-            .filter(Q(status='CURRENT') | Q(status='UPCOMING') | Q(status='ADVANCE_BOOKING') | Q(release_date__gte=today - timezone.timedelta(days=60)))
-            .prefetch_related('genres', 'languages', 'theaters')
-            .annotate(
-                active_future_showtimes_count=Count(
-                    'theaters',
-                    filter=Q(theaters__active=True, theaters__city__iexact=city_name, theaters__time__gte=now)
-                ),
-                all_active_future_showtimes_count=Count(
-                    'theaters',
-                    filter=Q(theaters__active=True, theaters__time__gte=now)
-                )
-            )[:30]
-        )
-
     movies_unavailable = not active_catalog.exists()
 
     # 3. Released This Week: Indian release date in current calendar week (Monday to Sunday)
@@ -84,6 +112,8 @@ def home(request):
             is_ott_only=False
         ).order_by('-popularity', '-release_date')
     )
+    from movies.services.ranking_service import sort_movies_by_release_and_promotion
+    sort_movies_by_release_and_promotion(released_this_week_movies, newest_date_first=True)
     if len(released_this_week_movies) < 4:
         recent_extra = list(
             active_catalog.filter(
@@ -94,6 +124,7 @@ def home(request):
             .order_by('-popularity', '-release_date')[:6]
         )
         released_this_week_movies.extend(recent_extra)
+        sort_movies_by_release_and_promotion(released_this_week_movies, newest_date_first=True)
 
     # 3b. Now Showing: verified theatrical release_date <= today AND has active bookable showtimes
     now_showing_qs = active_catalog.filter(
@@ -101,18 +132,7 @@ def home(request):
         active_future_showtimes_count__gt=0
     ).order_by('-popularity', '-release_date')
 
-    # If the user's specific city has no showtimes, fall back to all active partner screenings
-    if not now_showing_qs.exists():
-        now_showing_qs = active_catalog.filter(
-            release_date__lte=today,
-            all_active_future_showtimes_count__gt=0
-        ).order_by('-popularity', '-release_date')
-
-    # If still empty, fall back to CURRENT active catalog titles
-    if not now_showing_qs.exists():
-        now_showing_qs = active_catalog.filter(
-            Q(status='CURRENT') | Q(release_date__lte=today)
-        ).order_by('-popularity', '-release_date')
+    now_showing_qs = now_showing_qs.filter(status='CURRENT')
 
     if selected_lang:
         filtered_by_lang = [
@@ -138,6 +158,10 @@ def home(request):
     )
     trending_booking_open = categorized_data['trending_booking_open']
     upcoming_anticipated = categorized_data['upcoming_anticipated']
+    discover_more = categorized_data.get('discover_more', [])
+    discover_more_total = len(discover_more)
+    discover_more_has_more = discover_more_total > 12
+    discover_more = discover_more[:12]
     now_showing_movies = categorized_data['now_showing']
     homepage_movies = trending_booking_open
     released_this_week_ids = {m.id for m in trending_booking_open if m.demand_badge in ('NEW RELEASE', 'ADVANCE OPEN')}
@@ -171,12 +195,16 @@ def home(request):
     recent_theatrical_releases = list(
         active_catalog.filter(
             release_date__gte=fourteen_days_ago,
-            release_date__lte=today
-        ).order_by('-active_future_showtimes_count', '-release_date', '-popularity')[:12]
+            release_date__lte=today,
+            status='CURRENT',
+        ).order_by('-release_date', '-popularity')[:12]
     )
+    sort_movies_by_release_and_promotion(recent_theatrical_releases, newest_date_first=True)
 
     # 4. Trending Now: ordered by real TMDB popularity
-    trending_movies = list(active_catalog.order_by('-popularity'))[:12]
+    trending_movies = list(active_catalog.filter(
+        status='CURRENT', release_date__lte=today
+    ).order_by('-popularity', '-vote_count', '-release_date')[:12])
 
     # 5. Upcoming: all future releases ordered nearest first
     upcoming_movies = list(
@@ -212,36 +240,37 @@ def home(request):
     from movies.models import Screen
     live_screens_count = Screen.objects.filter(active=True).count() or 44
 
-    # Format cinemas around you for Bengaluru cluster
-    cinemas_around_you = [
-        {
-            'name': 'INOX Galleria Mall',
-            'sub': 'Yelahanka Rd • 2.8 km away',
-            'badges': ['IMAX', 'Standard'],
-            'color': '#EF4444',
-            'bg': 'rgba(239, 68, 68, 0.15)',
-        },
-        {
-            'name': 'PVR Vega City',
-            'sub': 'Bannerghatta Rd • 5.3 km away',
-            'badges': ['4DX', 'PVR LUXE'],
-            'color': '#F59E0B',
-            'bg': 'rgba(245, 158, 11, 0.15)',
-        },
-        {
-            'name': 'Cinépolis Nexus Mall',
-            'sub': 'Koramangala 7th • 7.1 km away',
-            'badges': ['Dolby Atmos', 'VIP'],
-            'color': '#EAB308',
-            'bg': 'rgba(234, 179, 8, 0.15)',
-        },
+    # Format cinemas dynamically from actual nearby theatres (sorted by distance)
+    color_palette = [
+        ('#EF4444', 'rgba(239, 68, 68, 0.15)'),
+        ('#F59E0B', 'rgba(245, 158, 11, 0.15)'),
+        ('#EAB308', 'rgba(234, 179, 8, 0.15)'),
+        ('#10B981', 'rgba(16, 185, 129, 0.15)'),
+        ('#3B82F6', 'rgba(59, 130, 246, 0.15)'),
+        ('#8B5CF6', 'rgba(139, 92, 246, 0.15)'),
     ]
+    cinemas_around_you = []
+    for idx, venue in enumerate(nearby_theaters):
+        col, bg = color_palette[idx % len(color_palette)]
+        dist_str = f" • {venue['distance_display']}" if venue.get('distance_display') else ""
+        fmts = venue.get('formats', ['STANDARD'])
+        cinemas_around_you.append({
+            'name': venue['name'],
+            'sub': f"{venue.get('location', venue.get('city', 'Bengaluru'))}{dist_str}",
+            'badges': fmts[:3],
+            'color': col,
+            'bg': bg,
+            'available_movies_count': venue.get('available_movies_count', 0),
+            'showtimes_count': venue.get('showtimes_count', 0),
+        })
 
     # 9. Top Movies This Week (Dynamic Ranked Row - Top 5 Real TMDB Theatrical Releases)
     top_movies_qs = active_catalog.filter(
         is_ott_only=False,
         status='CURRENT',
+        release_date__lte=today,
         tmdb_id__isnull=False,
+        active_future_showtimes_count__gt=0,
     )
     if selected_lang:
         top_lang_qs = top_movies_qs.filter(
@@ -253,20 +282,6 @@ def home(request):
     top_movies_this_week = list(
         top_movies_qs.order_by('-popularity', '-rating')[:5]
     )
-    if len(top_movies_this_week) < 5:
-        existing_ids = [m.id for m in top_movies_this_week]
-        filler_qs = active_catalog.filter(is_ott_only=False).exclude(id__in=existing_ids)
-        if selected_lang:
-            filler_lang = filler_qs.filter(
-                Q(original_language=selected_lang) | Q(languages__code=selected_lang)
-            ).distinct()
-            if filler_lang.exists():
-                filler_qs = filler_lang
-        filler = list(
-            filler_qs.order_by('-popularity', '-rating')[:5 - len(top_movies_this_week)]
-        )
-        top_movies_this_week.extend(filler)
-
     top_movies_ranking_criterion = 'popularity'
 
     return render(request, 'home.html', {
@@ -279,6 +294,10 @@ def home(request):
         'trending_booking_open': trending_booking_open,
 
         'upcoming_anticipated': upcoming_anticipated,
+
+        'discover_more': discover_more,
+        'discover_more_total': discover_more_total,
+        'discover_more_has_more': discover_more_has_more,
 
         'total_trending_open': categorized_data['total_trending_open'],
 
@@ -312,6 +331,7 @@ def home(request):
         'user_location': user_location,
         'radius_km': radius_km,
         'total_theaters': total_theaters,
+        'verified_showtimes_count': verified_showtimes_count,
         'supported_cities': SUPPORTED_CITIES,
         'selected_language': selected_lang,
     })
@@ -321,9 +341,11 @@ def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
         if form.is_valid():
+            prior_location = request.session.get('user_location')
             user = form.save()
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            return redirect('profile')
+            _restore_location_after_login(request, user, prior_location)
+            return redirect('home')
     else:
         form = UserRegisterForm()
     return render(request, 'users/register.html', {'form': form})
@@ -348,7 +370,9 @@ def login_view(request):
         form = AuthenticationForm(request, data=post_data)
         if form.is_valid():
             user = form.get_user()
+            prior_location = request.session.get('user_location')
             login(request, user)
+            _restore_location_after_login(request, user, prior_location)
             next_url = request.GET.get('next') or request.POST.get('next') or '/'
             return redirect(next_url)
         else:

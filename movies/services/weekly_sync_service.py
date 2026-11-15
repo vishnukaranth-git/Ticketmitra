@@ -13,14 +13,11 @@ Manages automated weekly movie refresh for TicketMitra every Friday:
 
 import datetime
 import logging
-from decimal import Decimal
-
 from django.core.cache import cache
-from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from movies.models import Movie, Screen, Seat, Theater
+from movies.models import Movie
 from movies.services.tmdb_service import TMDBService
 
 logger = logging.getLogger(__name__)
@@ -146,9 +143,6 @@ def sync_weekly_movies(dry_run=False, force=False, pages=2):
             'friday_cycle': current_friday.strftime('%b %d, %Y'),
         }
 
-    # Find active screen for seeding bookable screenings if needed
-    active_screen = Screen.objects.filter(active=True).first()
-
     for tmdb_id in collected_tmdb_ids:
         try:
             intended_status = id_status_map.get(tmdb_id, 'CURRENT')
@@ -170,45 +164,6 @@ def sync_weekly_movies(dry_run=False, force=False, pages=2):
                 else:
                     correct_status = 'CURRENT' if intended_status == 'CURRENT' else 'UPCOMING'
 
-                # If this is a current or advance booking movie that lacks showtimes,
-                # seed an active showtime so users can book tickets immediately
-                if correct_status in ('CURRENT', 'ADVANCE_BOOKING') and not has_future_theaters and active_screen:
-                    show_date = movie.release_date if (movie.release_date and movie.release_date > today) else today
-                    show_time = timezone.make_aware(
-                        datetime.datetime.combine(show_date, datetime.time(hour=19, minute=30))
-                    )
-                    if show_time < now:
-                        show_time = now + datetime.timedelta(hours=3)
-
-                    th_show, th_created = Theater.objects.get_or_create(
-                        name=active_screen.theater_name,
-                        movie=movie,
-                        screen=active_screen,
-                        time=show_time,
-                        defaults={
-                            'location': 'Galleria Mall, Yelahanka',
-                            'city': 'Bengaluru',
-                            'price': Decimal('280.00'),
-                            'active': True,
-                            'operational_status': 'BOOKING_OPEN',
-                        }
-                    )
-                    if th_created:
-                        seats = [
-                            Seat(
-                                theater=th_show,
-                                screen=active_screen,
-                                seat_number=f"{r_ltr}{c_idx}",
-                                row=r_ltr,
-                                seat_type='REGULAR',
-                                is_booked=False,
-                                is_blocked=False,
-                            )
-                            for r_ltr in ['A', 'B', 'C', 'D']
-                            for c_idx in range(1, 9)
-                        ]
-                        Seat.objects.bulk_create(seats, ignore_conflicts=True)
-
                 updates = []
                 if movie.status != correct_status:
                     movie.status = correct_status
@@ -222,6 +177,10 @@ def sync_weekly_movies(dry_run=False, force=False, pages=2):
         except Exception as exc:
             error_count += 1
             logger.warning(f"[WeeklyMovieSync] Error syncing TMDB ID #{tmdb_id}: {exc}")
+
+    # Catalogue refreshes must never manufacture local availability. Schedules
+    # are administrator managed; only existing future showtimes make a title
+    # locally bookable.
 
     # Clean up past showtimes so that movies with only expired screenings drop out automatically
     try:
@@ -283,11 +242,18 @@ def get_bookable_movies_for_section(city=None, language_code=None, now_dt=None):
         .annotate(
             active_future_showtimes_count=Count(
                 'theaters',
-                filter=Q(theaters__active=True, theaters__city__iexact=city_name, theaters__time__gte=now_dt)
+                filter=Q(theaters__active=True, theaters__admin_verified=True,
+                         theaters__city__iexact=city_name, theaters__time__gte=now_dt,
+                         theaters__screen__active=True,
+                         theaters__screen__operational_status='ACTIVE',
+                         theaters__operational_status__in=['SCHEDULED', 'BOOKING_OPEN'])
             ),
             all_active_future_showtimes_count=Count(
                 'theaters',
-                filter=Q(theaters__active=True, theaters__time__gte=now_dt)
+                filter=Q(theaters__active=True, theaters__admin_verified=True,
+                         theaters__time__gte=now_dt, theaters__screen__active=True,
+                         theaters__screen__operational_status='ACTIVE',
+                         theaters__operational_status__in=['SCHEDULED', 'BOOKING_OPEN'])
             )
         )
         .filter(all_active_future_showtimes_count__gt=0)

@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 from django.utils import timezone
 
-from movies.models import CinemaVenue, Movie, Screen, Seat, Theater
+from movies.models import Movie
 from movies.services.tmdb_service import TMDBService
 
 logger = logging.getLogger(__name__)
@@ -201,58 +201,8 @@ class Command(BaseCommand):
         deactivated_count = Movie.objects.exclude(id__in=active_imported_ids).filter(is_in_active_catalog=True).update(is_in_active_catalog=False)
         self.stdout.write(f"Deactivated {deactivated_count} older/non-catalog movies from active public discovery.")
 
-        # 5. Set up realistic TicketMitra showtimes for a subset of NOW PLAYING movies:
-        # A movie should only show BOOK NOW if there is an actual TicketMitra showtime available.
-        # Movies without showtimes will cleanly display "COMING SOON" or "DETAILS".
-        now_playing_imported = [m for m in imported_movies if m.status == 'CURRENT']
-        future_showtime_1 = timezone.now() + datetime.timedelta(hours=3)
-        future_showtime_2 = timezone.now() + datetime.timedelta(hours=6)
-
-        # Pick top 6 now-playing movies to have active bookable showtimes in our partner venues
-        venues = list(CinemaVenue.objects.filter(active=True)[:3])
-        if venues:
-            # First, clean existing showtimes on imported movies
-            showtime_movies = now_playing_imported[:6]
-            self.stdout.write(f"Assigning active TicketMitra showtimes to {len(showtime_movies)} Now-Playing movies...")
-
-            for m in showtime_movies:
-                for v in venues:
-                    screens = list(Screen.objects.filter(theater_name=v.name, active=True)[:2])
-                    for scr in screens:
-                        for st_time in [future_showtime_1, future_showtime_2]:
-                            th, _ = Theater.objects.get_or_create(
-                                movie=m,
-                                screen=scr,
-                                name=v.name,
-                                city=v.city or 'Bengaluru',
-                                time=st_time,
-                                defaults={
-                                    'location': v.address or f"{v.city}, Karnataka",
-                                    'latitude': v.latitude or 12.9716,
-                                    'longitude': v.longitude or 77.5946,
-                                    'active': True,
-                                    'price': 250.00,
-                                }
-                            )
-                            th.active = True
-                            th.time = st_time
-                            th.save()
-
-                            # Ensure bookable seats exist
-                            if th.seats.count() < 20:
-                                Seat.objects.filter(theater=th).delete()
-                                for r_char in ['A', 'B', 'C', 'D']:
-                                    for num in range(1, 11):
-                                        Seat.objects.create(
-                                            theater=th,
-                                            screen=scr,
-                                            row=r_char,
-                                            seat_number=f"{r_char}{num}",
-                                            seat_type='VIP' if r_char in ['A', 'B'] else 'REGULAR',
-                                            is_booked=False
-                                        )
-
-        # 6. Compute & Display Final Verification Statistics
+        # 5. Compute & Display Final Verification Statistics. Showtimes are
+        # administrator-managed and are never invented by catalogue refresh.
         active_qs = Movie.objects.filter(is_in_active_catalog=True)
         total_active = active_qs.count()
         now_playing_count = active_qs.filter(status='CURRENT').count()

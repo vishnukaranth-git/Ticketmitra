@@ -1371,7 +1371,7 @@
     </div>
     <div class="tm-premiere-actions">
       <button type="button" class="tm-premiere-action trailer" id="tmPremiereTrailer"><i class="fas fa-play"></i> Trailer</button>
-      <a class="tm-premiere-action booking" id="tmPremiereBooking" href="#"><i class="fas fa-ticket-alt"></i> Book Tickets</a>
+      <a class="tm-premiere-action booking" id="tmPremiereBooking" href="#"><i class="fas fa-film"></i> View Details</a>
     </div>
   </div>
 </section>
@@ -1457,6 +1457,37 @@
     </div>
   </section>
 
+  <section class="mb-5 pt-2" id="discoverMoreSection">
+    <div class="d-flex justify-content-between align-items-end section-editorial-header flex-wrap" style="gap: 12px;">
+      <div>
+        <div class="tracker-tag mb-0"><i class="fas fa-compass"></i> MORE THEATRICAL RELEASES</div>
+        <h2 class="section-main-heading mt-1 mb-0">Discover More</h2>
+        <p class="text-muted small mb-0 mt-1" style="color: #94A3B8 !important;">More upcoming movies and additional verified theatrical releases.</p>
+      </div>
+      <div class="rail-controls-box d-flex align-items-center" style="gap: 8px;">
+        <button class="rail-control-btn" onclick="manualScroll('discoverMoreRail', -360)" aria-label="Previous Discover More">
+          <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </button>
+        <button class="rail-control-btn" onclick="manualScroll('discoverMoreRail', 360)" aria-label="Next Discover More">
+          <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </button>
+        <a href="{% url 'movie_list' %}" class="btn btn-sm btn-outline-light ml-2" style="font-size: 11px; font-weight: 700; border-radius: 8px;">
+          View All <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+      </div>
+    </div>
+    <div class="carousel-scroll-rail continuous-rail position-relative" id="discoverMoreRail" data-auto-scroll="false" style="transition: opacity 0.25s ease;">
+      {% for movie in discover_more %}
+        {% include 'movies/partials/categorized_movie_card.html' with movie=movie %}
+      {% empty %}
+        <div class="p-4 text-center w-100" style="color: var(--text-warmstone-sub); min-height: 120px;">No additional theatrical releases right now. Check back every Thursday &amp; Friday!</div>
+      {% endfor %}
+    </div>
+    {% if discover_more_has_more %}
+      <div class="text-center mt-3"><button type="button" class="btn btn-outline-light btn-sm" id="discoverMoreLoadButton" data-page="1">Load More Movies</button></div>
+    {% endif %}
+  </section>
+
   <!-- ==================================================
        CATEGORY B: UPCOMING ANTICIPATED MOVIES
        Major Upcoming Theatrical Releases (COMING SOON)
@@ -1534,10 +1565,12 @@
           <i class="fas fa-map-marker-alt"></i> LOCAL PARTNER THEATRES
         </div>
         <h2 class="section-main-heading">Cinemas In {{ user_location.city|default:"Bengaluru" }}</h2>
+        {% if total_theaters < 10 %}<p class="text-muted small mb-0">We found {{ total_theaters }} theatre records for this city and are showing them all.</p>{% endif %}
+        {% if verified_showtimes_count == 0 %}<p class="text-muted small mb-0">No administrator-verified showtimes are currently published in this city.</p>{% endif %}
       </div>
       <div class="d-flex align-items-center" style="gap: 10px;">
         <span class="badge" style="background: rgba(220, 38, 61, 0.12); color: var(--crimson-red); border: 1px solid rgba(220, 38, 61, 0.3); padding: 7px 12px; font-size: 11.5px; font-weight: 700; border-radius: 8px;">
-          <i class="fas fa-crosshairs mr-1"></i> {{ user_location.city|default:"Bengaluru" }} (Within {{ radius_km|default:"30" }} km)
+          <i class="fas fa-crosshairs mr-1"></i> {{ user_location.city|default:"Bengaluru" }} (Within {{ radius_km|default:"50" }} km)
         </span>
         <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLocationModal()" style="border-radius: 8px; font-size: 11.5px; font-weight: 700;">
           Change City
@@ -1548,14 +1581,59 @@
     <div class="row">
       {% for venue in nearby_theaters %}
       <div class="col-lg-4 col-md-6 mb-3">
-        <div class="cinema-venue-card cinema-name-card">
-          <h5 class="cinema-venue-name mb-0">{{ venue.name }}</h5>
+        <div class="cinema-venue-card cinema-name-card h-100 d-flex flex-column justify-content-between p-3" style="background: rgba(16, 26, 43, 0.9); border: 1px solid rgba(226, 211, 193, 0.16); border-radius: 14px;">
+          <div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="cinema-venue-name mb-0 font-weight-bold text-white">{{ venue.name }}</h5>
+              {% if venue.distance_display %}
+                <span class="badge" style="background: rgba(214, 31, 69, 0.15); color: #FFA4B5; border: 1px solid rgba(214, 31, 69, 0.3); font-size: 10px; font-weight: 700;">
+                  <i class="fas fa-location-arrow mr-1"></i>{{ venue.distance_display }}
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="small mb-2" style="color:var(--text-warmstone-sub)">
+              <i class="fas fa-map-marker-alt text-danger mr-1"></i>{{ venue.location|default:venue.address|default:venue.city }}
+            </div>
+
+            {% if venue.formats %}
+              <div class="mb-2 d-flex flex-wrap" style="gap: 4px;">
+                {% for fmt in venue.formats %}
+                  <span class="badge" style="background: rgba(181, 138, 90, 0.15); color: #E2C092; border: 1px solid rgba(181, 138, 90, 0.3); font-size: 10px;">{{ fmt }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if venue.showtimes_count > 0 %}
+              <div class="mt-2 mb-2">
+                <div class="small font-weight-bold text-white mb-1">
+                  <i class="fas fa-film text-danger mr-1"></i> Available Movies ({{ venue.available_movies_count }} titles):
+                </div>
+                {% for movie in venue.available_movies|slice:":3" %}
+                  <div class="d-flex align-items-center justify-content-between small py-1" style="border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px;">
+                    <a href="{% url 'movie_detail' movie.id %}" class="text-light text-truncate font-weight-bold" style="max-width: 170px;">{{ movie.get_display_title }}</a>
+                    <a href="{% url 'theater_list' movie.id %}" class="text-nowrap" style="color:var(--crimson,#D61F45);font-weight:700; font-size: 11px;">Book Shows &rarr;</a>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="small mt-3 p-2 text-center" style="background: rgba(255,255,255,0.03); border-radius: 6px; color: var(--text-warmstone-sub);">
+                No live showtimes scheduled today. Check back soon for upcoming screenings.
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2" style="border-top: 1px solid rgba(255,255,255,0.08);">
+            <span class="small text-muted">{{ venue.showtimes_count }} live showtimes</span>
+            <a href="{% url 'all_theaters_list' %}" class="btn btn-sm btn-outline-light" style="font-size: 11px; font-weight: 700; border-radius: 6px;">View All Theatres</a>
+          </div>
         </div>
       </div>
       {% empty %}
       <div class="col-12">
         <div class="p-4 text-center" style="background: var(--warmstone-card); border: 1px solid var(--border-warmstone); border-radius: 12px; color: var(--text-warmstone-sub);">
-          <i class="fas fa-building mr-1 text-danger"></i> No partner theaters found in <strong>{{ user_location.city|default:"this location" }}</strong>.
+          <i class="fas fa-building mr-1 text-danger"></i> No theatres found within 50 km of <strong>{{ user_location.city|default:"this location" }}</strong>.
+          <button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="openLocationModal()">Choose another city</button>
         </div>
       </div>
       {% endfor %}
@@ -1613,7 +1691,7 @@
       <div class="row">
         {% for movie in upcoming_movies|slice:":4" %}
         <div class="col-lg-3 col-md-6 col-6 mb-3">
-          <div class="movie-card-uniform">
+          <div class="movie-card-uniform" data-detail-url="{% url 'movie_detail' movie.id %}" style="cursor:pointer">
             <div class="card-poster-container">
               <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
                 <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
@@ -1629,11 +1707,6 @@
                 {% endif %}
               </div>
 
-              {% if movie.trailer_url %}
-              <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
-                <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
-              </button>
-              {% endif %}
             </div>
 
             <div class="card-content-uniform">
@@ -1647,17 +1720,6 @@
                 </div>
               </div>
 
-              <div class="card-action-bar">
-                {% if movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
-                  <a href="{% url 'theater_list' movie.id %}" class="btn-card-action book-now" style="background: var(--crimson, #D61F45); color: #fff;">
-                    <i class="fas fa-ticket-alt"></i> ADVANCE BOOKING
-                  </a>
-                {% else %}
-                  <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon">
-                    <i class="far fa-bell"></i> COMING SOON
-                  </a>
-                {% endif %}
-              </div>
             </div>
           </div>
         </div>
@@ -1690,7 +1752,7 @@
     <div class="carousel-scroll-rail continuous-rail" id="nowStreamingRail" data-auto-scroll="false">
       {% for movie in now_streaming_movies %}
       <div class="carousel-card-item">
-        <div class="movie-card-uniform">
+        <div class="movie-card-uniform" data-detail-url="{% url 'movie_detail' movie.id %}" style="cursor:pointer">
           <div class="card-poster-container">
             <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
               <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
@@ -1715,11 +1777,6 @@
               </div>
             {% endif %}
 
-            {% if movie.get_trailer_embed_url %}
-            <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
-              <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
-            </button>
-            {% endif %}
           </div>
 
           <div class="card-content-uniform">
@@ -1733,17 +1790,6 @@
               </div>
             </div>
 
-            <div class="card-action-bar">
-              {% if movie.ott_streaming_url %}
-                <a href="{{ movie.ott_streaming_url }}" target="_blank" rel="noopener noreferrer" class="btn-card-action book-now">
-                  <i class="fas fa-external-link-alt mr-1"></i> WATCH NOW
-                </a>
-              {% else %}
-                <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action details">
-                  <i class="fas fa-info-circle mr-1"></i> STREAMING DETAILS
-                </a>
-              {% endif %}
-            </div>
           </div>
         </div>
       </div>
@@ -1792,10 +1838,8 @@
 
       const booking = document.getElementById('tmPremiereBooking');
       if (booking) {
-        booking.href = canBook ? data.bookingUrl : data.detailUrl;
-        booking.innerHTML = canBook
-          ? '<i class="fas fa-ticket-alt"></i> ' + (statusCode === 'ADVANCE_BOOKING' ? 'Pre-book' : 'Book Tickets')
-          : '<i class="fas fa-film"></i> View Details';
+      booking.href = data.detailUrl;
+      booking.innerHTML = '<i class="fas fa-film"></i> View Details';
       }
 
       const trailer = document.getElementById('tmPremiereTrailer');
@@ -1833,7 +1877,9 @@
     }
     posters.forEach((poster, index) => poster.addEventListener('click', function () {
       if (dragged) return;
-      select(index);
+      const detailUrl = poster.dataset.detailUrl;
+      if (detailUrl) window.location.href = detailUrl;
+      else select(index);
     }));
     document.getElementById('tmPremierePrev')?.addEventListener('click', () => select(activeIndex - 1));
     document.getElementById('tmPremiereNext')?.addEventListener('click', () => select(activeIndex + 1));
@@ -1867,13 +1913,51 @@
     }
   }
 
+  const discoverMoreButton = document.getElementById('discoverMoreLoadButton');
+  if (discoverMoreButton) {
+    discoverMoreButton.addEventListener('click', async function () {
+      const button = this;
+      const nextPage = Number(button.dataset.page || '1') + 1;
+      button.disabled = true;
+      button.textContent = 'Loading…';
+      try {
+        const params = new URLSearchParams({page: String(nextPage), city: '{{ user_location.city|escapejs }}', lang: '{{ selected_language|escapejs }}'});
+        const response = await fetch('{% url "api_weekly_movies" %}?' + params.toString(), {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        if (!response.ok) throw new Error('Unable to load movies');
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Unable to load movies');
+        const rail = document.getElementById('discoverMoreRail');
+        const holder = document.createElement('div');
+        holder.innerHTML = data.discover_more_html || '';
+        const seen = new Set(Array.from(rail.querySelectorAll('[data-movie-id]')).map(node => node.dataset.movieId).filter(Boolean));
+        Array.from(holder.children).forEach(function (node) {
+          const id = node.dataset.movieId;
+          if (!id || !seen.has(id)) rail.appendChild(node);
+        });
+        button.dataset.page = String(nextPage);
+        if (!data.discover_more_has_more) button.remove();
+        else { button.disabled = false; button.textContent = 'Load More Movies'; }
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = 'Retry Loading';
+      }
+    });
+  }
+
   // Card surfaces retain their existing movie details navigation.
   document.addEventListener('click', function(e) {
-    const card = e.target.closest('.movie-card-uniform');
+    const card = e.target.closest('.movie-card-uniform, .carousel-card-item');
     if (!card) return;
     if (e.target.closest('a, button, input, select')) return;
-    const link = card.querySelector('a.card-title-clamped') || card.querySelector('a[href*="/movies/"]');
-    if (link?.href) window.location.href = link.href;
+    const link = card.dataset.detailUrl || card.querySelector('[data-detail-url]')?.dataset.detailUrl || card.querySelector('a.card-title-clamped')?.href || card.querySelector('a[href*="/movies/"]')?.href;
+    if (link) window.location.href = link;
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.movie-card-uniform, .carousel-card-item');
+    if (!card || e.target.closest('a, button, input, select')) return;
+    const link = card.dataset.detailUrl || card.querySelector('[data-detail-url]')?.dataset.detailUrl || card.querySelector('a.card-title-clamped')?.href;
+    if (link) { e.preventDefault(); window.location.href = link; }
   });
 </script>
 {% endblock %}

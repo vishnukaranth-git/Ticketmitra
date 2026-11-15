@@ -348,12 +348,18 @@
         font-weight: 700;
         color: var(--warm-ivory, #F2E9DC);
         cursor: pointer;
+        font: inherit;
+        text-align: left;
         transition: all 0.2s ease;
       }
       .location-pill:hover {
         background: rgba(26, 34, 56, 0.75);
         border-color: rgba(226, 211, 193, 0.35);
         color: #FFFFFF;
+      }
+      @media (max-width: 575.98px) {
+        .location-pill { padding: 5px 8px; gap: 4px; font-size: 10px; max-width: 132px; }
+        .location-pill #navLocationText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       }
       .location-pill i {
         color: var(--crimson, #D61F45);
@@ -773,7 +779,7 @@
     {% block extra_css %}{% endblock %}
   </head>
 
-  <body data-has-session-location="{% if request.session.user_location %}true{% else %}false{% endif %}">
+  <body data-has-session-location="{% if request.session.user_location %}true{% else %}false{% endif %}" data-show-location-prompt="{% if request.user.is_authenticated and request.session.location_prompt_pending and not request.session.user_location %}true{% else %}false{% endif %}">
     <form id="csrfHelperForm" style="display:none;">{% csrf_token %}</form>
     <!-- STICKY CINEMATIC NAVBAR -->
     <nav class="cinematic-navbar" id="cinematicNavbar">
@@ -825,7 +831,7 @@
           </div>
 
           <!-- Location Pill (Bengaluru / Urban Cluster) -->
-          <div class="location-pill d-none d-md-inline-flex" title="Selected Location — Click to Change" onclick="openLocationModal()">
+          <button type="button" class="location-pill" title="Selected Location — Click to Change" onclick="openLocationModal()" aria-label="Change your location">
             <i class="fas fa-location-dot mr-1" style="color: var(--crimson, #D61F45);"></i>
             <span id="navLocationText">
               {% if request.session.user_location.city %}
@@ -837,7 +843,7 @@
               {% endif %}
             </span>
             <i class="fas fa-chevron-down ml-1" style="font-size: 9px; opacity: 0.6;"></i>
-          </div>
+          </button>
 
           <!-- User Menu / Login / Register / Staff Admin -->
           {% if user.is_authenticated %}
@@ -1004,25 +1010,25 @@
             <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(230, 57, 70, 0.15); border: 2px solid var(--color-primary); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px;">
               <i class="fas fa-map-marker-alt text-danger fa-2x"></i>
             </div>
-            <h4 class="font-weight-bold text-white mb-2">TicketMitra wants to access your location</h4>
+            <h4 class="font-weight-bold text-white mb-2">Find Your Nearest Cinema</h4>
             <p class="text-secondary small mb-4" style="line-height: 1.6;">
-              To show nearby theatres and movie showtimes within 30 km of you.
+              Discover movies playing at theatres near you. Allow location access to find cinemas within 50 km.
             </p>
           </div>
           <div class="d-flex flex-column" style="gap: 10px;">
             <button type="button" class="btn-cinematic-primary py-2 px-3 text-center justify-content-center" onclick="requestBrowserGeolocation()">
-              <i class="fas fa-location-arrow mr-2"></i> Allow Location Access
+              <i class="fas fa-location-arrow mr-2"></i> Use My Location
             </button>
             <button type="button" class="btn-cinematic-ghost py-2 px-3 text-center justify-content-center" onclick="openCitySelectorFromPermission()">
-              <i class="fas fa-city mr-2"></i> Choose City Manually
+              <i class="fas fa-city mr-2"></i> Choose City
             </button>
             <button type="button" class="btn btn-link text-muted btn-sm" data-dismiss="modal" onclick="dismissLocationPrompt()">
-              Not now
+              Not Now
             </button>
           </div>
           <div class="text-center mt-3 pt-2 border-top" style="border-color: rgba(255,255,255,0.06) !important;">
             <small class="text-muted" style="font-size: 11px;">
-              <i class="fas fa-shield-alt mr-1"></i> Privacy guaranteed. Coordinates used solely for 30 km cinema discovery during your session. No background tracking.
+              <i class="fas fa-shield-alt mr-1"></i> Your location is used only to find nearby cinemas. You can change it any time.
             </small>
           </div>
         </div>
@@ -1036,7 +1042,7 @@
           <div class="modal-header border-0 pb-1">
             <div>
               <h5 class="modal-title font-weight-bold text-white mb-0">Choose Your Location</h5>
-              <small class="text-secondary">Select your city or use device GPS to find theatres within 30 km.</small>
+            <small class="text-secondary">Select your city or use device GPS to find theatres within 50 km.</small>
             </div>
             <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
@@ -1067,13 +1073,7 @@
               <button type="button" class="btn btn-sm btn-dark border city-select-btn" onclick="selectCity('Kolkata')">Kolkata</button>
             </div>
 
-            <!-- Radius control -->
-            <label class="text-muted small font-weight-bold mb-2">Discovery Radius</label>
-            <div class="d-flex" style="gap: 8px;">
-              <button type="button" class="btn btn-sm btn-outline-info radius-select-btn active" id="radius30Btn" onclick="selectRadius(30)">30 km (Standard)</button>
-              <button type="button" class="btn btn-sm btn-outline-info radius-select-btn" id="radius50Btn" onclick="selectRadius(50)">50 km</button>
-              <button type="button" class="btn btn-sm btn-outline-info radius-select-btn" id="radius100Btn" onclick="selectRadius(100)">100 km</button>
-            </div>
+            <div class="text-secondary small"><i class="fas fa-circle-notch mr-1"></i> Showing theatres within 50 km.</div>
           </div>
         </div>
       </div>
@@ -1168,7 +1168,7 @@
       // ==========================================
       // GEOLOCATION & CITY SELECTION LOGIC
       // ==========================================
-      let currentRadius = 30;
+      let currentRadius = 50;
 
       function openLocationModal() {
         $('#modalSelectCity').modal('show');
@@ -1181,6 +1181,10 @@
 
       function dismissLocationPrompt() {
         sessionStorage.setItem('ticketmitra_location_prompted', 'true');
+        fetch('/movies/api/set-location/', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '{{ csrf_token }}' },
+          body: JSON.stringify({ dismiss: true })
+        }).catch(() => {});
         $('#modalLocationPermission').modal('hide');
       }
 
@@ -1201,6 +1205,7 @@
             body: JSON.stringify({ city: cityName, radius: currentRadius })
           });
           const data = await res.json();
+          if (!data.success) throw new Error(data.error || 'Location could not be saved.');
           sessionStorage.setItem('ticketmitra_location_prompted', 'true');
           window.location.reload();
         } catch (e) {
@@ -1238,6 +1243,7 @@
                 body: JSON.stringify({ lat: lat, lng: lng, radius: currentRadius })
               });
               const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Location could not be saved.');
               sessionStorage.setItem('ticketmitra_location_prompted', 'true');
               $('#modalLocationPermission').modal('hide');
               $('#modalSelectCity').modal('hide');
@@ -1523,6 +1529,10 @@
         closeTrailerModal();
       });
 
+      if (document.body.dataset.showLocationPrompt === 'true') {
+        $(function() { $('#modalLocationPermission').modal('show'); });
+      }
+
       $(document).on('shown.bs.modal', '#globalTrailerModal', function () {
         // Automatically dismiss spinner if still visible after modal opens
         setTimeout(hideTrailerSpinner, 800);
@@ -1620,7 +1630,7 @@
         <p class="tm-card-preview-overview" id="tmCardPreviewOverview"></p>
         <div class="tm-card-preview-actions">
           <button type="button" id="tmCardPreviewWatch"><i class="fas fa-play"></i> Watch Trailer</button>
-          <a class="tm-preview-book" id="tmCardPreviewBook" href="#"><i class="fas fa-ticket-alt"></i> Book Now</a>
+          <a class="tm-preview-book" id="tmCardPreviewBook" href="#"><i class="fas fa-film"></i> View Details</a>
         </div>
         <div class="tm-card-preview-controls" aria-label="Trailer playback controls">
           <button type="button" id="tmCardPreviewPlayback" aria-pressed="false"><i class="fas fa-pause"></i> Pause</button>
@@ -1701,10 +1711,10 @@
           const titleText = card.querySelector('.card-title-clamped, .ranked-title, .movie-card-title')?.textContent.trim() || image?.alt?.replace(/\s+poster$/i, '') || 'Movie Preview';
           const ratingText = card.querySelector('.card-rating-badge, .ranked-score, .rating-badge')?.textContent.trim() || '';
           const detailsText = card.querySelector('.movie-card-meta, .card-meta-row, .ranked-meta')?.textContent.replace(/\s+/g, ' ').trim() || '';
-          const bookingLink = card.querySelector('a[href*="theater"], a[href*="booking"]') || card.querySelector('a[href*="/movies/"]');
+        const detailLink = card.querySelector('a[href*="/movies/"]');
           state = {
             movieId, title: titleText, posterUrl: image?.currentSrc || image?.src || '',
-            rating: ratingText, detailText: detailsText, bookingUrl: bookingLink?.href || `/movies/${movieId}/`,
+            rating: ratingText, detailText: detailsText, detailUrl: card.dataset.detailUrl || detailLink?.href || `/movies/${movieId}/`,
             trailerUrl: '', description: '', language: '', runtime: '', loaded: false, request: null
           };
           states.set(card, state);
@@ -1788,7 +1798,7 @@
           meta.textContent = '';
           chunks.forEach(value => { const span = document.createElement('span'); span.textContent = value; meta.appendChild(span); });
           overview.textContent = state.description || 'Discover this film and continue to its showtimes.';
-          book.href = state.bookingUrl;
+          book.href = state.detailUrl;
           unavailable.hidden = !!state.trailerUrl;
           setTrailer(state.trailerUrl, !reducedMotion.matches, state.loaded);
           lockScroll();
@@ -1840,14 +1850,19 @@
             scheduleClose();
           });
           card.addEventListener('click', event => {
-            if (!window.matchMedia('(hover: none), (pointer: coarse)').matches) return;
-            const isRankedLink = card.matches('.ranked-card');
-            if (!isRankedLink && event.target.closest('a, button, input, select')) return;
-            if (isRankedLink) event.preventDefault();
-            event.preventDefault();
-            clearTimeout(openTimer); clearTimeout(closeTimer);
-            requestPreview(card);
+            if (event.target.closest('a, button, input, select')) return;
+            const state = cardData(card);
+            if (!state?.detailUrl) return;
+            window.location.href = state.detailUrl;
           });
+        });
+
+        document.addEventListener('keydown', event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          const card = event.target.closest('.movie-card-uniform, .ranked-card, .grid-movie-card, .recommend-card');
+          if (!card || event.target.closest('a, button, input, select')) return;
+          const state = cardData(card);
+          if (state?.detailUrl) { event.preventDefault(); window.location.href = state.detailUrl; }
         });
 
         overlay.addEventListener('pointerenter', () => clearTimeout(closeTimer));

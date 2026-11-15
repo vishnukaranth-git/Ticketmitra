@@ -3,6 +3,17 @@
 
 {% block extra_css %}
 <style>
+  .detail-movie-carousel { position: relative; }
+  .detail-movie-carousel-track { display:flex; gap:16px; overflow-x:auto; scroll-behavior:smooth; scroll-snap-type:x mandatory; padding:4px 2px 16px; }
+  .detail-movie-carousel-track::-webkit-scrollbar { height:6px; }
+  .detail-movie-carousel-card { flex:0 0 190px; width:190px; scroll-snap-align:start; }
+  .detail-movie-carousel-card .movie-card { width:100%; height:auto !important; overflow:hidden; }
+  .detail-movie-carousel-card .movie-poster-wrap { position:relative; width:100%; aspect-ratio:2 / 3; overflow:hidden; }
+  .detail-movie-carousel-card .movie-card-img { display:block; width:100%; height:100%; object-fit:cover; }
+  .detail-carousel-controls { display:flex; gap:8px; margin-left:auto; }
+  .detail-carousel-controls button { width:34px; height:34px; border:1px solid rgba(226,211,193,.25); border-radius:50%; background:#101827; color:#F2E9DC; }
+  .detail-carousel-heading { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  @media(max-width:600px) { .detail-movie-carousel-card { flex-basis:150px; width:150px; } }
   /* ==================================================
      CINEMATIC MOVIE DETAIL HERO
      ================================================== */
@@ -42,18 +53,160 @@
     pointer-events: none;
   }
 
+  .detail-poster-carousel-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 290px;
+  }
   .detail-poster-card {
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(226, 211, 193, 0.22);
     position: relative;
     z-index: 2;
+    background: #0B192B;
   }
   .detail-poster-img {
     width: 100%;
-    height: auto;
-    max-height: 420px;
+    height: 410px;
+    object-fit: cover;
+    display: block;
+  }
+  .poster-slides-wrapper {
+    position: relative;
+    width: 100%;
+    height: 410px;
+    overflow: hidden;
+    border-radius: 16px;
+    touch-action: pan-y;
+  }
+  .poster-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    transform: scale(0.98);
+  }
+  .poster-slide.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+  .poster-primary-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(16, 24, 39, 0.85);
+    border: 1px solid rgba(181, 138, 90, 0.55);
+    color: #E2C092;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .poster-counter-pill {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(11, 25, 43, 0.85);
+    border: 1px solid rgba(226, 211, 193, 0.28);
+    color: var(--warm-ivory, #F2E9DC);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+  }
+  .poster-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(16, 36, 58, 0.85);
+    border: 1px solid rgba(226, 211, 193, 0.3);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+    padding: 0;
+  }
+  .poster-nav-btn:hover {
+    background: var(--crimson, #D61F45);
+    border-color: var(--crimson, #D61F45);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 14px rgba(214, 31, 69, 0.5);
+  }
+  .poster-nav-btn.prev { left: 8px; }
+  .poster-nav-btn.next { right: 8px; }
+  .poster-expand-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(11, 25, 43, 0.85);
+    border: 1px solid rgba(226, 211, 193, 0.3);
+    color: var(--warm-ivory, #F2E9DC);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s ease;
+  }
+  .poster-expand-btn:hover {
+    background: var(--crimson, #D61F45);
+    color: #fff;
+    border-color: var(--crimson, #D61F45);
+  }
+  .poster-thumbs-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px 2px;
+    scrollbar-width: thin;
+    justify-content: center;
+  }
+  .poster-thumb-btn {
+    width: 44px;
+    height: 64px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    background: #000;
+    padding: 0;
+    cursor: pointer;
+    flex: 0 0 44px;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+  }
+  .poster-thumb-btn:hover {
+    opacity: 0.9;
+    border-color: rgba(226, 211, 193, 0.5);
+  }
+  .poster-thumb-btn.active {
+    opacity: 1;
+    border-color: var(--crimson, #D61F45);
+    box-shadow: 0 0 10px rgba(214, 31, 69, 0.6);
+    transform: scale(1.05);
+  }
+  .poster-thumb-btn img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     display: block;
   }
@@ -424,22 +577,72 @@
 
   <div class="container position-relative" style="z-index: 2;">
     <div class="row align-items-center">
-      <!-- Poster -->
+      <!-- Poster Column -->
       <div class="col-md-4 col-lg-3 text-center text-md-left mb-4 mb-md-0">
-        <div class="detail-poster-card d-inline-block">
-          <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="detail-poster-img">
-        </div>
+        {% with all_posters=movie.get_all_posters %}
+          {% if all_posters|length > 1 %}
+            <!-- Multiple Posters Interactive Carousel -->
+            <div class="detail-poster-carousel-container" id="detailPosterCarousel">
+              <div class="detail-poster-card position-relative">
+                <div class="poster-slides-wrapper" id="posterSlidesWrapper">
+                  {% for p in all_posters %}
+                    <div class="poster-slide {% if forloop.first %}active{% endif %}" data-index="{{ forloop.counter0 }}">
+                      <img src="{{ p.get_url }}" alt="{{ movie.get_display_title }} - Poster {{ forloop.counter }}" class="detail-poster-img" onclick="openPosterGalleryModal({{ forloop.counter0 }})" title="Click to open poster gallery">
+                      {% if p.is_primary %}
+                        <span class="poster-primary-badge"><i class="fas fa-crown mr-1"></i>Official</span>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+
+                <!-- Carousel Navigation Arrows -->
+                <button type="button" class="poster-nav-btn prev" onclick="navigatePoster(-1)" aria-label="Previous Poster">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" class="poster-nav-btn next" onclick="navigatePoster(1)" aria-label="Next Poster">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+
+                <!-- Counter Pill -->
+                <div class="poster-counter-pill" id="posterCounterPill">
+                  <i class="fas fa-images mr-1"></i> <span id="currentPosterNum">1</span> / {{ all_posters|length }}
+                </div>
+
+                <!-- Expand Lightbox Button -->
+                <button type="button" class="poster-expand-btn" onclick="openPosterGalleryModal(currentPosterIndex)" title="Expand Fullscreen Gallery">
+                  <i class="fas fa-expand"></i>
+                </button>
+              </div>
+
+              <!-- Thumbnails Navigation Strip -->
+              <div class="poster-thumbs-strip mt-2">
+                {% for p in all_posters %}
+                  <button type="button" class="poster-thumb-btn {% if forloop.first %}active{% endif %}" onclick="goToPoster({{ forloop.counter0 }})" title="Poster {{ forloop.counter }}">
+                    <img src="{{ p.get_url }}" alt="Thumb {{ forloop.counter }}">
+                  </button>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <!-- Single Poster View (No awkward carousel controls) -->
+            <div class="detail-poster-card d-inline-block">
+              <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="detail-poster-img">
+            </div>
+          {% endif %}
+        {% endwith %}
       </div>
 
       <!-- Main Metadata -->
       <div class="col-md-8 col-lg-9">
         <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 10px;">
-          {% if movie.dynamic_release_status == 'NOW_SHOWING' %}
+          {% if locally_bookable %}
             <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-film mr-1"></i>NOW SHOWING</span>
-          {% elif movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
+          {% elif local_advance_bookable %}
             <span class="badge" style="background: rgba(214, 31, 69, 0.25); color: #ff4d6d; border: 1px solid rgba(214, 31, 69, 0.5); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-ticket-alt mr-1"></i>ADVANCE BOOKING OPEN</span>
-          {% elif movie.dynamic_release_status == 'COMING_SOON' %}
+          {% elif movie.release_date and movie.release_date > today %}
             <span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="far fa-calendar-alt mr-1"></i>COMING SOON</span>
+          {% elif movie.status == 'CURRENT' and movie.release_date and movie.release_date <= today %}
+            <span class="badge" style="background: rgba(34, 197, 94, 0.16); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-film mr-1"></i>IN THEATRES · NOT AVAILABLE IN {{ user_location.city|upper }}</span>
           {% elif movie.dynamic_release_status == 'OTT_ONLY' %}
             <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-tv mr-1"></i>STREAMING ONLY</span>
           {% else %}
@@ -463,7 +666,7 @@
         {% endif %}
 
         <!-- Genres & Languages -->
-        <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px;">
+        <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
           {% for g in movie.genres.all %}
             <span class="badge-genre-pill">{{ g.name }}</span>
           {% empty %}
@@ -475,6 +678,12 @@
             <span class="badge-genre-pill" style="border-color: rgba(59, 130, 246, 0.3); color: #93c5fd;">{{ lang.name }}</span>
           {% endfor %}
         </div>
+
+        {% if movie.description %}
+          <p class="text-secondary small mb-3" style="max-width: 680px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;" title="{{ movie.description }}">
+            {{ movie.description }}
+          </p>
+        {% endif %}
 
         <!-- Ratings Strip (Separated TMDB & Ticketmitra) -->
         <div class="ratings-strip">
@@ -509,7 +718,7 @@
 
         <!-- Action CTAs -->
         <div class="d-flex flex-wrap align-items-center mt-4" style="gap: 12px;">
-          {% if movie.dynamic_release_status == 'NOW_SHOWING' %}
+          {% if locally_bookable %}
             <a href="#theatersSection" class="btn-cinematic-primary">
               <i class="fas fa-ticket-alt"></i> Book Tickets
             </a>
@@ -525,6 +734,10 @@
             <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
               <i class="fas fa-tv text-info"></i> Streaming Only (No Theatrical Shows)
             </button>
+          {% elif movie.status == 'CURRENT' and movie.release_date and movie.release_date <= today %}
+            <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
+              <i class="fas fa-map-marker-alt text-info"></i> Currently not available in {{ user_location.city|default:"your city" }}
+            </button>
           {% elif movie.dynamic_release_status == 'RELEASE_ENDED' %}
             <button class="btn-cinematic-secondary" disabled style="opacity: 0.75; cursor: not-allowed;">
               <i class="fas fa-film text-muted"></i> Theatrical Run Ended
@@ -534,11 +747,12 @@
               <i class="fas fa-info-circle text-muted"></i> Release Date TBA
             </button>
           {% endif %}
-          {% if movie.get_trailer_embed_url %}
-            <button class="btn-cinematic-secondary" data-toggle="modal" data-target="#trailerModal">
-              <i class="fab fa-youtube text-danger"></i> Watch Trailer
+          {% for trailer in movie.get_trailer_videos %}
+            <button class="btn-cinematic-secondary" data-toggle="modal" data-target="#trailerModal"
+              data-trailer-url="{{ trailer.url }}" data-trailer-title="{{ trailer.title|escape }}">
+              <i class="fab fa-youtube text-danger"></i> {{ trailer.video_type }}
             </button>
-          {% endif %}
+          {% endfor %}
           {% if user.is_staff %}
             <button class="btn-cinematic-ghost" data-toggle="modal" data-target="#editTrailerModal" title="Update YouTube Trailer URL">
               <i class="fas fa-link text-warning mr-1"></i> Set Trailer URL
@@ -551,12 +765,12 @@
 </section>
 
 <!-- TRAILER MODAL -->
-{% if movie.get_trailer_embed_url %}
+{% if movie.get_trailer_videos %}
 <div class="modal fade" id="trailerModal" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
     <div class="modal-content modal-content-cinematic">
       <div class="modal-header border-0 pb-2 d-flex justify-content-between align-items-center">
-        <h5 class="modal-title font-weight-bold text-white mb-0">{{ movie.get_display_title }} - Official Trailer</h5>
+        <h5 id="trailerModalTitle" class="modal-title font-weight-bold text-white mb-0">{{ movie.get_display_title }} - Official Trailer</h5>
         <div class="d-flex align-items-center" style="gap: 12px;">
           {% if movie.get_youtube_watch_url %}
             <a href="{{ movie.get_youtube_watch_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-danger" style="font-size: 11px; border-radius: 6px;">
@@ -673,9 +887,9 @@
   <!-- 1. ABOUT THE MOVIE (Warm Ivory Textured Section - Reference 3) -->
   <div class="editorial-ivory-card">
     <div class="section-heading-detail">About the Movie</div>
-    <p class="mb-0 synopsis-text">
-      {{ movie.description|default:"No synopsis available for this title." }}
-    </p>
+    <div class="mb-0 synopsis-text" style="white-space: pre-line; line-height: 1.8;">
+      {{ movie.description|default:"No synopsis available for this title."|linebreaksbr }}
+    </div>
   </div>
 
   <!-- 2. CAST CAROUSEL (Warm Ivory Textured Section - Reference 3) -->
@@ -708,13 +922,22 @@
         <div class="section-heading-detail mb-1">Nearby Theaters & Showtimes</div>
         <div class="text-secondary small d-flex align-items-center flex-wrap" style="gap: 6px;">
           <i class="fas fa-map-marker-alt text-danger"></i>
-          <span>Showing cinemas within <strong class="text-white">{{ radius_km|default:"30" }} km</strong> of <strong class="text-white">{{ user_location.city|default:"Bengaluru" }}</strong></span>
+          <span>Showing cinemas within <strong class="text-white">{{ radius_km|default:"50" }} km</strong> of <strong class="text-white">{{ user_location.city|default:"Bengaluru" }}</strong></span>
           <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 ml-2" onclick="openLocationModal()" style="font-size: 11px; border-radius: 6px;">
             Change Location
           </button>
         </div>
       </div>
-      <a href="{% url 'theater_list' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">Full Schedule</a>
+      <div class="d-flex align-items-center" style="gap: 8px;">
+        {% with p_list=movie.get_all_posters %}
+          {% if p_list|length > 1 %}
+            <button type="button" class="btn-cinematic-ghost py-1 px-3" onclick="openPosterGalleryModal(0)" style="font-size: 12px;">
+              <i class="fas fa-images mr-1 text-danger"></i> View {{ p_list|length }} Posters
+            </button>
+          {% endif %}
+        {% endwith %}
+        <a href="{% url 'theater_list' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">Full Schedule</a>
+      </div>
     </div>
 
     {% if nearby_theaters %}
@@ -781,12 +1004,12 @@
         {% endfor %}
       </div>
     {% else %}
-      <!-- Fallback when no theaters found within 30 km -->
+      <!-- Fallback when no theatres are found within the selected radius -->
       <div class="text-center py-5 rounded" style="background: transparent; border: 1px dashed rgba(255, 255, 255, 0.15);">
         <i class="fas fa-map-marked-alt fa-3x text-warning mb-3"></i>
-        <h4 class="text-white mb-2">No Theatres Found Within {{ radius_km|default:"30" }} km</h4>
+        <h4 class="text-white mb-2">No Theatres Found Within {{ radius_km|default:"50" }} km</h4>
         <p class="text-muted mb-4" style="max-width: 500px; margin: 0 auto 20px;">
-          There are currently no active cinema screens playing <strong>{{ movie.get_display_title }}</strong> within {{ radius_km|default:"30" }} km of your location. You can expand your search radius or choose another city.
+          There are currently no active cinema screens playing <strong>{{ movie.get_display_title }}</strong> within {{ radius_km|default:"50" }} km of your location. You can choose another city.
         </p>
         <div class="d-flex justify-content-center flex-wrap" style="gap: 10px;">
           <a href="?radius=50#theatersSection" class="btn btn-outline-warning btn-sm px-3 py-2">
@@ -1056,10 +1279,10 @@
   <!-- 5. SIMILAR MOVIES CAROUSEL -->
   {% if similar_movies %}
   <div class="section-container mt-4">
-    <div class="section-heading-detail">Similar Movies</div>
-    <div class="d-flex" style="gap: 16px; overflow-x: auto; padding-bottom: 15px;">
+    <div class="detail-carousel-heading"><div class="section-heading-detail">Similar Movies</div><div class="detail-carousel-controls"><button type="button" aria-label="Scroll similar movies left" data-carousel="similarMoviesTrack" data-direction="-1">‹</button><button type="button" aria-label="Scroll similar movies right" data-carousel="similarMoviesTrack" data-direction="1">›</button></div></div>
+    <div class="detail-movie-carousel-track" id="similarMoviesTrack">
       {% for sim in similar_movies %}
-      <div style="flex: 0 0 190px; width: 190px;">
+      <div class="detail-movie-carousel-card">
         <a href="{% url 'movie_detail' sim.id %}" class="text-decoration-none">
           <div class="movie-card" style="width: 100%; height: 320px;">
             <div class="movie-poster-wrap">
@@ -1077,14 +1300,15 @@
       {% endfor %}
     </div>
   </div>
+  {% else %}<div class="section-container mt-4"><div class="section-heading-detail">Similar Movies</div><p class="text-muted small">No currently bookable similar movies in {{ user_location.city }}.</p></div>
   {% endif %}
 
   {% if trending_movies %}
   <div class="section-container mt-4">
-    <div class="section-heading-detail">Trending Movies</div>
-    <div class="d-flex" style="gap:16px;overflow-x:auto;padding-bottom:15px;">
+    <div class="detail-carousel-heading"><div class="section-heading-detail">Trending Movies</div><div class="detail-carousel-controls"><button type="button" aria-label="Scroll trending movies left" data-carousel="trendingMoviesTrack" data-direction="-1">‹</button><button type="button" aria-label="Scroll trending movies right" data-carousel="trendingMoviesTrack" data-direction="1">›</button></div></div>
+    <div class="detail-movie-carousel-track" id="trendingMoviesTrack">
       {% for item in trending_movies %}
-      <div style="flex:0 0 190px;width:190px;">
+      <div class="detail-movie-carousel-card">
         <a href="{% url 'movie_detail' item.id %}" class="text-decoration-none">
           <div class="movie-card" style="width:100%;height:320px;"><div class="movie-poster-wrap">
             <img src="{{ item.get_poster_url }}" alt="{{ item.get_display_title }}" class="movie-card-img" loading="lazy">
@@ -1095,14 +1319,15 @@
       {% endfor %}
     </div>
   </div>
+  {% else %}<div class="section-container mt-4"><div class="section-heading-detail">Trending Movies</div><p class="text-muted small">No currently bookable trending movies in {{ user_location.city }}.</p></div>
   {% endif %}
 
   {% if recently_released %}
   <div class="section-container mt-4">
-    <div class="section-heading-detail">Recently Released</div>
-    <div class="d-flex" style="gap:16px;overflow-x:auto;padding-bottom:15px;">
+    <div class="detail-carousel-heading"><div class="section-heading-detail">Recently Released</div><div class="detail-carousel-controls"><button type="button" aria-label="Scroll recent movies left" data-carousel="recentMoviesTrack" data-direction="-1">‹</button><button type="button" aria-label="Scroll recent movies right" data-carousel="recentMoviesTrack" data-direction="1">›</button></div></div>
+    <div class="detail-movie-carousel-track" id="recentMoviesTrack">
       {% for item in recently_released %}
-      <div style="flex:0 0 190px;width:190px;">
+      <div class="detail-movie-carousel-card">
         <a href="{% url 'movie_detail' item.id %}" class="text-decoration-none">
           <div class="movie-card" style="width:100%;height:320px;"><div class="movie-poster-wrap">
             <img src="{{ item.get_poster_url }}" alt="{{ item.get_display_title }}" class="movie-card-img" loading="lazy">
@@ -1113,6 +1338,7 @@
       {% endfor %}
     </div>
   </div>
+  {% else %}<div class="section-container mt-4"><div class="section-heading-detail">Recently Released</div><p class="text-muted small">No local releases from the past 14 days have active showtimes.</p></div>
   {% endif %}
 
 </div>
@@ -1120,6 +1346,13 @@
 
 {% block extra_js %}
 <script>
+  document.querySelectorAll('[data-carousel][data-direction]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const track = document.getElementById(button.dataset.carousel);
+      if (track) track.scrollBy({left: Number(button.dataset.direction) * track.clientWidth * 0.8, behavior: 'smooth'});
+    });
+  });
+
   function updateMovieReviewSummary(review) {
     const average = review.average_rating === null ? null : Number(review.average_rating).toFixed(1);
     ['movieHeroAverage', 'movieReviewAverage'].forEach(function (id) {
@@ -1309,10 +1542,15 @@
     if (window.jQuery) window.jQuery(form.closest('.modal')).modal('show');
   });
 
-  $('#trailerModal').on('show.bs.modal', function () {
+  $('#trailerModal').on('show.bs.modal', function (event) {
     const iframe = document.getElementById('trailerIframe');
+    const trigger = event.relatedTarget;
     if (iframe) {
-      let currentSrc = iframe.getAttribute('data-src') || iframe.src;
+      const requestedSrc = trigger && trigger.dataset.trailerUrl;
+      let currentSrc = requestedSrc || iframe.getAttribute('data-src') || iframe.src;
+      if (requestedSrc) iframe.setAttribute('data-src', requestedSrc);
+      const title = document.getElementById('trailerModalTitle');
+      if (title && trigger && trigger.dataset.trailerTitle) title.textContent = trigger.dataset.trailerTitle;
       // Convert youtube-nocookie to standard youtube.com embed
       currentSrc = currentSrc.replace('youtube-nocookie.com', 'youtube.com');
       // Pass origin to allow YouTube to verify embed origin and bypass Error 153
@@ -1332,4 +1570,161 @@
 
   $('#trailerModal').on('hidden.bs.modal', stopTrailerVideo);
 </script>
+
+<!-- POSTER GALLERY LIGHTBOX MODAL -->
+{% with all_posters=movie.get_all_posters %}
+{% if all_posters|length > 1 %}
+<div class="modal fade" id="posterGalleryModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document" style="max-width: 760px;">
+    <div class="modal-content modal-content-cinematic" style="background: rgba(11, 25, 43, 0.96); border: 1px solid rgba(226, 211, 193, 0.22); border-radius: 16px; overflow: hidden; box-shadow: 0 25px 70px rgba(0,0,0,0.95); backdrop-filter: blur(12px);">
+      <div class="modal-header border-0 pb-1 d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="modal-title font-weight-bold text-white mb-0" style="font-size: 17px;">
+            <i class="fas fa-images text-danger mr-2"></i> {{ movie.get_display_title }} - Official Posters
+          </h5>
+          <small class="text-muted"><span id="galleryCounter">Poster 1 of {{ all_posters|length }}</span></small>
+        </div>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close" style="opacity: 0.8; font-size: 26px;">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body text-center p-3 position-relative" style="min-height: 480px; display: flex; align-items: center; justify-content: center; background: #000;">
+        <button type="button" class="poster-nav-btn prev" onclick="navigateGallery(-1)" style="left: 14px;" aria-label="Previous Poster">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <img id="galleryMainImg" src="{{ all_posters.0.get_url }}" alt="Poster Gallery" style="max-height: 68vh; max-width: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); transition: opacity 0.2s ease;">
+
+        <button type="button" class="poster-nav-btn next" onclick="navigateGallery(1)" style="right: 14px;" aria-label="Next Poster">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="modal-footer border-0 pt-1 pb-3 justify-content-center" style="background: rgba(16, 24, 39, 0.85);">
+        <div class="poster-thumbs-strip">
+          {% for p in all_posters %}
+            <button type="button" class="poster-thumb-btn {% if forloop.first %}active{% endif %}" id="galleryThumb_{{ forloop.counter0 }}" onclick="goToGalleryPoster({{ forloop.counter0 }})">
+              <img src="{{ p.get_url }}" alt="Thumb {{ forloop.counter }}">
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endwith %}
+
+<script>
+// Multiple Posters Carousel & Gallery Logic
+let currentPosterIndex = 0;
+const posterSlides = document.querySelectorAll('.poster-slide');
+const posterThumbs = document.querySelectorAll('.poster-thumbs-strip .poster-thumb-btn');
+const totalPosters = posterSlides.length;
+
+// Preload poster image urls for lightbox
+const posterUrls = [
+  {% for p in movie.get_all_posters %}
+    "{{ p.get_url|escapejs }}"{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+
+function goToPoster(index) {
+  if (totalPosters <= 1) return;
+  if (index < 0) index = totalPosters - 1;
+  if (index >= totalPosters) index = 0;
+
+  currentPosterIndex = index;
+
+  posterSlides.forEach((slide, idx) => {
+    slide.classList.toggle('active', idx === currentPosterIndex);
+  });
+
+  posterThumbs.forEach((thumb, idx) => {
+    thumb.classList.toggle('active', idx === currentPosterIndex);
+  });
+
+  const counter = document.getElementById('currentPosterNum');
+  if (counter) counter.textContent = currentPosterIndex + 1;
+}
+
+function navigatePoster(dir) {
+  goToPoster(currentPosterIndex + dir);
+}
+
+// Lightbox Gallery functions
+let galleryCurrentIndex = 0;
+
+function openPosterGalleryModal(index) {
+  if (posterUrls.length <= 1) return;
+  galleryCurrentIndex = index || 0;
+  updateGalleryView();
+  $('#posterGalleryModal').modal('show');
+}
+
+function updateGalleryView() {
+  const img = document.getElementById('galleryMainImg');
+  const counter = document.getElementById('galleryCounter');
+  if (img && posterUrls[galleryCurrentIndex]) {
+    img.style.opacity = '0.5';
+    img.src = posterUrls[galleryCurrentIndex];
+    setTimeout(() => { img.style.opacity = '1'; }, 100);
+  }
+  if (counter) {
+    counter.textContent = `Poster ${galleryCurrentIndex + 1} of ${posterUrls.length}`;
+  }
+
+  // Highlight modal thumb
+  for (let i = 0; i < posterUrls.length; i++) {
+    const thumb = document.getElementById('galleryThumb_' + i);
+    if (thumb) {
+      thumb.classList.toggle('active', i === galleryCurrentIndex);
+    }
+  }
+}
+
+function navigateGallery(dir) {
+  galleryCurrentIndex += dir;
+  if (galleryCurrentIndex < 0) galleryCurrentIndex = posterUrls.length - 1;
+  if (galleryCurrentIndex >= posterUrls.length) galleryCurrentIndex = 0;
+  updateGalleryView();
+}
+
+function goToGalleryPoster(index) {
+  galleryCurrentIndex = index;
+  updateGalleryView();
+}
+
+// Mobile touch swipe support for Carousel
+document.addEventListener('DOMContentLoaded', function () {
+  const wrapper = document.getElementById('posterSlidesWrapper');
+  if (wrapper && totalPosters > 1) {
+    let startX = 0;
+    let endX = 0;
+
+    wrapper.addEventListener('touchstart', function (e) {
+      startX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    wrapper.addEventListener('touchend', function (e) {
+      endX = e.changedTouches[0].screenX;
+      if (startX - endX > 40) {
+        navigatePoster(1); // Swipe left -> next
+      } else if (endX - startX > 40) {
+        navigatePoster(-1); // Swipe right -> prev
+      }
+    }, { passive: true });
+  }
+
+  // Keyboard navigation for Lightbox
+  document.addEventListener('keydown', function (e) {
+    if ($('#posterGalleryModal').is(':visible')) {
+      if (e.key === 'ArrowRight') navigateGallery(1);
+      if (e.key === 'ArrowLeft') navigateGallery(-1);
+    }
+  });
+});
+</script>
+
 {% endblock %}

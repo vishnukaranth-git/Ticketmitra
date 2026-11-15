@@ -11,21 +11,25 @@ class TMDBServiceError(Exception):
 
 
 class TMDBService:
-    def __init__(self, api_key=None):
-        self.api_key = api_key or getattr(settings, 'TMDB_API_KEY', '').strip()
+    def __init__(self, api_key=None, access_token=None):
+        self.api_key = api_key if api_key is not None else getattr(settings, 'TMDB_API_KEY', '').strip()
+        self.access_token = access_token if access_token is not None else getattr(settings, 'TMDB_ACCESS_TOKEN', '').strip()
         self.base_url = getattr(settings, 'TMDB_BASE_URL', 'https://api.themoviedb.org/3').rstrip('/')
         self.image_base_url = getattr(settings, 'TMDB_IMAGE_BASE_URL', 'https://image.tmdb.org/t/p/').rstrip('/')
         self.poster_size = getattr(settings, 'TMDB_POSTER_SIZE', 'w500')
         self.backdrop_size = getattr(settings, 'TMDB_BACKDROP_SIZE', 'original')
         self.profile_size = getattr(settings, 'TMDB_PROFILE_SIZE', 'w185')
 
+        self.last_status_code = None
+        self.last_error = None
         self.session = requests.Session()
         self.session.headers.update({
             'Accept': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         })
-        if self.api_key and self.api_key.startswith('eyJ'):
-            self.session.headers['Authorization'] = f'Bearer {self.api_key}'
+        self.uses_bearer_token = bool(self.access_token)
+        if self.uses_bearer_token:
+            self.session.headers['Authorization'] = f'Bearer {self.access_token}'
 
         from requests.adapters import HTTPAdapter
         from urllib3.util import Retry
@@ -35,35 +39,47 @@ class TMDBService:
         self.session.mount('http://', adapter)
 
     def _request(self, endpoint, params=None):
-        if not self.api_key:
-            logger.warning("TMDB API key is not configured. Returning empty response.")
+        if not self.api_key and not self.access_token:
+            self.last_status_code = None
+            self.last_error = 'missing_credentials'
+            logger.warning("TMDB credentials are not configured.")
             return {}
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         query_params = {}
-        if not self.api_key.startswith('eyJ'):
+        if not self.uses_bearer_token:
             query_params['api_key'] = self.api_key
         if params:
             query_params.update(params)
 
         try:
             response = self.session.get(url, params=query_params, timeout=15)
+            self.last_status_code = response.status_code
+            self.last_error = None
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"TMDB HTTP error for endpoint {endpoint}: {e.response.status_code}")
+        except requests.exceptions.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else 'unknown'
+            self.last_status_code = status
+            self.last_error = f'http_{status}'
+            logger.error('TMDB HTTP error endpoint=%s status=%s', endpoint, status)
             return {}
-        except requests.exceptions.RequestException as e:
-            logger.error(f"TMDB request failed for endpoint {endpoint}: {e!s}")
+        except requests.exceptions.RequestException as exc:
+            # Never log exception text: requests includes the full query URL, which
+            # contains the v3 API key. Keep diagnostics useful and credential-free.
+            self.last_status_code = None
+            self.last_error = type(exc).__name__
+            logger.error('TMDB request failed endpoint=%s error=%s', endpoint, type(exc).__name__)
             return {}
-        except ValueError as e:
-            logger.error(f"Failed to parse TMDB JSON response: {e!s}")
+        except ValueError as exc:
+            self.last_error = 'invalid_json'
+            logger.error('TMDB JSON parsing failed endpoint=%s error=%s', endpoint, type(exc).__name__)
             return {}
 
     def get_image_url(self, path, size='w500'):
         if not path:
             return None
-        return f"{self.image_base_url}/{size}{path}"
+        return f"{self.image_base_url}/{size}/{str(path).lstrip('/')}"
 
     def get_poster_url(self, poster_path):
         return self.get_image_url(poster_path, self.poster_size)
@@ -101,11 +117,11 @@ class TMDBService:
     def get_trending_movies(self, time_window='week', page=1):
         return self._request(f'trending/movie/{time_window}', {'page': page})
 
-    def get_now_playing_movies(self, page=1):
-        return self._request('movie/now_playing', {'page': page})
+    def get_now_playing_movies(self, page=1, region='IN'):
+        return self._request('movie/now_playing', {'page': page, 'region': region})
 
-    def get_upcoming_movies(self, page=1):
-        return self._request('movie/upcoming', {'page': page})
+    def get_upcoming_movies(self, page=1, region='IN'):
+        return self._request('movie/upcoming', {'page': page, 'region': region})
 
     def get_top_rated_movies(self, page=1):
         return self._request('movie/top_rated', {'page': page})
@@ -223,26 +239,39 @@ class TMDBService:
             'providers': providers
         }
 
+    def extract_theatrical_release_dates(self, release_dates_data):
+        """Return country-specific dates for theatrical release types only.
+
+        TMDB release types 2 and 3 are limited theatrical and theatrical.
+        Premiere-only, digital, physical, and TV release types are excluded.
+        """
+        if not isinstance(release_dates_data, dict):
+            return {}
+        result = {}
+        for country in release_dates_data.get('results', []):
+            code = country.get('iso_3166_1')
+            if not code:
+                continue
+            dates = []
+            for item in country.get('release_dates', []):
+                if item.get('type') not in (2, 3):
+                    continue
+                raw_date = item.get('release_date') or ''
+                parsed = raw_date.split('T')[0]
+                if len(parsed) == 10:
+                    dates.append({'date': parsed, 'type': item.get('type'), 'certification': item.get('certification') or ''})
+            if dates:
+                result[code] = sorted(dates, key=lambda value: value['date'])
+        return result
+
     def extract_indian_theatrical_release_info(self, release_dates_data):
-        """
-        Finds the Indian (iso_3166_1 == 'IN') release date if available.
-        """
-        if not release_dates_data or not isinstance(release_dates_data, dict):
+        """Return the first verified theatrical Indian release date and certificate."""
+        dates = self.extract_theatrical_release_dates(release_dates_data).get('IN', [])
+        if not dates:
             return {'release_date': None, 'certification': None}
+        return {'release_date': dates[0]['date'], 'certification': dates[0]['certification'] or None}
 
-        results = release_dates_data.get('results', [])
-        for country in results:
-            if country.get('iso_3166_1') == 'IN':
-                for rd in country.get('release_dates', []):
-                    d_str = rd.get('release_date')
-                    cert = rd.get('certification')
-                    date_val = None
-                    if d_str:
-                        date_val = d_str.split('T')[0]
-                    return {'release_date': date_val, 'certification': cert}
-        return {'release_date': None, 'certification': None}
-
-    def import_or_update_movie(self, tmdb_id, set_status='CURRENT'):
+    def import_or_update_movie(self, tmdb_id, set_status='CURRENT', detail=None, generate_ai_analysis=True):
         """
         Imports or updates a single movie from TMDB by its TMDB ID.
         Reuses existing Movie, Genre, Language, CastMember, MoviePoster models without duplicates.
@@ -255,11 +284,11 @@ class TMDBService:
 
         from movies.models import CastMember, Genre, Language, Movie, MoviePoster
 
-        detail = self.get_movie_details(tmdb_id, append_to_response='videos,credits,release_dates,images,watch/providers')
+        detail = detail or self.get_movie_details(tmdb_id, append_to_response='videos,credits,release_dates,images,watch/providers')
         if not detail or not detail.get('id'):
             raise ValueError(f"Could not retrieve details for TMDB ID {tmdb_id}.")
 
-        title = detail.get('title') or detail.get('name') or 'Untitled Movie'
+        title = (detail.get('title') or detail.get('name') or '').strip()
         original_title = detail.get('original_title') or ''
         overview = detail.get('overview') or ''
         release_date_str = detail.get('release_date')
@@ -278,6 +307,8 @@ class TMDBService:
 
         poster_path = detail.get('poster_path')
         poster_url = self.get_poster_url(poster_path) if poster_path else ''
+        if not title:
+            raise ValueError(f'TMDB ID {tmdb_id} returned no title.')
 
         backdrop_path = detail.get('backdrop_path')
         backdrop_url = self.get_backdrop_url(backdrop_path) if backdrop_path else ''
@@ -308,6 +339,11 @@ class TMDBService:
         elif target_status == 'UPCOMING' and release_date and release_date <= today:
             target_status = 'CURRENT'
 
+        existing_movie = Movie.objects.filter(tmdb_id=tmdb_id).first()
+        if not existing_movie and not poster_url:
+            raise ValueError(f'TMDB ID {tmdb_id} has no poster; refusing placeholder record.')
+
+        theatrical_dates = self.extract_theatrical_release_dates(detail.get('release_dates'))
         movie, created = Movie.objects.get_or_create(
             tmdb_id=tmdb_id,
             defaults={
@@ -317,6 +353,7 @@ class TMDBService:
                 'original_language': orig_lang,
                 'description': overview,
                 'release_date': release_date,
+                'theatrical_release_dates': theatrical_dates,
                 'runtime': runtime,
                 'popularity': popularity,
                 'tmdb_rating': vote_average,
@@ -337,19 +374,27 @@ class TMDBService:
         )
 
         if not created:
-            movie.name = title
-            movie.title = title
-            movie.original_title = original_title
-            movie.original_language = orig_lang
-            movie.description = overview
+            if title:
+                movie.name = title
+                movie.title = title
+            if original_title:
+                movie.original_title = original_title
+            if orig_lang:
+                movie.original_language = orig_lang
+            if overview:
+                movie.description = overview
             if release_date:
                 movie.release_date = release_date
+            if theatrical_dates:
+                movie.theatrical_release_dates = theatrical_dates
             if runtime:
                 movie.runtime = runtime
-            movie.popularity = popularity
-            movie.tmdb_rating = vote_average
-            movie.rating = vote_average
-            movie.vote_count = vote_count
+            if popularity > 0:
+                movie.popularity = popularity
+            if vote_count > 0 and vote_average > 0:
+                movie.tmdb_rating = vote_average
+                # rating may be administrator/locally curated; update only the TMDB field.
+                movie.vote_count = vote_count
             if poster_url:
                 movie.poster_url = poster_url
             if backdrop_url:
@@ -364,7 +409,8 @@ class TMDBService:
                 movie.director = director
             movie.status = target_status
             movie.is_in_active_catalog = True
-            movie.has_ott_release = has_ott
+            if has_ott:
+                movie.has_ott_release = True
             if ott_link:
                 movie.ott_streaming_url = ott_link
             if ott_providers:
@@ -454,7 +500,7 @@ class TMDBService:
                         )
 
         # Generate Groq AI Movie Analysis & Curatorial Verdict
-        if not movie.ai_verdict:
+        if generate_ai_analysis and not movie.ai_verdict:
             try:
                 from movies.services.groq_service import GroqService
                 gs = GroqService()
@@ -472,7 +518,14 @@ class TMDBService:
                     movie.ai_analysis = analysis
                     movie.save(update_fields=['ai_verdict', 'ai_analysis'])
             except Exception as e:
-                logger.warning(f"Could not generate Groq AI analysis for {movie.title}: {e}")
+                logger.warning('Could not generate Groq AI analysis (%s).', type(e).__name__)
+
+        if created and not movie.get_trailer_embed_url():
+            try:
+                from movies.services.youtube_trailer_service import queue_movie_trailer_lookup
+                queue_movie_trailer_lookup(movie.pk)
+            except Exception as exc:
+                logger.warning('Could not queue trailer lookup for movie %s (%s).', movie.pk, type(exc).__name__)
 
         return movie, created
 

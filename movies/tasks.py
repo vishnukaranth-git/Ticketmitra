@@ -10,6 +10,44 @@ from .services.ticket_pdf_service import generate_ticket_pdf
 logger = logging.getLogger(__name__)
 
 
+@shared_task(bind=True, max_retries=2, default_retry_delay=120)
+def fetch_movie_trailer_task(self, movie_id, force=False):
+    """Fetch and validate official YouTube videos for one movie."""
+    from .models import Movie
+    from .services.youtube_trailer_service import fetch_and_store_movie_trailers
+
+    try:
+        movie = Movie.objects.get(pk=movie_id)
+    except Movie.DoesNotExist:
+        return False
+    return fetch_and_store_movie_trailers(movie, force=force)
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=300)
+def backfill_movie_trailers_task(self, limit=None, force=False):
+    """One-time batch backfill for existing movies without a valid trailer."""
+    from .models import Movie
+    from .services.youtube_trailer_service import fetch_and_store_movie_trailers
+
+    queryset = Movie.objects.filter(is_in_active_catalog=True).order_by('release_date', 'id')
+
+    attempted = 0
+    found = 0
+    for movie in queryset.iterator(chunk_size=100):
+        if not force and movie.get_trailer_embed_url():
+            continue
+        if limit and attempted >= limit:
+            break
+        attempted += 1
+        try:
+            found += int(fetch_and_store_movie_trailers(movie, force=force))
+        except Exception as exc:
+            logger.warning('Trailer backfill failed for movie %s (%s).', movie.pk, type(exc).__name__)
+    return {'attempted': attempted, 'found': found}
+
+
+
+
 @shared_task(
     bind=True,
     max_retries=3,
@@ -133,11 +171,11 @@ def sync_tmdb_movies_task():
     from django.core.management import call_command
     logger.info("Periodic sync_tmdb_movies_task: starting TMDB movie sync...")
     try:
-        call_command('sync_tmdb_movies', '--all', '--pages=2')
+        call_command('refresh_theatrical_movies', '--pages=2')
         logger.info("Periodic sync_tmdb_movies_task: completed successfully.")
         return {'status': 'success'}
     except Exception as e:
-        logger.error(f"Periodic sync_tmdb_movies_task: failed — {e}")
+        logger.error('Periodic TMDB refresh failed (%s).', type(e).__name__)
         raise
 
 
@@ -169,13 +207,13 @@ def weekly_friday_movie_refresh_task(force=False):
     4. Automatically removes movies whose showtimes have expired or that are no longer relevant.
     5. Safely retains existing movie records if TMDB API or network encounters an issue.
     """
-    from movies.services.weekly_sync_service import sync_weekly_movies
-    logger.info("[Celery Beat] weekly_friday_movie_refresh_task: Starting Friday movie refresh...")
+    from django.core.management import call_command
+    logger.info('[Celery Beat] Starting Thursday/Friday theatrical discovery refresh.')
     try:
-        result = sync_weekly_movies(force=force)
-        logger.info(f"[Celery Beat] weekly_friday_movie_refresh_task completed: {result.get('message')}")
-        return result
+        call_command('refresh_theatrical_movies', '--pages=2')
+        logger.info('[Celery Beat] Thursday/Friday theatrical discovery refresh completed.')
+        return {'success': True, 'message': 'Theatrical discovery refresh completed.'}
     except Exception as exc:
-        logger.error(f"[Celery Beat] weekly_friday_movie_refresh_task error: {exc}")
+        logger.error('Thursday/Friday theatrical refresh failed (%s).', type(exc).__name__)
         raise
 

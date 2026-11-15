@@ -38,6 +38,7 @@ from movies.models import (
     Genre,
     Language,
     Movie,
+    MoviePoster,
     Payment,
     PricingHistory,
     PricingPlan,
@@ -1534,12 +1535,14 @@ def admin_login_view(request):
     """
     Dedicated Cinema Operations login view.
     Only users with is_staff or is_superuser permission can access the operations panel.
-    Non-staff users attempting to log in receive a 403 Forbidden access denied response.
+    Non-staff users attempting to log in receive a clear access-denied message.
     """
-    if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser:
-            return redirect('/admin/dashboard/')
-        return HttpResponseForbidden("Access Denied: You must be an administrator or cinema operations staff member to access this panel.")
+    # If the user is already authenticated as staff or superuser, redirect directly to admin dashboard
+    if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+        next_url = request.GET.get('next') or request.POST.get('next') or '/admin/dashboard/'
+        if not next_url or next_url == '/' or not next_url.startswith('/admin'):
+            next_url = '/admin/dashboard/'
+        return redirect(next_url)
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -1569,21 +1572,26 @@ def admin_login_view(request):
                 auth_login(request, user)
                 user_display = (getattr(user, 'get_full_name', lambda: '')() or getattr(user, 'username', 'Staff'))
                 messages.success(request, f"Welcome to TicketMitra Operations, {user_display}!")
-                next_url = request.GET.get('next') or request.POST.get('next') or '/admin/dashboard/'
+                next_url = request.POST.get('next') or request.GET.get('next') or '/admin/dashboard/'
+                if not next_url or next_url == '/' or not next_url.startswith('/admin'):
+                    next_url = '/admin/dashboard/'
                 return redirect(next_url)
             else:
                 messages.error(request, "Access Denied: You must be an administrator or cinema operations staff member to access this panel.")
                 if request.POST.get('from_landing'):
                     return redirect('/?tab=admin')
-                return HttpResponseForbidden("Access Denied: You must be an administrator or cinema operations staff member to access this panel.")
         else:
             messages.error(request, "Invalid administrator credentials. Please check your username and secret key.")
             if request.POST.get('from_landing'):
                 return redirect('/?tab=admin')
 
+    next_target = request.GET.get('next', '/admin/dashboard/')
+    if not next_target or next_target == '/' or not next_target.startswith('/admin'):
+        next_target = '/admin/dashboard/'
+
     return render(request, 'admin/login.html', {
         'title': 'Operations Login',
-        'next': request.GET.get('next', '/admin/dashboard/'),
+        'next': next_target,
     })
 
 
@@ -1763,6 +1771,17 @@ def admin_movies_view(request):
             messages.success(request, f"Updated '{movie.get_display_title()}' status to {movie.get_status_display()}.")
             return redirect('/admin/movies/')
 
+        elif action == 'toggle_multistarrer':
+            movie_id = request.POST.get('movie_id')
+            movie = get_object_or_404(Movie, id=movie_id)
+            movie.is_multistarrer = not movie.is_multistarrer
+            movie.save(update_fields=['is_multistarrer'])
+            record_admin_activity(request, 'movie_multistarrer_toggled', movie, {'is_multistarrer': movie.is_multistarrer})
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'is_multistarrer': movie.is_multistarrer})
+            messages.success(request, f"Updated '{movie.get_display_title()}' multistarrer classification to {movie.is_multistarrer}.")
+            return redirect('/admin/movies/')
+
         elif action == 'add_movie':
             title = request.POST.get('title', '').strip()
             name = request.POST.get('name', title).strip() or title
@@ -1777,6 +1796,7 @@ def admin_movies_view(request):
             trailer_url = request.POST.get('trailer_url', '').strip()
             description = request.POST.get('description', '').strip()
             is_showing = request.POST.get('is_showing') == 'on'
+            is_multistarrer = request.POST.get('is_multistarrer') in ('on', '1', 'true', True)
 
             movie = Movie.objects.create(
                 title=title,
@@ -1790,6 +1810,7 @@ def admin_movies_view(request):
                 tmdb_rating=rating,
                 trailer_url=trailer_url,
                 description=description,
+                is_multistarrer=is_multistarrer,
                 status='CURRENT' if is_showing else 'DRAFT'
             )
             if 'image' in request.FILES:
@@ -1822,6 +1843,8 @@ def admin_movies_view(request):
             movie.description = request.POST.get('description', movie.description).strip()
             is_showing = request.POST.get('is_showing') == 'on'
             movie.status = 'CURRENT' if is_showing else 'ENDED'
+            if 'is_multistarrer' in request.POST:
+                movie.is_multistarrer = request.POST.get('is_multistarrer') in ('on', '1', 'true', True)
 
             if 'image' in request.FILES:
                 movie.image = request.FILES['image']
@@ -1844,6 +1867,120 @@ def admin_movies_view(request):
             messages.success(request, f"Movie '{title}' deleted from catalog.")
             return redirect('/admin/movies/')
 
+        elif action == 'add_poster':
+            movie_id = request.POST.get('movie_id')
+            movie = get_object_or_404(Movie, id=movie_id)
+            is_primary = request.POST.get('is_primary') in ('on', '1', 'true', True)
+            poster_image = request.FILES.get('poster_image')
+            poster_url = request.POST.get('poster_url', '').strip()
+
+            if not poster_image and not poster_url:
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': 'Please provide an image file or a valid poster URL.'}, status=400)
+                messages.error(request, 'Please provide an image file or a valid poster URL.')
+                return redirect('/admin/movies/')
+
+            if is_primary:
+                MoviePoster.objects.filter(movie=movie, is_primary=True).update(is_primary=False)
+
+            new_poster = MoviePoster.objects.create(
+                movie=movie,
+                image=poster_image,
+                image_url=poster_url if not poster_image else '',
+                is_primary=is_primary,
+            )
+            if movie.posters.count() == 1:
+                new_poster.is_primary = True
+                new_poster.save(update_fields=['is_primary'])
+
+            if new_poster.is_primary:
+                try:
+                    p_url = new_poster.get_url()
+                    if p_url:
+                        movie.poster_url = p_url
+                        movie.save(update_fields=['poster_url'])
+                except Exception:
+                    pass
+
+            record_admin_activity(request, 'poster_added', movie, {'poster_id': new_poster.id, 'is_primary': new_poster.is_primary})
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Added poster for '{movie.get_display_title()}'.",
+                    'poster': {
+                        'id': new_poster.id,
+                        'url': new_poster.get_url(),
+                        'is_primary': new_poster.is_primary,
+                    }
+                })
+            messages.success(request, f"Added poster for '{movie.get_display_title()}'.")
+            return redirect('/admin/movies/')
+
+        elif action == 'set_primary_poster':
+            poster_id = request.POST.get('poster_id')
+            poster = get_object_or_404(MoviePoster.objects.select_related('movie'), id=poster_id)
+            movie = poster.movie
+
+            MoviePoster.objects.filter(movie=movie).update(is_primary=False)
+            poster.is_primary = True
+            poster.save(update_fields=['is_primary'])
+
+            p_url = poster.get_url()
+            if p_url:
+                movie.poster_url = p_url
+                movie.save(update_fields=['poster_url'])
+
+            record_admin_activity(request, 'poster_set_primary', movie, {'poster_id': poster.id})
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Primary poster updated successfully.'})
+            messages.success(request, f"Set primary poster for '{movie.get_display_title()}'.")
+            return redirect('/admin/movies/')
+
+        elif action == 'delete_poster':
+            poster_id = request.POST.get('poster_id')
+            poster = get_object_or_404(MoviePoster.objects.select_related('movie'), id=poster_id)
+            movie = poster.movie
+            was_primary = poster.is_primary
+
+            poster.delete()
+
+            if was_primary:
+                next_poster = movie.posters.first()
+                if next_poster:
+                    next_poster.is_primary = True
+                    next_poster.save(update_fields=['is_primary'])
+                    movie.poster_url = next_poster.get_url()
+                    movie.save(update_fields=['poster_url'])
+
+            record_admin_activity(request, 'poster_deleted', movie, {'poster_id': poster_id})
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Poster deleted successfully.'})
+            messages.success(request, f"Poster removed from '{movie.get_display_title()}'.")
+            return redirect('/admin/movies/')
+
+    # GET actions (such as get_posters for modal)
+    if request.GET.get('action') == 'get_posters' or (request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('movie_id')):
+        movie_id = request.GET.get('movie_id')
+        movie = get_object_or_404(Movie.objects.prefetch_related('posters'), id=movie_id)
+        posters_data = []
+        for p in movie.posters.all().order_by('-is_primary', 'id'):
+            posters_data.append({
+                'id': p.id,
+                'url': p.get_url(),
+                'is_primary': p.is_primary,
+                'created_at': p.created_at.strftime('%b %d, %Y') if p.created_at else ''
+            })
+        return JsonResponse({
+            'success': True,
+            'movie_id': movie.id,
+            'movie_title': movie.get_display_title(),
+            'primary_url': movie.get_poster_url(),
+            'posters': posters_data,
+        })
+
     # Query & Filters
     q = request.GET.get('q', '').strip()
     selected_lang = request.GET.get('language', '').strip()
@@ -1851,7 +1988,7 @@ def admin_movies_view(request):
     selected_showing = request.GET.get('showing', '').strip()
     selected_sort = request.GET.get('sort', 'newest').strip()
 
-    movies = Movie.objects.prefetch_related('genres', 'languages')
+    movies = Movie.objects.prefetch_related('genres', 'languages', 'posters')
     if q:
         movies = movies.filter(Q(title__icontains=q) | Q(name__icontains=q) | Q(cast__icontains=q) | Q(description__icontains=q))
     if selected_lang:
@@ -2185,7 +2322,18 @@ def admin_showtimes_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        if action == 'add_showtime':
+        if action == 'generate_network_schedules':
+            from movies.services.schedule_service import generate_schedule_for_cinema_network
+            days = int(request.POST.get('days_ahead', 7))
+            res = generate_schedule_for_cinema_network(days_ahead=days, dry_run=False)
+            messages.success(
+                request,
+                f"Cinema network schedule generated successfully: {res.get('created_showtimes_count', 0)} new showtimes created across {res.get('venues_with_screens_count', 0)} theatres, {res.get('existing_preserved_count', 0)} existing showtimes preserved."
+            )
+            record_admin_activity(request, 'network_schedule_generated', None, res)
+            return redirect('/admin/showtimes/')
+
+        elif action == 'add_showtime':
             movie_id = request.POST.get('movie_id')
             theater_name = request.POST.get('theater_name', '').strip()
             screen_id = request.POST.get('screen_id')
@@ -2293,6 +2441,7 @@ def admin_showtimes_view(request):
                 language=request.POST.get('language', '').strip(),
                 subtitles_available=request.POST.get('subtitles_available') == 'on',
                 operational_status=op_status,
+                admin_verified=True,
                 active=is_active
             )
             try:
@@ -2568,6 +2717,21 @@ def admin_showtimes_view(request):
             .order_by('time')
         )
 
+    from django.core.cache import cache
+    weekly_sync_info = cache.get('ticketmitra_last_weekly_movie_sync')
+
+    # Visibility into unscheduled current movies & theatres without shows
+    movies_without_shows = Movie.objects.filter(
+        status='CURRENT',
+        is_in_active_catalog=True,
+    ).annotate(
+        active_shows=Count('theaters', filter=Q(theaters__active=True, theaters__time__gte=now))
+    ).filter(active_shows=0)
+
+    theatres_without_shows = CinemaVenue.objects.filter(active=True, status='ACTIVE').exclude(
+        name__in=Theater.objects.filter(active=True, time__gte=now).values_list('name', flat=True)
+    )
+
     context = {
         'page_obj': page_obj,
         'showtimes': page_obj,
@@ -2584,6 +2748,11 @@ def admin_showtimes_view(request):
         'calendar_data': calendar_data,
         'ref_date': ref_date,
         'today': today,
+        'movies_without_shows': movies_without_shows,
+        'movies_without_shows_count': movies_without_shows.count(),
+        'theatres_without_shows': theatres_without_shows,
+        'theatres_without_shows_count': theatres_without_shows.count(),
+        'weekly_sync_info': weekly_sync_info,
         'title': 'Showtime Management',
     }
     return render(request, 'admin/showtimes_list.html', context)

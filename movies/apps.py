@@ -69,18 +69,10 @@ class MoviesConfig(AppConfig):
             delay_seconds=60,
         )
 
-        # Start weekly Friday movie sync: runs periodically to ensure Friday releases are fresh
+        # Refresh the same verified theatrical catalogue used by homepage and filters.
         run_with_reschedule(
-            command_name='sync_weekly_movies',
-            command_args=[],
-            interval_seconds=14400,  # checks every 4 hours
-            delay_seconds=180,       # initial run after 3 minutes
-        )
-
-        # Start TMDB sync: first run after 120s, then every 86400s (24 hours)
-        run_with_reschedule(
-            command_name='sync_tmdb_movies',
-            command_args=['--all'],
+            command_name='refresh_theatrical_movies',
+            command_args=['--regions=IN,US,GB,AU', '--pages=3'],
             interval_seconds=86400,
             delay_seconds=120,
         )
@@ -88,6 +80,5 @@ class MoviesConfig(AppConfig):
         logger.info(
             "[TicketMitra Scheduler] Background scheduler started. "
             "cleanup_screenings: every 1h (first run in 60s). "
-            "sync_weekly_movies: every 4h (first run in 180s). "
-            "sync_tmdb_movies: every 24h (first run in 120s)."
+            "refresh_theatrical_movies: daily (first run in 120s)."
         )

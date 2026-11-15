@@ -98,9 +98,14 @@ class Command(BaseCommand):
             elif has_future_shows:
                 # Has active upcoming screenings -- NOW SHOWING
                 target_status = 'CURRENT'
-            elif movie.status in ('CURRENT', 'ADVANCE_BOOKING'):
-                # No future shows and release date has passed -- theatrical run ended
-                target_status = 'ENDED'
+            elif movie.status == 'ADVANCE_BOOKING':
+                # The release date has arrived. Keep it in global theatrical discovery;
+                # local schedule coverage is handled separately from release status.
+                target_status = 'CURRENT'
+            elif movie.status == 'CURRENT':
+                # No local showtime does not establish that a regional theatrical run ended.
+                # TMDB feed reconciliation, not city schedule cleanup, owns this status.
+                continue
             elif movie.status == 'UPCOMING' and movie.release_date and movie.release_date <= today_fresh:
                 # Was upcoming, release date arrived, but no local shows yet -- keep visible
                 target_status = 'CURRENT'

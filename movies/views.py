@@ -8,8 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import DecimalField, Min, Q, Value
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Min, Q
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -75,7 +74,16 @@ def get_recommended_movies(request, current_movie_id=None, limit=6):
     if current_movie_id:
         exclude_ids.add(current_movie_id)
 
-    candidate_qs = Movie.objects.filter(is_in_active_catalog=True).exclude(id__in=exclude_ids).prefetch_related('genres', 'languages')
+    from .services.location_service import get_user_location_from_request
+    recommendation_city = get_user_location_from_request(request).get('city')
+    candidate_qs = Movie.objects.filter(
+        is_in_active_catalog=True, is_ott_only=False, status='CURRENT',
+        release_date__lte=timezone.localdate(), theaters__active=True,
+        theaters__admin_verified=True,
+        theaters__time__gte=timezone.now(), theaters__city__iexact=recommendation_city,
+        theaters__screen__active=True, theaters__screen__operational_status='ACTIVE',
+        theaters__operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+    ).exclude(id__in=exclude_ids).prefetch_related('genres', 'languages').distinct()
 
     # If preferences exist, rank matching movies strictly from active catalog
     if fav_genres or fav_languages:
@@ -121,20 +129,35 @@ def movie_list(request):
     now = timezone.now()
     today = now.date()
 
-    # Base QuerySet strictly scoped to active catalog (~25-30 movies) excluding OTT-only titles
-    from django.db.models import Count
+    # Movie discovery is catalogue-wide. City availability is represented by
+    # showtime annotations and must not hide a theatrical movie from discovery.
+    from .services.location_service import get_user_location_from_request
+    selected_location = get_user_location_from_request(request)
+    selected_city_name = city_filter or selected_location.get('city') or 'Bengaluru'
+    valid_local_showtime = Q(
+        theaters__active=True, theaters__admin_verified=True,
+        theaters__city__iexact=selected_city_name, theaters__time__gte=now,
+        theaters__screen__active=True, theaters__screen__operational_status='ACTIVE',
+        theaters__operational_status__in=('SCHEDULED', 'BOOKING_OPEN'),
+    )
+
+    # Include current and verified-future theatrical catalogue records; local
+    # showtimes only control booking availability and explicit schedule filters.
     movies = (
-        Movie.objects.filter(is_in_active_catalog=True, is_ott_only=False)
+        Movie.objects.filter(
+            is_in_active_catalog=True,
+            is_ott_only=False,
+        )
+        .filter(
+            Q(status='CURRENT', release_date__lte=today) |
+            Q(status__in=('UPCOMING', 'ADVANCE_BOOKING'), release_date__gt=today)
+        )
         .prefetch_related('genres', 'languages')
         .annotate(
-            min_ticket_price=Coalesce(
-                Min('theaters__price', filter=Q(theaters__active=True)),
-                Value(180.00),
-                output_field=DecimalField()
-            ),
+            min_ticket_price=Min('theaters__price', filter=valid_local_showtime),
             active_future_showtimes_count=Count(
                 'theaters',
-                filter=Q(theaters__active=True, theaters__time__gte=now)
+                filter=valid_local_showtime,
             )
         )
     )
@@ -167,16 +190,14 @@ def movie_list(request):
             Q(original_language__iexact=language_filter)
         )
 
-    # 4. City Filter (theaters screening movie in this city)
-    if city_filter:
-        movies = movies.filter(theaters__city__iexact=city_filter, theaters__active=True)
+    # City selection scopes showtime availability above, not global discovery.
 
     # 5. Theater Filter (theaters screening movie by theater id or name)
     if theater_filter:
         if theater_filter.isdigit():
-            movies = movies.filter(theaters__id=int(theater_filter), theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__id=int(theater_filter))
         else:
-            movies = movies.filter(theaters__name__icontains=theater_filter, theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__name__icontains=theater_filter)
 
     # 6. Release Date Filter (Date-Aware Theatrical Logic)
     start_of_week = today - timedelta(days=today.weekday())
@@ -186,7 +207,7 @@ def movie_list(request):
     elif release_date_filter == 'streaming':
         movies = Movie.objects.filter(is_in_active_catalog=True).filter(Q(has_ott_release=True) | Q(is_ott_only=True) | Q(status='OTT_ONLY'))
     elif release_date_filter == 'now_showing':
-        movies = movies.filter(release_date__lte=today, active_future_showtimes_count__gt=0)
+        movies = movies.filter(status='CURRENT', release_date__lte=today)
     elif release_date_filter == 'advance_booking':
         movies = movies.filter(
             Q(release_date__gt=today) & (Q(active_future_showtimes_count__gt=0) | Q(is_advance_booking_open=True) | Q(status='ADVANCE_BOOKING'))
@@ -213,20 +234,22 @@ def movie_list(request):
     if show_timing_filter:
         timing_low = show_timing_filter.lower()
         if timing_low == 'morning':
-            movies = movies.filter(theaters__time__hour__lt=12, theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__time__hour__lt=12)
         elif timing_low == 'afternoon':
-            movies = movies.filter(theaters__time__hour__gte=12, theaters__time__hour__lt=16, theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__time__hour__gte=12, theaters__time__hour__lt=16)
         elif timing_low == 'evening':
-            movies = movies.filter(theaters__time__hour__gte=16, theaters__time__hour__lt=20, theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__time__hour__gte=16, theaters__time__hour__lt=20)
         elif timing_low == 'night':
-            movies = movies.filter(theaters__time__hour__gte=20, theaters__active=True)
+            movies = movies.filter(valid_local_showtime, theaters__time__hour__gte=20)
 
     # Eliminate duplicate movie rows caused by M2M joins
     movies = movies.distinct()
 
     # 9. Sorting
     if sort_by == 'newest':
-        movies = movies.order_by('-release_date', '-popularity')
+        from movies.services.ranking_service import sort_movies_by_release_and_promotion
+        movie_rows = list(movies.prefetch_related('posters'))
+        movies = sort_movies_by_release_and_promotion(movie_rows, newest_date_first=True)
     elif sort_by == 'rating':
         movies = movies.order_by('-tmdb_rating', '-rating')
     elif sort_by == 'price_low':
@@ -236,10 +259,12 @@ def movie_list(request):
     elif sort_by == 'title':
         movies = movies.order_by('name', 'title')
     else:  # 'popularity' default
-        movies = movies.order_by('-popularity', '-release_date')
+        from movies.services.ranking_service import sort_movies_by_release_and_promotion
+        movie_rows = list(movies.prefetch_related('posters'))
+        movies = sort_movies_by_release_and_promotion(movie_rows)
 
     # Dynamic count of matching movies
-    matching_count = movies.count()
+    matching_count = len(movies) if isinstance(movies, list) else movies.count()
 
     # 10. Pagination (12 movies per page)
     paginator = Paginator(movies, 12)
@@ -266,10 +291,12 @@ def movie_list(request):
                 'id': m.id,
                 'title': m.get_display_title(),
                 'poster_url': m.get_poster_url(),
-                'rating': float(m.rating or m.tmdb_rating or 0.0),
+                'rating': float(m.tmdb_rating or m.rating) if (m.tmdb_rating or m.rating) else None,
                 'language': m.original_language or (first_lang.code if first_lang else 'N/A'),
                 'release_date': m.release_date.strftime('%b %d, %Y') if m.release_date else 'TBA',
-                'min_price': float(getattr(m, 'min_ticket_price', 180.00)),
+                'min_price': float(m.min_ticket_price) if m.min_ticket_price is not None else None,
+                'bookable': bool(m.active_future_showtimes_count),
+                'availability': 'Available to book' if m.active_future_showtimes_count else f'Currently not available in {selected_city_name}',
                 'genres': [g.name for g in m.genres.all()[:2]],
                 'detail_url': reverse('movie_detail', kwargs={'movie_id': m.id}),
             })
@@ -297,7 +324,8 @@ def movie_list(request):
         'search_query': search_query,
         'selected_genre': genre_filter,
         'selected_language': language_filter,
-        'selected_city': city_filter,
+        'selected_city': city_filter or selected_city_name,
+        'selected_location': selected_location,
         'selected_theater': theater_filter,
         'selected_release_date': release_date_filter,
         'selected_rating': min_rating,
@@ -308,6 +336,7 @@ def movie_list(request):
         'all_cities': sorted(set(all_cities)),
         'all_theaters': all_theaters,
         'preserved_query': preserved_query,
+        'today': today,
     }
     return render(request, 'movies/movie_list.html', context)
 
@@ -318,11 +347,17 @@ def search_suggestions(request):
     if not q or len(q) < 2:
         return JsonResponse({'results': []})
     
+    today = timezone.localdate()
     matches = Movie.objects.filter(
         Q(title__icontains=q) |
         Q(name__icontains=q) |
         Q(genres__name__icontains=q) |
         Q(languages__name__icontains=q)
+    ).filter(
+        is_in_active_catalog=True, is_ott_only=False,
+    ).filter(
+        Q(status='CURRENT', release_date__lte=today) |
+        Q(status__in=('UPCOMING', 'ADVANCE_BOOKING'), release_date__gt=today)
     ).distinct()[:6]
 
     results = []
@@ -364,8 +399,21 @@ def movie_detail(request, movie_id):
     user_location = discovery_data['user_location']
     radius_km = discovery_data['radius_km']
     total_theaters = discovery_data['total_theaters']
-
-    theaters = movie.theaters.filter(active=True, time__gte=timezone.now()).order_by('time')
+    local_city = user_location.get('city')
+    theaters = movie.theaters.filter(
+        active=True, time__gte=timezone.now(), city__iexact=local_city,
+        admin_verified=True,
+        screen__active=True, screen__operational_status='ACTIVE',
+        operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+    ).order_by('time')
+    locally_bookable = bool(
+        theaters.exists() and not movie.is_ott_only and movie.release_date
+        and movie.release_date <= timezone.localdate() and movie.status == 'CURRENT'
+    )
+    local_advance_bookable = bool(
+        theaters.exists() and not movie.is_ott_only and movie.release_date
+        and movie.release_date > timezone.localdate() and movie.status == 'ADVANCE_BOOKING'
+    )
 
     # Reviews and ratings
     reviews = movie.get_valid_reviews().select_related('user', 'booking', 'booking__theater').order_by('-created_at')
@@ -404,23 +452,28 @@ def movie_detail(request, movie_id):
                 ).exists()
 
     # Recommendations
-    catalog_movies = Movie.objects.filter(is_in_active_catalog=True).exclude(status='DRAFT').exclude(id=movie.id)
+    catalog_movies = Movie.objects.filter(
+        is_in_active_catalog=True, is_ott_only=False, status='CURRENT',
+        release_date__lte=timezone.localdate(),
+    ).exclude(id=movie.id)
     similar_movies = movie.get_similar_movies(limit=4)
-    trending_movies = catalog_movies.filter(is_ott_only=False).order_by('-popularity', '-vote_count', '-release_date')[:4]
+    trending_movies = catalog_movies.order_by('-popularity', '-vote_count', '-release_date')[:4]
     fourteen_days_ago = timezone.now().date() - timedelta(days=14)
     recently_released = catalog_movies.filter(
-        is_ott_only=False,
         release_date__lte=timezone.now().date(),
         release_date__gte=fourteen_days_ago
     ).order_by('-release_date')[:4]
 
     context = {
         'movie': movie,
+        'today': timezone.localdate(),
         'theaters': theaters,
         'nearby_theaters': nearby_theaters,
         'user_location': user_location,
         'radius_km': radius_km,
         'total_theaters': total_theaters,
+        'locally_bookable': locally_bookable,
+        'local_advance_bookable': local_advance_bookable,
         'supported_cities': SUPPORTED_CITIES,
         'reviews': reviews,
         'avg_user_rating': avg_user_rating,
@@ -453,9 +506,22 @@ def update_trailer(request, movie_id):
             if not match:
                 messages.error(request, 'Invalid YouTube URL. Please provide a valid YouTube watch or embed link.')
                 return redirect('movie_detail', movie_id=movie_id)
-            movie.trailer_url = f"https://www.youtube.com/watch?v={match.group(1)}"
+            from .services.youtube_trailer_service import validate_youtube_video
+            if not validate_youtube_video(match.group(1), movie.original_language or ''):
+                messages.error(request, 'That YouTube video is unavailable or does not match the movie language.')
+                return redirect('movie_detail', movie_id=movie_id)
+            movie.trailer_video_id = match.group(1)
+            movie.trailer_url = f"https://www.youtube-nocookie.com/embed/{match.group(1)}"
+            movie.trailer_videos = [{
+                'video_id': match.group(1),
+                'title': f'{movie.get_display_title()} Official Trailer',
+                'video_type': 'Trailer',
+                'url': movie.trailer_url,
+            }]
         else:
             movie.trailer_url = ''
+            movie.trailer_video_id = ''
+            movie.trailer_videos = []
         movie.save()
         messages.success(request, f'Trailer URL for "{movie.get_display_title()}" updated successfully!')
 
@@ -465,17 +531,19 @@ def update_trailer(request, movie_id):
 def movie_trailer_preview(request, movie_id):
     """
     API endpoint returning movie trailer data for the cinematic preview modal.
-    If trailer_url is missing, searches YouTube using TMDB's canonical movie
-    metadata, then falls back to TMDB's video list. Verified results are cached
-    in the existing trailer_url field without adding a model or migration.
+    If trailer_url is missing, searches YouTube using verified movie metadata,
+    then falls back to TMDB's video list.
     """
     movie = get_object_or_404(Movie, id=movie_id)
     embed_url = movie.get_trailer_embed_url()
+    from .services.location_service import get_user_location_from_request
+    preview_city = get_user_location_from_request(request).get('city')
+    locally_bookable = movie.status == 'CURRENT' and movie.release_date and movie.release_date <= timezone.localdate() and movie.has_active_showtimes(city=preview_city)
 
     # The inline hover preview uses only the existing TMDB video catalogue.
     # The modal may still use the optional YouTube Data API discovery path.
     use_youtube_discovery = request.GET.get('source') != 'tmdb'
-    if use_youtube_discovery and not embed_url and movie.tmdb_id:
+    if use_youtube_discovery and not embed_url:
         try:
             from .services.youtube_trailer_service import YouTubeTrailerService
             youtube_video_id = YouTubeTrailerService().find_trailer_id(movie)
@@ -520,8 +588,8 @@ def movie_trailer_preview(request, movie_id):
         'runtime': movie.get_runtime_display() or '',
         'description': movie.description or '',
         'detail_url': reverse('movie_detail', kwargs={'movie_id': movie.id}),
-        'book_url': reverse('theater_list', kwargs={'movie_id': movie.id}) if movie.is_bookable else '',
-        'is_bookable': movie.is_bookable,
+        'book_url': reverse('theater_list', kwargs={'movie_id': movie.id}) if locally_bookable else '',
+        'is_bookable': locally_bookable,
     })
 
 
@@ -723,43 +791,37 @@ def theater_list(request, movie_id=None):
     if movie_id is not None:
         movie = get_object_or_404(Movie, id=movie_id)
     else:
-        movie = Movie.objects.filter(status__in=['CURRENT', 'ADVANCE_BOOKING'], theaters__active=True, theaters__time__gte=timezone.now()).first()
+        movie = Movie.objects.filter(status__in=['CURRENT', 'ADVANCE_BOOKING'], theaters__active=True, theaters__admin_verified=True, theaters__time__gte=timezone.now()).first()
         if not movie:
             movie = Movie.objects.filter(status__in=['CURRENT', 'ADVANCE_BOOKING']).first() or Movie.objects.first()
 
-    session_location = request.session.get('user_location') or {}
-    has_explicit_location = bool(
-        (session_location and session_location.get('method') != 'default'
-         and (session_location.get('city') or session_location.get('lat')))
-        or request.GET.get('city')
-        or (request.GET.get('lat') and (request.GET.get('lng') or request.GET.get('lon')))
+    from .services.location_service import get_user_location_from_request
+    saved_location = get_user_location_from_request(request)
+    has_explicit_location = True
+
+    # The all-theatres page needs the real schedule across every movie. The
+    # movie-specific route remains filtered to its selected movie as before.
+    discovery_data = get_nearby_theaters_and_movies(
+        request,
+        movie_id=movie.id if movie_id is not None and movie else None,
+        include_city_directory=movie_id is None,
     )
-    if has_explicit_location:
-        # The all-theatres page needs the real schedule across every movie. The
-        # movie-specific route remains filtered to its selected movie as before.
-        discovery_data = get_nearby_theaters_and_movies(
-            request,
-            movie_id=movie.id if movie_id is not None and movie else None,
-            include_city_directory=movie_id is None,
-        )
-        partner_names = set(
-            CinemaVenue.objects.filter(active=True).values_list('name', flat=True)
-        )
-        for venue in discovery_data['theaters']:
-            venue['is_partner'] = venue['name'] in partner_names
-    else:
-        # Avoid presenting the location service's legacy default city as if it
-        # were the user's chosen or detected location.
-        discovery_data = {
-            'theaters': [],
-            'user_location': None,
-            'radius_km': 30,
-            'total_theaters': 0,
-        }
+    partner_names = set(
+        CinemaVenue.objects.filter(active=True).values_list('name', flat=True)
+    )
+    for venue in discovery_data['theaters']:
+        venue['is_partner'] = venue['name'] in partner_names
+
     scheduled_shows = movie.theaters.filter(
         active=True,
         time__gte=timezone.now(),
+        admin_verified=True,
+        city__iexact=saved_location.get('city'),
+        screen__active=True,
+        screen__operational_status='ACTIVE',
         operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+    ).exclude(
+        operational_status__in=['CANCELLED', 'COMPLETED', 'DRAFT']
     ).order_by('time') if movie else Theater.objects.none()
     active_venues = CinemaVenue.objects.filter(active=True, status='ACTIVE').values('name')
     if CinemaVenue.objects.exists():
@@ -780,6 +842,9 @@ def theater_list(request, movie_id=None):
         'user_location': discovery_data['user_location'],
         'radius_km': discovery_data['radius_km'],
         'total_theaters': discovery_data['total_theaters'],
+        'theater_page': discovery_data.get('page', 1),
+        'has_more_theaters': discovery_data.get('has_more_theaters', False),
+        'verified_showtimes_count': discovery_data.get('verified_showtimes_count', 0),
         'supported_cities': SUPPORTED_CITIES,
         'is_all_theaters': movie_id is None,
         'has_explicit_location': has_explicit_location,
@@ -812,12 +877,25 @@ def _reserved_ticket_price(reservation, seat, seat_count):
 
 
 def _showtime_available_for_booking(showtime):
-    if not showtime.active or showtime.operational_status in {'CANCELLED', 'COMPLETED'}:
+    if not showtime.active or not showtime.admin_verified or showtime.operational_status not in {'SCHEDULED', 'BOOKING_OPEN'}:
         return False
-    if showtime.screen and (not showtime.screen.active or showtime.screen.operational_status != 'ACTIVE'):
+    if not showtime.movie.is_in_active_catalog or showtime.movie.is_ott_only:
+        return False
+    if showtime.movie.status not in {'CURRENT', 'ADVANCE_BOOKING'} or not showtime.movie.release_date:
+        return False
+    today = timezone.localdate()
+    if showtime.movie.status == 'CURRENT' and showtime.movie.release_date > today:
+        return False
+    if showtime.movie.status == 'ADVANCE_BOOKING' and showtime.movie.release_date <= today:
+        return False
+    if not showtime.screen or not showtime.screen.active or showtime.screen.operational_status != 'ACTIVE':
         return False
     venue = CinemaVenue.objects.filter(name=showtime.name).first()
-    return not venue or (venue.active and venue.status == 'ACTIVE')
+    if CinemaVenue.objects.exists() and not venue:
+        return False
+    if venue and (not venue.active or venue.status != 'ACTIVE'):
+        return False
+    return showtime.time >= timezone.now() and not showtime.movie.is_ott_only
 
 
 def cleanup_expired_reservations(theater=None):
@@ -2030,9 +2108,8 @@ def payment_history(request):
 @csrf_exempt
 def set_location_api(request):
     """
-    Session-based location setting endpoint.
-    Accepts latitude, longitude, city, and radius (default: 30 km).
-    Stores location in session for theater discovery without continuous tracking.
+    Save a selected location for the current session and, for signed-in users,
+    persist it as their theatre discovery preference.
     """
     if request.method not in ['POST', 'GET']:
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -2050,18 +2127,42 @@ def set_location_api(request):
         data = request.GET
 
     from .services.location_service import CITY_CENTROIDS, find_nearest_city_name
+    from .models import UserLocationPreference
+
+    def persist_location(loc, dismissed=True):
+        request.session['user_location'] = loc
+        request.session['location_prompt_pending'] = False
+        if request.user.is_authenticated:
+            UserLocationPreference.objects.update_or_create(
+                user=request.user,
+                defaults={
+                    'latitude': loc.get('lat'), 'longitude': loc.get('lng'),
+                    'city': loc.get('city') or '', 'radius_km': int(loc['radius']),
+                    'location_method': loc.get('method', 'city'),
+                    'prompt_dismissed': dismissed,
+                },
+            )
 
     lat = data.get('lat') or data.get('latitude')
     lng = data.get('lng') or data.get('longitude') or data.get('lon')
     city = data.get('city')
-    radius = data.get('radius') or 30.0
+    if data.get('dismiss') and request.user.is_authenticated:
+        UserLocationPreference.objects.update_or_create(
+            user=request.user,
+            defaults={'prompt_dismissed': True, 'radius_km': 50},
+        )
+        request.session['location_prompt_pending'] = False
+        return JsonResponse({'success': True, 'dismissed': True})
+
+    radius = data.get('radius') or 50.0
 
     try:
         radius = float(radius)
     except (ValueError, TypeError):
-        radius = 30.0
+        radius = 50.0
+    radius = min(50.0, max(1.0, radius))
 
-    if lat and lng:
+    if lat is not None and lng is not None:
         try:
             lat = float(lat)
             lng = float(lng)
@@ -2075,7 +2176,7 @@ def set_location_api(request):
                 'method': 'geolocation',
                 'is_detected': True,
             }
-            request.session['user_location'] = user_loc
+            persist_location(user_loc)
             return JsonResponse({'success': True, 'location': user_loc})
         except (ValueError, TypeError):
             pass
@@ -2094,7 +2195,7 @@ def set_location_api(request):
             'method': 'city',
             'is_detected': False,
         }
-        request.session['user_location'] = user_loc
+        persist_location(user_loc)
         return JsonResponse({'success': True, 'location': user_loc})
 
     return JsonResponse({'success': False, 'error': 'Provide coordinates or city.'}, status=400)
@@ -2102,7 +2203,7 @@ def set_location_api(request):
 
 def nearby_theaters_api(request):
     """
-    Returns nearby theaters within user's 30 km radius with their screens and showtimes.
+    Returns nearby theatres within the user's 50 km radius with their screens and showtimes.
     """
     from .services.location_service import get_nearby_theaters_and_movies
     movie_id = request.GET.get('movie_id')
@@ -2150,6 +2251,9 @@ def nearby_theaters_api(request):
         'user_location': result['user_location'],
         'radius_km': result['radius_km'],
         'total_theaters': result['total_theaters'],
+        'page': result['page'],
+        'has_more_theaters': result['has_more_theaters'],
+        'verified_showtimes_count': result['verified_showtimes_count'],
     })
 
 
@@ -2247,7 +2351,15 @@ def weekly_movies_api(request):
 
         trending = categorized['trending_booking_open']
         upcoming = categorized['upcoming_anticipated']
+        discover_more = categorized['discover_more']
         now_showing = categorized['now_showing']
+        try:
+            discover_page = max(1, int(request.GET.get('page', '1')))
+        except (TypeError, ValueError):
+            discover_page = 1
+        discover_page_size = 12
+        discover_total = len(discover_more)
+        discover_more = discover_more[(discover_page - 1) * discover_page_size:discover_page * discover_page_size]
 
         # Render HTML for all 3 categories
         trending_html = ''.join([
@@ -2257,6 +2369,10 @@ def weekly_movies_api(request):
         upcoming_html = ''.join([
             render_to_string('movies/partials/categorized_movie_card.html', {'movie': m, 'today': today}, request=request)
             for m in upcoming
+        ])
+        discover_more_html = ''.join([
+            render_to_string('movies/partials/categorized_movie_card.html', {'movie': m, 'today': today}, request=request)
+            for m in discover_more
         ])
         now_showing_html = ''.join([
             render_to_string('movies/partials/categorized_movie_card.html', {'movie': m, 'today': today}, request=request)
@@ -2269,6 +2385,8 @@ def weekly_movies_api(request):
                 'trending': len(trending),
                 'upcoming': len(upcoming),
                 'now_showing': len(now_showing),
+                'discover_more': len(discover_more),
+                'discover_more_total': discover_total,
             },
             'friday_cycle': cycle['current_friday'].strftime('%b %d, %Y'),
             'cycle_label': f"Friday Release Cycle ({cycle['current_friday'].strftime('%b %d')} – {cycle['cycle_end'].strftime('%b %d, %Y')})",
@@ -2276,6 +2394,9 @@ def weekly_movies_api(request):
             'sync_message': sync_result.get('message') if sync_result else None,
             'trending_html': trending_html,
             'upcoming_html': upcoming_html,
+            'discover_more_html': discover_more_html,
+            'discover_more_page': discover_page,
+            'discover_more_has_more': discover_page * discover_page_size < discover_total,
             'now_showing_html': now_showing_html,
             'html': trending_html,
         })

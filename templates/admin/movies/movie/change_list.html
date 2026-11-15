@@ -2,11 +2,14 @@
 {% load i18n admin_urls %}
 
 {% block object-tools-items %}
+  {% if latest_tmdb_movie_update %}
+  <li><span style="display:inline-block;color:#cbd5e1;font-size:12px;padding:8px 10px;">TMDB catalogue: {{ tmdb_catalog_count }} · Latest movie update {{ latest_tmdb_movie_update|date:"M j, Y H:i" }} · Missing posters {{ tmdb_missing_poster_count }}</span></li>
+  {% endif %}
   {% if sync_all_tmdb_url %}
   <li>
     <a href="{{ sync_all_tmdb_url }}"
        style="border-radius:8px;font-weight:600;padding:6px 14px;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#86efac;text-decoration:none;margin-right:6px;display:inline-flex;align-items:center;gap:6px;"
-       onclick="return confirm('Fetch now-playing and upcoming movies from TMDB and update the database. This may take ~30 seconds. Continue?')">
+       onclick="return confirm('Fetch and update verified theatrical movies across the selected regions. This may take a few minutes. Continue?')">
       🔄 Sync All from TMDB
     </a>
   </li>

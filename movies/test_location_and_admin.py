@@ -1,8 +1,10 @@
 from datetime import timedelta
+from io import StringIO
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -68,7 +70,8 @@ class LocationAndMovieStatusTests(TestCase):
             price=250.0,
             city="Bengaluru",
             latitude=13.1007,
-            longitude=77.5963
+            longitude=77.5963,
+            admin_verified=True,
         )
 
         # Far theater: PVR Chennai (Lat 13.0827, Lon 80.2707 ~ 290 km away)
@@ -81,7 +84,8 @@ class LocationAndMovieStatusTests(TestCase):
             price=220.0,
             city="Chennai",
             latitude=13.0827,
-            longitude=80.2707
+            longitude=80.2707,
+            admin_verified=True,
         )
 
         # Theaters with no active future showtimes (past showtime)
@@ -149,6 +153,7 @@ class LocationAndMovieStatusTests(TestCase):
         session.save()
 
         # Call homepage
+        client.force_login(self.user)
         res = client.get(reverse('home'))
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, "INOX Galleria")
@@ -170,14 +175,28 @@ class LocationAndMovieStatusTests(TestCase):
     def test_current_movies_only_rule(self):
         """Only movies with status='CURRENT', release_date <= today, and active future showtimes appear in Now Showing."""
         client = Client()
+        client.force_login(self.user)
         res = client.get(reverse('home'))
         self.assertEqual(res.status_code, 200)
-        # Bangalore Days has status CURRENT, release_date <= today, and future showtime -> Must be in Now Showing
-        self.assertIn(self.current_movie, res.context['now_showing_movies'])
+        # Current theatrical titles may appear in either the Trending or Now Showing rail.
+        current_rails = res.context['now_showing_movies'] + res.context['trending_booking_open']
+        self.assertIn(self.current_movie, current_rails)
         # Old Classic has status ENDED and past showtime -> Must NOT appear in Now Showing
         self.assertNotIn(self.ended_movie, res.context['now_showing_movies'])
+        self.assertNotIn(self.ended_movie, res.context['trending_booking_open'])
         # Avatar 4 has status DRAFT and future release date -> Must NOT appear in Now Showing
         self.assertNotIn(self.future_movie, res.context['now_showing_movies'])
+        self.assertNotIn(self.future_movie, res.context['trending_booking_open'])
+
+    def test_cleanup_does_not_end_global_movie_without_local_showtime(self):
+        movie = Movie.objects.create(
+            title='Regional Theatrical Release',
+            release_date=self.today - timedelta(days=12),
+            status='CURRENT',
+        )
+        call_command('cleanup_screenings', stdout=StringIO())
+        movie.refresh_from_db()
+        self.assertEqual(movie.status, 'CURRENT')
 
     def test_seats_start_available_by_default(self):
         """All newly created seats must start with is_booked=False and is_blocked=False."""

@@ -572,22 +572,24 @@
   <!-- 4. MOVIE CARDS GRID -->
   <div class="movies-css-grid" id="moviesGrid">
     {% for movie in page_obj %}
-    <div class="grid-movie-card">
+    <div class="grid-movie-card" data-detail-url="{% url 'movie_detail' movie.id %}" role="link" tabindex="0" aria-label="View details for {{ movie.get_display_title }}" style="cursor: pointer;">
       <div class="grid-poster-wrap">
-        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="grid-poster-img" loading="lazy">
+        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" class="grid-poster-img" loading="lazy" onerror="this.onerror=null;this.src='/static/images/poster-unavailable.svg'">
         
-        <div class="poster-trailer-play-badge" title="Watch Trailer Preview" onclick="event.stopPropagation(); openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
-          <i class="fas fa-play"></i>
-        </div>
-
         <div class="card-top-badges">
           <span class="card-rating-badge">
             <i class="fas fa-star text-warning"></i>
-            {{ movie.rating|default:movie.tmdb_rating|default:"7.8" }}
+            {% if movie.rating and movie.rating > 0 %}{{ movie.rating }}{% elif movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% else %}N/A{% endif %}
           </span>
-          <span class="badge {{ movie.release_status_badge_class }}" style="font-size: 10px; font-weight: 700; border-radius: 4px; padding: 4px 6px; letter-spacing: 0.03em;">
-            {{ movie.release_status_label }}
-          </span>
+          {% if movie.status == 'CURRENT' and movie.release_date and movie.release_date <= today %}
+            <span class="badge badge-now-showing" style="font-size: 10px; font-weight: 700; border-radius: 4px; padding: 4px 6px; letter-spacing: 0.03em;">
+              {% if movie.active_future_showtimes_count %}Now Showing{% else %}In Theatres{% endif %}
+            </span>
+          {% else %}
+            <span class="badge {{ movie.release_status_badge_class }}" style="font-size: 10px; font-weight: 700; border-radius: 4px; padding: 4px 6px; letter-spacing: 0.03em;">
+              {{ movie.release_status_label }}
+            </span>
+          {% endif %}
           {% if movie.ai_verdict %}
             <span class="badge" style="background: rgba(214, 31, 69, 0.9); color: #fff; font-size: 9.5px; font-weight: 800; border-radius: 4px; padding: 4px 6px;" title="{{ movie.ai_verdict }}">
               <i class="fas fa-brain"></i> AI
@@ -606,36 +608,9 @@
             {% for g in movie.genres.all|slice:":2" %}{{ g.name }}{% if not forloop.last %} • {% endif %}{% empty %}{{ movie.release_date|date:"Y" }}{% endfor %}
             {% if movie.original_language %} &bull; {{ movie.original_language|upper }}{% endif %}
           </div>
-          <div class="d-flex" style="gap: 8px;">
-            <button type="button" class="btn btn-outline-light btn-sm font-weight-bold" style="border-radius: 4px; padding: 7px 10px;" title="Watch Trailer Preview" onclick="event.stopPropagation(); openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}');">
-              <i class="fas fa-play text-danger"></i>
-            </button>
-            {% if movie.dynamic_release_status == 'NOW_SHOWING' %}
-              <a href="{% url 'theater_list' movie.id %}" class="btn btn-danger btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; background: var(--crimson, #D61F45); border: none; padding: 7px 12px;">
-                <i class="fas fa-ticket-alt mr-1"></i> Book Now
-              </a>
-            {% elif movie.dynamic_release_status == 'ADVANCE_BOOKING' %}
-              <a href="{% url 'theater_list' movie.id %}" class="btn btn-primary btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; background: #0284c7; border: none; padding: 7px 12px;">
-                <i class="fas fa-calendar-check mr-1"></i> Advance Booking
-              </a>
-            {% elif movie.dynamic_release_status == 'COMING_SOON' %}
-              <a href="{% url 'movie_detail' movie.id %}" class="btn btn-outline-warning btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; padding: 7px 12px;">
-                Coming Soon
-              </a>
-            {% elif movie.dynamic_release_status == 'OTT_ONLY' %}
-              <a href="{% url 'movie_detail' movie.id %}" class="btn btn-outline-info btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; padding: 7px 12px;">
-                Streaming Only
-              </a>
-            {% elif movie.dynamic_release_status == 'RELEASE_ENDED' %}
-              <a href="{% url 'movie_detail' movie.id %}" class="btn btn-outline-secondary btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; padding: 7px 12px;">
-                Run Ended
-              </a>
-            {% else %}
-              <a href="{% url 'movie_detail' movie.id %}" class="btn btn-outline-light btn-sm font-weight-bold flex-grow-1" style="border-radius: 4px; padding: 7px 12px;">
-                Details
-              </a>
-            {% endif %}
-          </div>
+          {% if not movie.active_future_showtimes_count %}
+            <div class="small mt-1" style="color:#CBD5E1">Currently not available in {{ selected_location.city|default:selected_city }}</div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -734,13 +709,20 @@
       });
     }
 
-    // Preserve the existing detail/booking navigation for card surfaces.
+    // Movie cards always open the movie details page; booking starts there.
     document.addEventListener('click', function(e) {
       const card = e.target.closest('.grid-movie-card, .recommend-card');
       if (!card) return;
       if (e.target.closest('a, button, input, select')) return;
-      const link = card.querySelector('a[href*="/movies/"]');
-      if (link?.href) window.location.href = link.href;
+      const link = card.dataset.detailUrl || card.querySelector('a[href*="/movies/"]')?.href;
+      if (link) window.location.href = link;
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = e.target.closest('.grid-movie-card, .recommend-card');
+      if (!card || e.target.closest('a, button, input, select')) return;
+      const link = card.dataset.detailUrl || card.querySelector('a[href*="/movies/"]')?.href;
+      if (link) { e.preventDefault(); window.location.href = link; }
     });
   });
 </script>

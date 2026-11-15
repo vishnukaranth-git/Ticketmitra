@@ -150,6 +150,8 @@
       <div class="discovery-kicker"><span></span> FIND YOUR NEAREST CINEMA</div>
       <h1 class="h2 font-weight-bold text-white mb-1">Theatres near you</h1>
       <p class="text-secondary mb-0">Browse nearby cinemas, then explore their current shows.</p>
+      {% if total_theaters < 10 %}<p class="text-muted small mb-0">We found {{ total_theaters }} theatre records for {{ user_location.city }} and are showing them all.</p>{% endif %}
+      {% if verified_showtimes_count == 0 %}<p class="text-muted small mb-0">No administrator-verified showtimes are currently published for these theatres.</p>{% endif %}
     </div>
     <button class="btn btn-sm btn-outline-info" onclick="openLocationModal()">
       <i class="fas fa-map-marker-alt mr-1"></i> {% if user_location %}Change Location{% else %}Choose Location{% endif %}
@@ -176,6 +178,13 @@
           <a href="{% url 'movie_detail' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;">
             <i class="fas fa-arrow-left mr-1"></i> Movie Details
           </a>
+          {% with p_count=movie.get_all_posters|length %}
+            {% if p_count > 1 %}
+              <a href="{% url 'movie_detail' movie.id %}" class="btn-cinematic-ghost py-1 px-3" style="font-size: 12px;" title="View poster gallery">
+                <i class="fas fa-images mr-1 text-danger"></i> {{ p_count }} Posters
+              </a>
+            {% endif %}
+          {% endwith %}
           <span class="badge badge-dark border" style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3) !important; color: var(--status-success); font-size: 11px;">
             <i class="fas fa-shield-alt mr-1"></i> 2-Min Guaranteed Seat Hold
           </span>
@@ -190,7 +199,7 @@
     <div>
       <h2 class="h4 font-weight-bold text-white mb-0">Select Cinema & Showtime</h2>
       <div class="text-muted small mt-1">
-        Showing theaters within <span class="text-white font-weight-bold">{{ radius_km|default:"30" }} km</span> of 
+        Showing theatres within <span class="text-white font-weight-bold">{{ radius_km|default:"50" }} km</span> of
         <span class="text-info font-weight-bold">📍 {{ user_location.city|default:"your location" }}</span>
       </div>
     </div>
@@ -211,7 +220,7 @@
               <h3 class="h5 font-weight-bold text-white mb-0">{{ th.name }}</h3>
               {% if th.is_partner %}<span class="theatre-partner-badge"><i class="fas fa-check-circle"></i> Partner Theatre</span>{% endif %}
             </div>
-            <p class="theatre-card-address text-muted small mb-2"><i class="fas fa-map-marker-alt text-danger mr-1"></i>{{ th.address|default:th.location|default:th.city }}</p>
+            <p class="theatre-card-address text-muted small mb-2"><i class="fas fa-map-marker-alt text-danger mr-1"></i>{{ th.address|default:"Address not listed" }}</p>
             <div class="small text-info"><i class="fas fa-location-arrow mr-1"></i>{{ th.distance_display|default:"Distance unavailable" }}</div>
           </div>
         </div>
@@ -245,6 +254,9 @@
     </div>
     {% if nearby_theaters|length > 8 %}
       <div class="theatre-more-row"><button type="button" class="theatre-more-btn" id="showMoreTheatres">Show More Theatres</button></div>
+    {% endif %}
+    {% if has_more_theaters %}
+      <div class="theatre-more-row"><a class="theatre-more-btn" href="?page={{ theater_page|add:1 }}">Load More Theatres</a></div>
     {% endif %}
   {% else %}
     <div class="theatre-empty-state">

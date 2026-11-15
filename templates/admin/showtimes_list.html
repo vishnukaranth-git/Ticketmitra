@@ -17,12 +17,77 @@
       </p>
     </div>
     <div class="d-flex flex-wrap" style="gap: 10px;">
+      <form method="POST" action="/admin/showtimes/" style="margin: 0; display: inline;" onsubmit="return confirm('Generate or replenish showtimes across all participating theatres for all eligible movies (guaranteeing >=3 shows for multistarrers)?');">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="generate_network_schedules">
+        <input type="hidden" name="days_ahead" value="7">
+        <button type="submit" class="tm-btn" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700;" title="Ensures all eligible movies have showtimes in all participating theatres">
+          <i class="fas fa-magic mr-1"></i> Auto-Generate Network Schedule
+        </button>
+      </form>
       <button type="button" class="tm-btn tm-btn-primary" onclick="openCreateShowtimeModal()">
         <i class="fas fa-plus mr-1"></i> + Single Showtime
       </button>
       <button type="button" class="tm-btn tm-btn-secondary" onclick="openRecurringShowtimeModal()">
         <i class="fas fa-calendar-week mr-1"></i> + Generate Recurring
       </button>
+    </div>
+  </div>
+
+  <!-- SCHEDULE AUDIT & HEALTH STATUS CARDS -->
+  <div class="row mb-4">
+    <div class="col-md-4 mb-2">
+      <div class="p-3 rounded" style="background: rgba(20, 26, 41, 0.9); border: 1px solid rgba(255, 255, 255, 0.08);">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Current Movies Without Shows</span>
+          {% if movies_without_shows_count > 0 %}
+            <span class="badge badge-warning" style="font-weight: 700;">{{ movies_without_shows_count }} Unscheduled</span>
+          {% else %}
+            <span class="badge badge-success" style="font-weight: 700;"><i class="fas fa-check mr-1"></i>100% Scheduled</span>
+          {% endif %}
+        </div>
+        <div class="font-weight-bold text-white mt-1" style="font-size: 13px;">
+          {% if movies_without_shows_count > 0 %}
+            Action Needed: Run Auto-Generate Network Schedule
+          {% else %}
+            All eligible theatrical releases have active showtimes
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-2">
+      <div class="p-3 rounded" style="background: rgba(20, 26, 41, 0.9); border: 1px solid rgba(255, 255, 255, 0.08);">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Theatres Without Live Shows</span>
+          {% if theatres_without_shows_count > 0 %}
+            <span class="badge badge-danger" style="font-weight: 700;">{{ theatres_without_shows_count }} Inactive</span>
+          {% else %}
+            <span class="badge badge-success" style="font-weight: 700;"><i class="fas fa-check mr-1"></i>All Active</span>
+          {% endif %}
+        </div>
+        <div class="font-weight-bold text-white mt-1" style="font-size: 13px;">
+          {% if theatres_without_shows_count > 0 %}
+            Theatres require screen allocation or schedule activation
+          {% else %}
+            All participating theatres are screening live titles
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-2">
+      <div class="p-3 rounded" style="background: rgba(20, 26, 41, 0.9); border: 1px solid rgba(255, 255, 255, 0.08);">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Weekly Refresh Status</span>
+          <span class="badge badge-info" style="font-weight: 700;">Thu &amp; Fri IST</span>
+        </div>
+        <div class="font-weight-bold text-white mt-1" style="font-size: 13px;">
+          {% if weekly_sync_info %}
+            Last Synced: {{ weekly_sync_info.human_time }} ({{ weekly_sync_info.total_bookable }} bookable)
+          {% else %}
+            Scheduled for every Thursday &amp; Friday midnight IST
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 

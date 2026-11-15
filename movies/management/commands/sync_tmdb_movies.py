@@ -225,46 +225,9 @@ class Command(BaseCommand):
                     elif has_future_theaters:
                         correct_status = 'CURRENT'
                     else:
-                        # No local showtimes yet -- keep as CURRENT for now-playing imports
+                        # Global TMDB now-playing classification is kept in the
+                        # catalogue, but it never creates local booking inventory.
                         correct_status = 'CURRENT' if intended_status == 'CURRENT' else 'UPCOMING'
-                        if correct_status == 'CURRENT':
-                            from datetime import timedelta
-                            from decimal import Decimal
-
-                            from movies.models import Screen, Seat, Theater
-                            # Ensure active Bengaluru partner screening exists so users can book immediately
-                            screen = Screen.objects.filter(active=True).first()
-                            if screen:
-                                show_time = now.replace(hour=19, minute=30, second=0, microsecond=0)
-                                if show_time < now:
-                                    show_time = now + timedelta(hours=3)
-                                th_show, th_created = Theater.objects.get_or_create(
-                                    name=screen.theater_name,
-                                    movie=movie,
-                                    screen=screen,
-                                    time=show_time,
-                                    defaults={
-                                        'location': 'Galleria Mall, Yelahanka',
-                                        'city': 'Bengaluru',
-                                        'price': Decimal('280.00'),
-                                        'active': True,
-                                    }
-                                )
-                                if th_created:
-                                    seats_to_create = [
-                                        Seat(
-                                            theater=th_show,
-                                            screen=screen,
-                                            seat_number=f"{r_ltr}{c_idx}",
-                                            row=r_ltr,
-                                            seat_type='REGULAR',
-                                            is_booked=False,
-                                            is_blocked=False,
-                                        )
-                                        for r_ltr in ['A', 'B', 'C', 'D']
-                                        for c_idx in range(1, 9)
-                                    ]
-                                    Seat.objects.bulk_create(seats_to_create, ignore_conflicts=True)
 
                     needs_save = False
                     if movie.status != correct_status:
@@ -290,9 +253,9 @@ class Command(BaseCommand):
             except Exception as e:
                 error_count += 1
                 self.stdout.write(self.style.ERROR(
-                    f"  [{idx}/{total}] ERROR: TMDB #{tmdb_id} -- {e}"
+                    f"  [{idx}/{total}] ERROR: TMDB #{tmdb_id} -- {type(e).__name__}"
                 ))
-                logger.exception(f"sync_tmdb_movies: failed for TMDB ID {tmdb_id}")
+                logger.error('sync_tmdb_movies failed for TMDB ID %s (%s).', tmdb_id, type(e).__name__)
 
             time.sleep(0.2)
 
@@ -350,21 +313,6 @@ class Command(BaseCommand):
                             time.sleep(0.3)
                     except Exception as err:
                         self.stdout.write(self.style.WARNING(f"  [Groq AI] Skipped {u_movie.get_display_title()}: {err}"))
-
-            # --- Enforce Mandaadi & legacy test data constraints ---
-            mandaadi = Movie.objects.filter(name__icontains='Mandaadi').first()
-            if mandaadi:
-                mandaadi.is_ott_only = True
-                mandaadi.status = 'OTT_ONLY'
-                mandaadi.has_ott_release = True
-                mandaadi.ott_streaming_url = 'https://www.hotstar.com/'
-                mandaadi.ott_providers = [{
-                    'name': 'JioHotstar',
-                    'logo_url': 'https://image.tmdb.org/t/p/w185/74xJadqC1zO52iJpZ0E9XkM9vC6.jpg',
-                    'type': 'flatrate'
-                }]
-                mandaadi.theaters.all().delete()
-                mandaadi.save()
 
         # --- Final Summary ---
         self.stdout.write(self.style.SUCCESS(

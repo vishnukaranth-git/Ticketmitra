@@ -4,7 +4,7 @@ import math
 from django.db.models import Q
 from django.utils import timezone
 
-from movies.models import CinemaVenue, Movie, SeatReservation, Theater
+from movies.models import CinemaVenue, Movie, SeatReservation, Theater, UserLocationPreference
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +67,22 @@ def find_nearest_city_name(lat, lon):
 def get_user_location_from_request(request):
     """
     Extracts user location from session or query parameters.
-    Default radius: 30 km.
+    Default radius: 50 km.
     """
     session_loc = request.session.get('user_location') or {}
+    if not session_loc and getattr(request, 'user', None) and request.user.is_authenticated:
+        try:
+            saved = request.user.location_preference
+            if saved.latitude is not None and saved.longitude is not None:
+                session_loc = {
+                    'lat': float(saved.latitude), 'lng': float(saved.longitude),
+                    'lon': float(saved.longitude), 'city': saved.city,
+                    'radius': saved.radius_km, 'method': saved.location_method,
+                    'is_detected': saved.location_method == 'geolocation',
+                }
+                request.session['user_location'] = session_loc
+        except UserLocationPreference.DoesNotExist:
+            pass
 
     # Check query overrides
     lat = request.GET.get('lat')
@@ -78,11 +91,12 @@ def get_user_location_from_request(request):
     radius = request.GET.get('radius')
 
     try:
-        radius = float(radius) if radius else float(session_loc.get('radius', 30.0))
+        radius = float(radius) if radius else float(session_loc.get('radius', 50.0))
     except (ValueError, TypeError):
-        radius = 30.0
+        radius = 50.0
+    radius = min(50.0, max(1.0, radius))
 
-    if lat and lng:
+    if lat is not None and lng is not None:
         try:
             lat = float(lat)
             lng = float(lng)
@@ -126,9 +140,9 @@ def get_user_location_from_request(request):
 
     # Default fallback: Bengaluru (requires browser prompt or explicit selection)
     return {
-        'lat': 13.0827,
-        'lng': 77.5877,
-        'lon': 77.5877,
+        'lat': CITY_CENTROIDS['bengaluru']['lat'],
+        'lng': CITY_CENTROIDS['bengaluru']['lon'],
+        'lon': CITY_CENTROIDS['bengaluru']['lon'],
         'city': 'Bengaluru',
         'radius': radius,
         'method': 'default',
@@ -138,9 +152,9 @@ def get_user_location_from_request(request):
 
 def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, include_city_directory=False):
     """
-    Finds theaters within user's 30 km radius (Haversine formula) and their active screens/showtimes.
+    Finds theatres within the user's 50 km radius (Haversine formula) and their active screens/showtimes.
     Filters:
-    - Distance <= 30 km
+    - Distance <= 50 km
     - Theaters sorted by distance (nearest first)
     - Movies: status == 'CURRENT', release_date <= today, active upcoming showtimes
     - Language: matches regional language filter if provided
@@ -151,15 +165,32 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
     u_lat = user_loc.get('lat')
     u_lng = user_loc.get('lng') or user_loc.get('lon')
     u_city = user_loc.get('city')
-    radius_km = float(user_loc.get('radius', 30.0))
+    radius_km = min(50.0, float(user_loc.get('radius', 50.0)))
 
     # Base Query: active showtimes in the future
     showtimes_qs = Theater.objects.filter(
         active=True,
+        admin_verified=True,
         time__gte=now,
         movie__status='CURRENT',
-        movie__release_date__lte=today
+        movie__is_in_active_catalog=True,
+        movie__is_ott_only=False,
+        movie__release_date__lte=today,
+        screen__active=True,
+        screen__operational_status='ACTIVE',
+        operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+    ).exclude(
+        operational_status__in=['CANCELLED', 'COMPLETED', 'DRAFT']
     ).select_related('movie', 'screen')
+
+    # A selected city is a strict market boundary, including for geolocation.
+    if u_city:
+        showtimes_qs = showtimes_qs.filter(city__iexact=u_city)
+    if CinemaVenue.objects.exists():
+        active_venue_names = CinemaVenue.objects.filter(
+            active=True, status='ACTIVE'
+        ).values_list('name', flat=True)
+        showtimes_qs = showtimes_qs.filter(name__in=active_venue_names)
 
     if movie_id:
         showtimes_qs = showtimes_qs.filter(movie_id=movie_id)
@@ -170,16 +201,25 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
             Q(movie__original_language=lang) | Q(movie__languages__code=lang)
         ).distinct()
 
-    # Distinct venues
+    # Distinct venues (normalizing duplicate aliases such as INOX Galleria -> INOX Galleria Mall)
+    def normalize_venue_name(name):
+        n = (name or '').strip()
+        if n == 'INOX Galleria':
+            return 'INOX Galleria Mall'
+        return n
+
     venues = {}
     for st in showtimes_qs:
-        v_name = st.name
+        v_name = normalize_venue_name(st.name)
+        if v_name in ['faea', 'hjukuyku', 'rdj']:
+            continue
+
         if v_name not in venues:
             st_lat = st.latitude
             st_lon = st.longitude
             if st_lat is None or st_lon is None:
-                venue_obj = CinemaVenue.objects.filter(name=v_name).first()
-                if venue_obj and venue_obj.latitude and venue_obj.longitude:
+                venue_obj = CinemaVenue.objects.filter(name__iexact=v_name, city__iexact=st.city).first()
+                if venue_obj and venue_obj.latitude is not None and venue_obj.longitude is not None:
                     st_lat = venue_obj.latitude
                     st_lon = venue_obj.longitude
 
@@ -187,13 +227,11 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
             if u_lat is not None and u_lng is not None and st_lat is not None and st_lon is not None:
                 dist = haversine_distance(u_lat, u_lng, st_lat, st_lon)
             elif u_city and st.city and u_city.lower() == st.city.lower():
-                # When only a city is selected, measure from its known centroid.
                 centroid = CITY_CENTROIDS.get(u_city.lower())
                 if centroid and st_lat is not None and st_lon is not None:
                     dist = haversine_distance(centroid['lat'], centroid['lon'], st_lat, st_lon)
 
-            # Radius filtering: strictly <= radius_km (default 30 km)
-            # If coordinates are known and dist > radius_km, exclude venue
+            # Filter by search radius
             if dist is not None and dist > radius_km:
                 continue
 
@@ -203,12 +241,12 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
 
             venues[v_name] = {
                 'name': v_name,
-                'location': st.location,
-                'address': st.address or st.location,
+                'location': st.location or st.address or f"{st.city}, {st.state}",
+                    'address': st.address or st.location or '',
                 'city': st.city,
                 'state': st.state,
-                'latitude': float(st.latitude) if st.latitude else None,
-                'longitude': float(st.longitude) if st.longitude else None,
+                'latitude': float(st_lat) if st_lat is not None else None,
+                'longitude': float(st_lon) if st_lon is not None else None,
                 'distance': dist,
                 'distance_display': f"{dist} km away" if dist is not None else "Nearby",
                 'screens': {},
@@ -263,22 +301,22 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
             # Skip invalid test venue names
             if cv.name in ['faea', 'hjukuyku', 'rdj']:
                 continue
-            if cv.name not in venues:
+            if cv.name not in venues and cv.latitude is not None and cv.longitude is not None:
                 dist = None
                 if u_lat is not None and u_lng is not None and cv.latitude is not None and cv.longitude is not None:
                     dist = haversine_distance(u_lat, u_lng, cv.latitude, cv.longitude)
 
-                if dist is not None and dist > radius_km:
+                if dist is None or dist > radius_km:
                     continue
 
                 venues[cv.name] = {
                     'name': cv.name,
                     'location': cv.address or cv.city,
-                    'address': cv.address or f"{cv.city}, {cv.state}",
+                    'address': cv.address or '',
                     'city': cv.city,
                     'state': cv.state,
-                    'latitude': float(cv.latitude) if cv.latitude else None,
-                    'longitude': float(cv.longitude) if cv.longitude else None,
+                    'latitude': float(cv.latitude),
+                    'longitude': float(cv.longitude),
                     'distance': dist,
                     'distance_display': f"{dist} km away" if dist is not None else None,
                     'screens': {},
@@ -306,13 +344,13 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
             venue_lat = float(row['latitude'])
             venue_lon = float(row['longitude'])
             dist = haversine_distance(u_lat, u_lng, venue_lat, venue_lon)
-            if dist is not None and dist > radius_km:
+            if dist is None or dist > radius_km:
                 continue
 
             venues[venue_name] = {
                 'name': venue_name,
                 'location': row['location'],
-                'address': row['address'] or row['location'] or row['city'],
+                'address': row['address'] or row['location'] or '',
                 'city': row['city'],
                 'state': row['state'],
                 'latitude': venue_lat,
@@ -330,9 +368,35 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
         x['distance'] if x['distance'] is not None else float('inf'),
     ))
 
-    # Convert screens dict inside each theater to list
+    # Keep results useful and bounded. The API accepts a page number so a
+    # client can request subsequent groups without presenting a huge directory.
+    page = request.GET.get('page', '1')
+    try:
+        page_number = max(1, int(page))
+    except (TypeError, ValueError):
+        page_number = 1
+    total_verified_theaters = len(theaters_list)
+    verified_showtimes_count = sum(item['showtimes_count'] for item in theaters_list)
+    theaters_list = theaters_list[(page_number - 1) * 30:page_number * 30]
+
+    # Convert screens dict inside each theater to list, and compute available movies & formats
     for t in theaters_list:
         t['screens_list'] = list(t['screens'].values())
+        seen_movie_ids = set()
+        venue_movies = []
+        formats = set()
+        for sc in t['screens_list']:
+            fmt = sc.get('screen_type')
+            if fmt:
+                formats.add(fmt.upper())
+            for st in sc['showtimes']:
+                m = st['movie']
+                if m.id not in seen_movie_ids:
+                    seen_movie_ids.add(m.id)
+                    venue_movies.append(m)
+        t['available_movies'] = venue_movies
+        t['available_movies_count'] = len(venue_movies)
+        t['formats'] = sorted(formats) if formats else ['STANDARD']
 
     # Extract current movies actively screening in these nearby theaters
     active_movie_ids = set()
@@ -354,6 +418,9 @@ def get_nearby_theaters_and_movies(request, movie_id=None, language_code=None, i
         'current_movies': current_movies,
         'user_location': user_loc,
         'radius_km': radius_km,
-        'total_theaters': len(theaters_list),
+        'total_theaters': total_verified_theaters,
+        'verified_showtimes_count': verified_showtimes_count,
+        'page': page_number,
+        'has_more_theaters': page_number * 30 < total_verified_theaters,
         'supported_cities': SUPPORTED_CITIES,
     }

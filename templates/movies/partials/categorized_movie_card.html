@@ -1,15 +1,15 @@
-<div class="carousel-card-item" data-movie-id="{{ movie.id }}" data-bookable="{% if movie.is_booking_available %}true{% else %}false{% endif %}">
-  <div class="movie-card-uniform">
+<div class="carousel-card-item" data-movie-id="{{ movie.id }}" data-detail-url="{% url 'movie_detail' movie.id %}" role="link" tabindex="0" aria-label="View details for {{ movie.get_display_title }}">
+  <div class="movie-card-uniform" data-detail-url="{% url 'movie_detail' movie.id %}" style="cursor: pointer;">
     <div class="card-poster-container">
       <a href="{% url 'movie_detail' movie.id %}" style="display: block; width: 100%; height: 100%;">
-        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+        <img src="{{ movie.get_poster_url }}" alt="{{ movie.get_display_title }}" loading="lazy" onerror="this.src='/static/images/poster-unavailable.svg'">
         <div class="poster-gradient-overlay"></div>
       </a>
 
       <!-- Rating badge -->
       <div class="card-badge-top-right">
         <i class="fas fa-star text-warning"></i>
-        {% if movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% else %}{{ movie.rating|default:"8.0" }}{% endif %}
+        {% if movie.tmdb_rating and movie.tmdb_rating > 0 %}{{ movie.tmdb_rating }}{% elif movie.rating and movie.rating > 0 %}{{ movie.rating }}{% else %}N/A{% endif %}
       </div>
 
       <!-- Demand / Status Badge -->
@@ -39,11 +39,6 @@
       </div>
       {% endif %}
 
-      {% if movie.get_trailer_embed_url or movie.trailer_url %}
-      <button type="button" class="poster-trailer-trigger" title="Watch Trailer" onclick="openTrailerModal({{ movie.id }}, '{{ movie.get_display_title|escapejs }}', '{{ movie.get_trailer_embed_url|default:movie.trailer_url|escapejs }}', '{{ movie.get_poster_url|escapejs }}', '{{ movie.rating|default:movie.tmdb_rating|default:'0' }}', '{{ movie.description|escapejs }}', '{{ movie.get_runtime_display|default:'' }}', '{{ movie.original_language|upper }}', '{{ movie.release_date|date:'M j, Y' }}')">
-        <i class="fas fa-play" style="font-size: 14px; margin-left: 2px;"></i>
-      </button>
-      {% endif %}
     </div>
 
     <div class="card-content-uniform">
@@ -62,21 +57,6 @@
         {% endif %}
       </div>
 
-      <div class="card-action-bar">
-        {% if movie.is_booking_available %}
-        <a href="{% url 'theater_list' movie.id %}" class="btn-card-action book-now" title="Book tickets for {{ movie.get_display_title }}" style="background: var(--crimson, #D61F45) !important; color: #FFFFFF !important;">
-          <i class="fas fa-ticket-alt mr-1"></i> BOOK NOW
-        </a>
-        {% elif movie.release_date and movie.release_date > today %}
-        <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon" title="View details and release date">
-          <i class="far fa-bell mr-1"></i> COMING SOON
-        </a>
-        {% else %}
-        <a href="{% url 'movie_detail' movie.id %}" class="btn-card-action coming-soon" title="View movie details">
-          <i class="fas fa-info-circle mr-1"></i> VIEW DETAILS
-        </a>
-        {% endif %}
-      </div>
     </div>
   </div>
 </div>

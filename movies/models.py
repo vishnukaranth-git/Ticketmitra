@@ -6,6 +6,39 @@ from django.db import models
 from django.utils import timezone
 
 
+class UserLocationPreference(models.Model):
+    """Persist the city or coordinates a signed-in user chose for cinema discovery."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='location_preference')
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    city = models.CharField(max_length=100, blank=True, default='')
+    radius_km = models.PositiveSmallIntegerField(default=50)
+    location_method = models.CharField(max_length=20, default='city')
+    prompt_dismissed = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user} — {self.city or 'Location not set'}"
+
+
+class PosterItem:
+    """Helper wrapper for direct or fallback poster representations."""
+    def __init__(self, url, is_primary=True, poster_id=0):
+        self._url = url
+        self.is_primary = is_primary
+        self.id = poster_id
+
+    def get_url(self):
+        return self._url or ""
+
+    @property
+    def url(self):
+        return self._url or ""
+
+    def __str__(self):
+        return self.get_url()
+
+
 class Genre(models.Model):
     tmdb_id = models.IntegerField(unique=True, null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
@@ -68,9 +101,12 @@ class Movie(models.Model):
     backdrop = models.ImageField(upload_to="movies/backdrops/", blank=True, null=True)
     backdrop_url = models.URLField(max_length=500, blank=True, null=True)
     release_date = models.DateField(blank=True, null=True, db_index=True)
+    theatrical_release_dates = models.JSONField(blank=True, default=dict, help_text='Verified TMDB theatrical dates keyed by ISO country code.')
     runtime = models.PositiveIntegerField(blank=True, null=True, help_text="Duration in minutes")
     age_certification = models.CharField(max_length=20, blank=True, null=True)
     trailer_url = models.URLField(max_length=500, blank=True, null=True)
+    trailer_video_id = models.CharField(max_length=20, blank=True, default='')
+    trailer_videos = models.JSONField(blank=True, default=list)
     tmdb_rating = models.DecimalField(max_digits=4, decimal_places=1, default=0.0)
     vote_count = models.PositiveIntegerField(default=0)
     popularity = models.FloatField(default=0.0, db_index=True)
@@ -78,6 +114,7 @@ class Movie(models.Model):
     imdb_id = models.CharField(max_length=30, blank=True, null=True)
     director = models.CharField(max_length=255, blank=True, null=True)
     is_in_active_catalog = models.BooleanField(default=True, db_index=True)
+    is_multistarrer = models.BooleanField(default=False, db_index=True, help_text="True if movie is classified as a multistarrer / tentpole theatrical release requiring multiple daily shows.")
 
     # OTT and Advance Booking tracking
     ott_release_date = models.DateField(blank=True, null=True, help_text="Digital/OTT streaming release date")
@@ -143,12 +180,36 @@ class Movie(models.Model):
         elif self.rating and (not self.tmdb_rating or self.tmdb_rating == 0.0):
             self.tmdb_rating = self.rating
 
+        trailer_video_id = self.get_trailer_video_id()
+        if trailer_video_id:
+            self.trailer_video_id = trailer_video_id
+            if not self.trailer_videos:
+                self.trailer_videos = [{
+                    'video_id': trailer_video_id,
+                    'title': f'{self.get_display_title()} Official Trailer',
+                    'video_type': 'Trailer',
+                    'url': f'https://www.youtube-nocookie.com/embed/{trailer_video_id}',
+                }]
+        if kwargs.get('update_fields') is not None and trailer_video_id:
+            kwargs['update_fields'] = set(kwargs['update_fields']) | {'trailer_video_id', 'trailer_videos'}
+
         super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
 
     def get_display_title(self):
         return self.title or self.name
 
     def get_poster_url(self):
+        # 1. Highest priority: primary poster from MoviePoster relation
+        try:
+            primary_poster = self.posters.filter(is_primary=True).first()
+            if primary_poster and primary_poster.get_url():
+                return primary_poster.get_url()
+        except Exception:
+            pass
+
+        # 2. Direct uploaded image or poster_url on Movie
         if self.image and hasattr(self.image, 'url') and self.image.name:
             try:
                 return self.image.url
@@ -156,14 +217,56 @@ class Movie(models.Model):
                 pass
         if self.poster_url:
             return self.poster_url
-        # Fallback to primary poster if available
-        primary_poster = self.posters.filter(is_primary=True).first()
-        if primary_poster:
-            return primary_poster.get_url()
-        first_poster = self.posters.first()
-        if first_poster:
-            return first_poster.get_url()
-        return "https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg"
+
+        # 3. Fallback to first MoviePoster
+        try:
+            first_poster = self.posters.first()
+            if first_poster and first_poster.get_url():
+                return first_poster.get_url()
+        except Exception:
+            pass
+
+        return "/static/images/poster-unavailable.svg"
+
+    def get_all_posters(self):
+        """
+        Returns all unique poster representations for this movie.
+        Guarantees that:
+        - The primary poster is always first.
+        - Every returned item has .get_url(), .url, .is_primary, and .id.
+        - Does not produce duplicate URLs.
+        """
+        posters = []
+        try:
+            posters = list(self.posters.all().order_by('-is_primary', 'id'))
+        except Exception:
+            pass
+
+        existing_urls = {p.get_url() for p in posters if p.get_url()}
+
+        # Check if direct image or poster_url provides a distinct poster
+        direct_url = None
+        if self.image and hasattr(self.image, 'url') and self.image.name:
+            try:
+                direct_url = self.image.url
+            except Exception:
+                pass
+        elif self.poster_url:
+            direct_url = self.poster_url
+
+        if direct_url and direct_url not in existing_urls:
+            has_primary = any(p.is_primary for p in posters)
+            item = PosterItem(direct_url, is_primary=not has_primary, poster_id=0)
+            if not has_primary:
+                posters.insert(0, item)
+            else:
+                posters.append(item)
+
+        if not posters:
+            fallback_url = "/static/images/poster-unavailable.svg"
+            posters.append(PosterItem(fallback_url, is_primary=True, poster_id=0))
+
+        return posters
 
     def get_backdrop_url(self):
         if self.backdrop and hasattr(self.backdrop, 'url') and self.backdrop.name:
@@ -182,7 +285,13 @@ class Movie(models.Model):
         annotated_count = getattr(self, 'active_future_showtimes_count', None)
         if annotated_count is not None and not city:
             return annotated_count > 0
-        qs = self.theaters.filter(active=True, time__gte=now_dt)
+        qs = self.theaters.filter(
+            active=True, time__gte=now_dt,
+            admin_verified=True,
+            operational_status__in=['SCHEDULED', 'BOOKING_OPEN'],
+            screen__active=True,
+            screen__operational_status='ACTIVE',
+        )
         if city:
             qs = qs.filter(city__iexact=city)
         return qs.exists()
@@ -310,8 +419,15 @@ class Movie(models.Model):
 
     @property
     def is_bookable(self):
-        st = self.get_release_status()
-        return st in ['NOW_SHOWING', 'ADVANCE_BOOKING'] and self.has_active_showtimes()
+        today = timezone.localdate()
+        return (
+            self.status in ['CURRENT', 'ADVANCE_BOOKING']
+            and not self.is_ott_only
+            and self.release_date is not None
+            and ((self.status == 'CURRENT' and self.release_date <= today)
+                 or (self.status == 'ADVANCE_BOOKING' and self.release_date > today))
+            and self.has_active_showtimes()
+        )
 
     def get_runtime_display(self):
         if not self.runtime or self.runtime <= 0:
@@ -368,7 +484,13 @@ class Movie(models.Model):
     def get_similar_movies(self, limit=6):
         genre_ids = list(self.genres.values_list('id', flat=True))
         language_ids = list(self.languages.values_list('id', flat=True))
-        qs = Movie.objects.filter(is_in_active_catalog=True).exclude(id=self.id).exclude(status='DRAFT')
+        today = timezone.localdate()
+        qs = Movie.objects.filter(
+            is_in_active_catalog=True, is_ott_only=False,
+        ).filter(
+            models.Q(status='CURRENT', release_date__lte=today) |
+            models.Q(status__in=('UPCOMING', 'ADVANCE_BOOKING'), release_date__gt=today)
+        ).exclude(id=self.id)
 
         # Prioritize matching BOTH language and genre
         lang_filter = models.Q()
@@ -421,6 +543,47 @@ class Movie(models.Model):
             return f"https://www.youtube.com/embed/{video_id}?enablejsapi=1&rel=0"
         return None
 
+    def get_trailer_videos(self):
+        """Return validated stored YouTube videos, with the legacy primary URL as fallback."""
+        import re
+
+        videos = []
+        stored = self.trailer_videos if isinstance(self.trailer_videos, list) else []
+        for item in stored:
+            if not isinstance(item, dict):
+                continue
+            video_id = str(item.get('video_id') or '').strip()
+            if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):
+                continue
+            videos.append({
+                'video_id': video_id,
+                'title': str(item.get('title') or self.get_display_title()),
+                'video_type': str(item.get('video_type') or 'Trailer'),
+                'url': f'https://www.youtube-nocookie.com/embed/{video_id}',
+            })
+
+        primary_id = self.get_trailer_video_id()
+        if primary_id and all(video['video_id'] != primary_id for video in videos):
+            videos.insert(0, {
+                'video_id': primary_id,
+                'title': f'{self.get_display_title()} Official Trailer',
+                'video_type': 'Trailer',
+                'url': f'https://www.youtube-nocookie.com/embed/{primary_id}',
+            })
+        return videos
+
+    def get_trailer_video_id(self):
+        import re
+
+        embed_url = self.get_trailer_embed_url()
+        if embed_url:
+            match = re.search(r'/embed/([A-Za-z0-9_-]{11})', embed_url)
+            if match:
+                return match.group(1)
+        if re.fullmatch(r'[A-Za-z0-9_-]{11}', self.trailer_video_id or ''):
+            return self.trailer_video_id
+        return None
+
     def get_youtube_watch_url(self):
         """Returns standard youtube.com watch URL for fallback external viewing."""
         embed_url = self.get_trailer_embed_url()
@@ -439,6 +602,26 @@ class MoviePoster(models.Model):
     image_url = models.URLField(max_length=500, blank=True, null=True)
     is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_primary and self.movie_id:
+            MoviePoster.objects.filter(movie_id=self.movie_id, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+            # Sync with movie poster_url / image for primary consistency
+            try:
+                poster_url = self.get_url()
+                if poster_url and not self.movie.image:
+                    Movie.objects.filter(pk=self.movie_id).update(poster_url=poster_url)
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+        return result
 
     def __str__(self):
         return f"Poster for {self.movie.get_display_title()}"
@@ -474,6 +657,17 @@ class CinemaVenue(models.Model):
     class Meta:
         ordering = ['name']
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+        return result
+
     def __str__(self):
         return f"{self.name} ({self.city})"
 
@@ -502,6 +696,17 @@ class Screen(models.Model):
     class Meta:
         unique_together = ('theater_name', 'name')
         ordering = ['theater_name', 'name']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+        return result
 
     def __str__(self):
         return f"{self.theater_name} — {self.name} ({self.screen_type})"
@@ -536,6 +741,22 @@ class Theater(models.Model):
         default='BOOKING_OPEN',
         db_index=True,
     )
+    admin_verified = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text='Only administrator-reviewed showtimes are published for public discovery and booking.',
+    )
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+        return result
 
     @property
     def end_time(self):
@@ -682,6 +903,17 @@ class Booking(models.Model):
             models.Index(fields=['theater', 'status']),
             models.Index(fields=['user', 'booked_at']),
         ]
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from movies.services.ranking_service import invalidate_movie_ranking_cache
+        invalidate_movie_ranking_cache()
+        return result
 
     def __str__(self):
         return f'Booking by {self.user.username} for {self.seat.seat_number} at {self.theater.name}'

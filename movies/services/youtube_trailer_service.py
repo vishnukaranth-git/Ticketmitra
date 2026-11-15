@@ -1,7 +1,9 @@
 """Conservative YouTube trailer discovery using verified movie metadata."""
 
 import logging
+import queue
 import re
+import threading
 import unicodedata
 
 import requests
@@ -9,6 +11,10 @@ from django.conf import settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+_TRAILER_LOOKUP_QUEUE = queue.Queue()
+_TRAILER_LOOKUP_LOCK = threading.Lock()
+_TRAILER_LOOKUP_IDS = set()
+_TRAILER_LOOKUP_WORKER = None
 
 YOUTUBE_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search'
 YOUTUBE_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos'
@@ -62,6 +68,8 @@ def _title_matches(candidate_title, movie_titles):
 
 def _has_expected_language(language, title, description, video_language=''):
     expected = (language or '').lower().split('-')[0]
+    if not expected:
+        return True
     expected_aliases = LANGUAGE_ALIASES.get(expected, ())
     metadata_language = (video_language or '').lower().split('-')[0]
     if metadata_language:
@@ -74,7 +82,16 @@ def _has_expected_language(language, title, description, video_language=''):
     text = f' {_normalize(title)} {_normalize(description)} '
     aliases = {_normalize(expected), *(_normalize(alias) for alias in expected_aliases)}
     aliases.discard('')
-    return any(f' {alias} ' in text for alias in aliases)
+    if any(f' {alias} ' in text for alias in aliases):
+        return True
+    if expected == 'en':
+        other_language_aliases = {
+            _normalize(alias)
+            for code, names in LANGUAGE_ALIASES.items() if code != 'en'
+            for alias in names
+        }
+        return not any(alias and f' {alias} ' in text for alias in other_language_aliases)
+    return False
 
 
 def _channel_is_official(channel_title, production_companies):
@@ -102,13 +119,27 @@ class YouTubeTrailerService:
         self.tmdb_service = tmdb_service
 
     def find_trailer_id(self, movie):
-        if not self.api_key or not movie.tmdb_id:
+        trailer_ids = self.find_trailer_ids(movie)
+        if not trailer_ids:
+            return None
+        first = trailer_ids[0]
+        return first.get('video_id') if isinstance(first, dict) else first
+
+    def find_trailer_ids(self, movie, force=False):
+        if not self.api_key:
             return None
 
-        cache_key = f'ticketmitra:youtube-trailer:v1:{movie.tmdb_id}'
+        identity = movie.tmdb_id or f'movie-{movie.pk}'
+        cache_key = f'ticketmitra:youtube-trailer:v2:{identity}'
+        if force:
+            cache.delete(cache_key)
         cached_result = cache.get(cache_key)
         if cached_result is not None:
-            return None if cached_result == NO_MATCH else cached_result
+            if cached_result == NO_MATCH:
+                return []
+            if isinstance(cached_result, str):
+                return [cached_result]
+            return cached_result
 
         lock_key = f'{cache_key}:lock'
         if not cache.add(lock_key, True, timeout=45):
@@ -126,22 +157,23 @@ class YouTubeTrailerService:
                 from .tmdb_service import TMDBService
                 tmdb = TMDBService()
 
-            if not tmdb.api_key:
-                return None
-            details = tmdb.get_movie_details(movie.tmdb_id, append_to_response='')
-            if not details or details.get('id') != movie.tmdb_id:
-                return None
+            details = None
+            if movie.tmdb_id and tmdb.api_key:
+                details = tmdb.get_movie_details(movie.tmdb_id, append_to_response='')
+                if details and details.get('id') != movie.tmdb_id:
+                    details = None
 
+            details = details or {}
             title = details.get('title') or details.get('original_title') or movie.title or movie.name
             original_title = details.get('original_title') or movie.original_title or title
             release_date = details.get('release_date') or (movie.release_date.isoformat() if movie.release_date else '')
             try:
                 release_year = int(release_date[:4])
             except (TypeError, ValueError):
-                return None
+                return []
             language = (details.get('original_language') or movie.original_language or '').lower()
             if not language:
-                return None
+                return []
             language_name = LANGUAGE_NAMES.get(language, language)
             query = f'"{title}" {release_year} {language_name} official trailer'
 
@@ -161,8 +193,9 @@ class YouTubeTrailerService:
             response = requests.get(YOUTUBE_SEARCH_URL, params=params, timeout=10)
             if response.status_code != 200:
                 logger.warning('YouTube trailer search returned HTTP %s for TMDB movie %s.', response.status_code, movie.tmdb_id)
-                cache.set(cache_key, NO_MATCH, timeout=300)
-                return None
+                error_reason = str((response.json().get('error') or {}).get('errors', [{}])[0].get('reason', '')) if response.headers.get('content-type', '').startswith('application/json') else ''
+                cache.set(cache_key, NO_MATCH, timeout=60 * 60 * 6 if error_reason in {'quotaExceeded', 'dailyLimitExceeded'} else 300)
+                return []
             results = response.json().get('items', [])
 
             candidates = []
@@ -174,16 +207,18 @@ class YouTubeTrailerService:
                 video_title = snippet.get('title', '')
                 description = snippet.get('description', '')
                 channel_title = snippet.get('channelTitle', '')
+                normalized_title = _normalize(video_title)
                 metadata_text = f'{video_title} {description}'
-                normalized_text = _normalize(metadata_text)
 
                 if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id):
                     continue
                 if not _title_matches(video_title, titles):
                     continue
-                if 'trailer' not in normalized_text or 'official' not in normalized_text:
+                if 'official' not in normalized_title:
                     continue
-                if any(term in _normalize(video_title) for term in ('teaser', 'song', 'promo', 'clip', 'reaction')):
+                if any(term in _normalize(video_title) for term in ('song', 'promo', 'clip', 'reaction', 'review', 'fan made', 'fanmade')):
+                    continue
+                if 'trailer' not in normalized_title and 'teaser' not in normalized_title:
                     continue
 
                 years = {int(year) for year in re.findall(r'\b(?:19|20)\d{2}\b', metadata_text)}
@@ -208,29 +243,31 @@ class YouTubeTrailerService:
                     'title': video_title,
                     'description': description,
                     'published_year': published_year or 0,
+                    'video_type': 'Teaser' if 'teaser' in _normalize(video_title) else 'Trailer',
+                    'channel_title': channel_title,
                 })
 
-            selected_id = self._verify_candidate_languages(candidates, language)
-            if selected_id:
-                cache.set(cache_key, selected_id, timeout=60 * 60 * 24 * 30)
-                return selected_id
+            selected = self._verify_candidate_languages(candidates, language)
+            if selected:
+                cache.set(cache_key, selected, timeout=60 * 60 * 24 * 30)
+                return selected
 
             cache.set(cache_key, NO_MATCH, timeout=60 * 60 * 12)
-            return None
+            return []
         except requests.RequestException as exc:
             # Do not log request exception text; it can contain the API key URL.
             logger.warning('YouTube trailer discovery request failed (%s) for TMDB movie %s.', type(exc).__name__, movie.tmdb_id)
             cache.set(cache_key, NO_MATCH, timeout=300)
-            return None
+            return []
         except (ValueError, TypeError, KeyError) as exc:
             logger.warning('Could not validate YouTube trailer metadata (%s) for TMDB movie %s.', type(exc).__name__, movie.tmdb_id)
             cache.set(cache_key, NO_MATCH, timeout=300)
-            return None
+            return []
 
     def _verify_candidate_languages(self, candidates, expected_language):
         if not candidates:
-            return None
-        candidates.sort(key=lambda item: (item['channel_score'], item['published_year']), reverse=True)
+            return []
+        candidates.sort(key=lambda item: (item['video_type'] == 'Trailer', item['channel_score'], item['published_year']), reverse=True)
         ids = [candidate['video_id'] for candidate in candidates[:10]]
         params = {'part': 'snippet', 'id': ','.join(ids), 'key': self.api_key}
         response = requests.get(YOUTUBE_VIDEOS_URL, params=params, timeout=8)
@@ -242,6 +279,8 @@ class YouTubeTrailerService:
             item.get('id'): item.get('snippet') or {}
             for item in response.json().get('items', [])
         }
+        verified = []
+        seen = set()
         for candidate in candidates:
             snippet = snippets.get(candidate['video_id'])
             if not snippet:
@@ -253,5 +292,122 @@ class YouTubeTrailerService:
                 candidate['description'],
                 audio_language,
             ):
-                return candidate['video_id']
-        return None
+                video_id = candidate['video_id']
+                if video_id not in seen:
+                    verified.append({
+                        'video_id': video_id,
+                        'title': candidate['title'],
+                        'channel_title': candidate.get('channel_title', ''),
+                        'video_type': candidate.get('video_type', 'Trailer'),
+                        'channel_score': candidate.get('channel_score', 0),
+                    })
+                    seen.add(video_id)
+                if len(verified) >= 3:
+                    break
+        return verified
+
+
+def fetch_and_store_movie_trailers(movie, *, force=False):
+    """Discover verified official trailers and persist their YouTube IDs and embed URLs."""
+    if not force and movie.get_trailer_embed_url():
+        return False
+
+    service = YouTubeTrailerService()
+    matches = service.find_trailer_ids(movie, force=force)
+    if not matches:
+        return False
+
+    videos = [
+        {
+            'video_id': item['video_id'],
+            'title': item['title'],
+            'channel_title': item.get('channel_title', ''),
+            'video_type': item.get('video_type', 'Trailer'),
+            'url': f"https://www.youtube-nocookie.com/embed/{item['video_id']}",
+        }
+        for item in matches
+    ]
+    primary = next((item for item in videos if item['video_type'] == 'Trailer'), videos[0])
+    movie.trailer_videos = videos
+    movie.trailer_video_id = primary['video_id']
+    movie.trailer_url = primary['url']
+    movie.save(update_fields=['trailer_videos', 'trailer_video_id', 'trailer_url', 'updated_at'])
+    return True
+
+
+def queue_movie_trailer_lookup(movie_id, *, force=False):
+    """Queue asynchronously when a worker is configured; serialize local lookups in dev."""
+    global _TRAILER_LOOKUP_WORKER
+    from django.conf import settings
+
+    broker_url = str(getattr(settings, 'CELERY_BROKER_URL', 'memory://'))
+    if not broker_url.startswith('memory://'):
+        try:
+            from movies.tasks import fetch_movie_trailer_task
+            fetch_movie_trailer_task.delay(movie_id, force=force)
+            return True
+        except Exception as exc:
+            logger.warning('Could not queue trailer lookup (%s); using local background thread.', type(exc).__name__)
+
+    queue_id = (movie_id, bool(force))
+    with _TRAILER_LOOKUP_LOCK:
+        if queue_id in _TRAILER_LOOKUP_IDS:
+            return True
+        _TRAILER_LOOKUP_IDS.add(queue_id)
+        _TRAILER_LOOKUP_QUEUE.put(queue_id)
+        if _TRAILER_LOOKUP_WORKER is None or not _TRAILER_LOOKUP_WORKER.is_alive():
+            _TRAILER_LOOKUP_WORKER = threading.Thread(
+                target=_run_local_trailer_queue,
+                name='ticketmitra-youtube-trailer-worker',
+                daemon=True,
+            )
+            _TRAILER_LOOKUP_WORKER.start()
+    return True
+
+
+def _run_local_trailer_queue():
+    from django.db import close_old_connections
+    from movies.models import Movie
+
+    while True:
+        movie_id, force = _TRAILER_LOOKUP_QUEUE.get()
+        try:
+            close_old_connections()
+            movie = Movie.objects.get(pk=movie_id)
+            fetch_and_store_movie_trailers(movie, force=force)
+        except Movie.DoesNotExist:
+            pass
+        except Exception as exc:
+            logger.warning('Trailer lookup failed for movie %s (%s).', movie_id, type(exc).__name__)
+        finally:
+            close_old_connections()
+            with _TRAILER_LOOKUP_LOCK:
+                _TRAILER_LOOKUP_IDS.discard((movie_id, force))
+            _TRAILER_LOOKUP_QUEUE.task_done()
+
+
+def validate_youtube_video(video_id, expected_language=''):
+    """Confirm that a manually supplied video is available and matches its language."""
+    api_key = getattr(settings, 'YOUTUBE_API_KEY', '').strip()
+    if not api_key or not re.fullmatch(r'[A-Za-z0-9_-]{11}', str(video_id or '')):
+        return False
+    try:
+        response = requests.get(
+            YOUTUBE_VIDEOS_URL,
+            params={'part': 'snippet', 'id': video_id, 'key': api_key},
+            timeout=8,
+        )
+        if response.status_code != 200:
+            return False
+        item = next(iter(response.json().get('items', [])), None)
+        if not item:
+            return False
+        snippet = item.get('snippet') or {}
+        return _has_expected_language(
+            expected_language,
+            snippet.get('title', ''),
+            snippet.get('description', ''),
+            snippet.get('defaultAudioLanguage') or snippet.get('defaultLanguage') or '',
+        )
+    except (requests.RequestException, ValueError, TypeError):
+        return False

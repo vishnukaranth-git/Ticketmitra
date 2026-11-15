@@ -887,7 +887,7 @@
             <form action="{% url 'admin_login' %}" method="POST" class="auth-form" id="adminLoginForm">
               {% csrf_token %}
               <input type="hidden" name="from_landing" value="1">
-              <input type="hidden" name="next" value="{{ next|default:'/admin/dashboard/' }}">
+              <input type="hidden" name="next" value="/admin/dashboard/">
 
               <div class="form-group">
                 <label for="adminUsername" class="form-label">Username</label>
@@ -1051,3 +1051,4 @@
   </script>
 </body>
 </html>
+

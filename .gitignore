@@ -13,6 +13,7 @@ __pycache__/
 # Media uploaded files (optional, keeping db.sqlite3 intact)
 # media/
 *.log
+staticfiles/
 
 # Scratch and temporary test scripts
 scratch/

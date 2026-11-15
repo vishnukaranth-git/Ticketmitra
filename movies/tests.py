@@ -20,6 +20,7 @@ from movies.models import (
     Payment,
     Review,
     Seat,
+    Screen,
     SeatReservation,
     Theater,
 )
@@ -1464,30 +1465,36 @@ class MovieDiscoveryTests(TestCase):
         self.movie3.languages.add(self.lang_en)
 
         # Theaters with showtimes and prices
-        now = timezone.now()
+        now = timezone.localtime(timezone.now()) + timedelta(days=1)
+        screen1 = Screen.objects.create(theater_name='PVR Koramangala', name='Screen 1')
+        screen2 = Screen.objects.create(theater_name='INOX Forum South', name='Screen 1')
+        screen3 = Screen.objects.create(theater_name='Cinepolis Mysuru', name='Screen 1')
         self.theater1 = Theater.objects.create(
             name='PVR Koramangala',
             movie=self.movie1,
             time=now.replace(hour=9, minute=30, second=0),  # Morning
+            screen=screen1,
             city='Bengaluru',
             price=250.00,
-            active=True
+            active=True, admin_verified=True
         )
         self.theater2 = Theater.objects.create(
             name='INOX Forum South',
             movie=self.movie2,
             time=now.replace(hour=18, minute=45, second=0),  # Evening
+            screen=screen2,
             city='Bengaluru',
             price=350.00,
-            active=True
+            active=True, admin_verified=True
         )
         self.theater3 = Theater.objects.create(
             name='Cinepolis Mysuru',
             movie=self.movie3,
             time=now.replace(hour=14, minute=0, second=0),  # Afternoon
+            screen=screen3,
             city='Mysuru',
             price=150.00,
-            active=True
+            active=True, admin_verified=True
         )
 
         # Seats
@@ -1512,16 +1519,17 @@ class MovieDiscoveryTests(TestCase):
         self.assertNotIn(self.movie3.id, found_ids)
 
     def test_filter_by_city_and_theater(self):
-        """Filtering by city and theater venues."""
-        # City filter
+        """City selection changes booking availability, not global discovery."""
         res_city = self.client.get(reverse('movie_list') + "?city=Mysuru")
         self.assertEqual(res_city.status_code, 200)
         found_city_ids = [m.id for m in res_city.context['page_obj']]
         self.assertIn(self.movie3.id, found_city_ids)
-        self.assertNotIn(self.movie1.id, found_city_ids)
+        self.assertIn(self.movie1.id, found_city_ids)
+        city_movie = next(m for m in res_city.context['page_obj'] if m.id == self.movie1.id)
+        self.assertEqual(city_movie.active_future_showtimes_count, 0)
 
         # Theater filter
-        res_th = self.client.get(reverse('movie_list') + f"?theater={self.theater2.id}")
+        res_th = self.client.get(reverse('movie_list') + f"?city=Bengaluru&theater={self.theater2.id}")
         self.assertEqual(res_th.status_code, 200)
         found_th_ids = [m.id for m in res_th.context['page_obj']]
         self.assertIn(self.movie2.id, found_th_ids)
@@ -1547,7 +1555,8 @@ class MovieDiscoveryTests(TestCase):
         res_p = self.client.get(reverse('movie_list') + "?sort=price_low")
         self.assertEqual(res_p.status_code, 200)
         movies = list(res_p.context['page_obj'])
-        self.assertTrue(movies[0].min_ticket_price <= movies[-1].min_ticket_price)
+        available_prices = [m.min_ticket_price for m in movies if m.min_ticket_price is not None]
+        self.assertEqual(available_prices, sorted(available_prices))
 
         # Rating sort: movie2 (9.0) should come before movie3 (6.5)
         res_r = self.client.get(reverse('movie_list') + "?sort=rating")

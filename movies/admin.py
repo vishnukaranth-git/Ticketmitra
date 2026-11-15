@@ -42,7 +42,7 @@ class MoviePosterInline(admin.TabularInline):
 class TheaterInline(admin.TabularInline):
     model = Theater
     extra = 1
-    fields = ['name', 'screen', 'time', 'city', 'active']
+    fields = ['name', 'screen', 'time', 'city', 'admin_verified', 'active']
 
 
 @admin.register(Genre)
@@ -79,18 +79,18 @@ class MoviePosterAdmin(admin.ModelAdmin):
 
 @admin.register(Movie)
 class MovieAdmin(admin.ModelAdmin):
-    list_display = ['get_poster_thumb', 'get_display_title', 'status_badge', 'original_language', 'get_genres_display', 'runtime_display', 'release_date', 'get_rating_display', 'popularity']
-    list_filter = ['status', 'original_language', 'release_date', 'genres']
+    list_display = ['get_poster_thumb', 'get_display_title', 'status_badge', 'multistarrer_badge', 'original_language', 'get_genres_display', 'runtime_display', 'release_date', 'get_rating_display', 'popularity']
+    list_filter = ['status', 'is_multistarrer', 'original_language', 'release_date', 'genres']
     search_fields = ['name', 'title', 'original_title', 'cast', 'description']
     inlines = [MoviePosterInline, TheaterInline]
-    readonly_fields = ['created_at', 'updated_at', 'popularity', 'vote_count']
-    actions = ['sync_selected_from_tmdb', 'update_release_statuses_action']
+    readonly_fields = ['created_at', 'updated_at', 'popularity', 'vote_count', 'trailer_video_id', 'trailer_videos']
+    actions = ['mark_multistarrer_action', 'unmark_multistarrer_action', 'generate_schedules_action', 'sync_selected_from_tmdb', 'update_release_statuses_action', 'refresh_movie_trailers_action']
     fieldsets = (
         ("Movie Information", {
-            'fields': (('name', 'title'), ('original_title', 'original_language'), ('release_date', 'runtime'), ('status', 'age_certification'), 'description', 'cast')
+            'fields': (('name', 'title'), ('original_title', 'original_language'), ('release_date', 'runtime'), ('status', 'age_certification', 'is_multistarrer'), 'description', 'cast')
         }),
         ("Media & Visuals", {
-            'fields': (('image', 'poster_url'), ('backdrop', 'backdrop_url'), 'trailer_url')
+            'fields': (('image', 'poster_url'), ('backdrop', 'backdrop_url'), 'trailer_url', 'trailer_video_id', 'trailer_videos')
         }),
         ("Classification & Cast", {
             'fields': ('genres', 'languages', 'cast_members')
@@ -99,6 +99,75 @@ class MovieAdmin(admin.ModelAdmin):
             'fields': (('tmdb_id', 'rating', 'tmdb_rating'), ('popularity', 'vote_count'), ('created_at', 'updated_at'))
         }),
     )
+
+    @admin.display(description="Multistarrer", boolean=False)
+    def multistarrer_badge(self, obj):
+        if obj.is_multistarrer:
+            return format_html('<span class="tm-badge tm-badge-warning" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; padding: 3px 8px; border-radius: 4px;">★ Multistarrer</span>')
+        return format_html('<span style="color: #64748B;">Standard</span>')
+
+    @admin.action(description="Mark selected movies as Multistarrer (>=3 shows/theatre)")
+    def mark_multistarrer_action(self, request, queryset):
+        cnt = queryset.update(is_multistarrer=True)
+        self.message_user(request, f"{cnt} movie(s) marked as Multistarrer.")
+
+    @admin.action(description="Unmark Multistarrer (standard release)")
+    def unmark_multistarrer_action(self, request, queryset):
+        cnt = queryset.update(is_multistarrer=False)
+        self.message_user(request, f"{cnt} movie(s) unmarked as Multistarrer.")
+
+    @admin.action(description="Generate cinema network showtimes for selected movies")
+    def generate_schedules_action(self, request, queryset):
+        from movies.services.schedule_service import generate_schedule_for_cinema_network
+        res = generate_schedule_for_cinema_network(days_ahead=10, dry_run=False)
+        self.message_user(request, f"Schedule generation completed: {res.get('created_showtimes_count', 0)} created, {res.get('existing_preserved_count', 0)} preserved.")
+
+    def save_model(self, request, obj, form, change):
+        if change and 'trailer_url' in form.changed_data:
+            old_movie = Movie.objects.filter(pk=obj.pk).only('trailer_url', 'trailer_video_id', 'trailer_videos').first()
+            if obj.trailer_url:
+                from movies.services.youtube_trailer_service import validate_youtube_video
+                video_id = obj.get_trailer_video_id()
+                if not video_id or not validate_youtube_video(video_id, obj.original_language or ''):
+                    self.message_user(request, 'Trailer URL was not saved: the YouTube video is unavailable or its language could not be verified.', level='error')
+                    if old_movie:
+                        obj.trailer_url = old_movie.trailer_url
+                        obj.trailer_video_id = old_movie.trailer_video_id
+                        obj.trailer_videos = old_movie.trailer_videos
+                    else:
+                        obj.trailer_url = ''
+                        obj.trailer_video_id = ''
+                        obj.trailer_videos = []
+                else:
+                    obj.trailer_video_id = video_id
+                    obj.trailer_videos = [{
+                        'video_id': video_id,
+                        'title': f'{obj.get_display_title()} Official Trailer',
+                        'video_type': 'Trailer',
+                        'url': f'https://www.youtube-nocookie.com/embed/{video_id}',
+                    }]
+            elif old_movie:
+                obj.trailer_video_id = ''
+                obj.trailer_videos = []
+        super().save_model(request, obj, form, change)
+        if not obj.get_trailer_embed_url():
+            from django.db import transaction
+            from movies.services.youtube_trailer_service import queue_movie_trailer_lookup
+            transaction.on_commit(lambda movie_id=obj.pk: queue_movie_trailer_lookup(movie_id))
+
+    @admin.action(description='▶️ Find or refresh verified YouTube trailers')
+    def refresh_movie_trailers_action(self, request, queryset):
+        from django.contrib import messages
+        from movies.services.youtube_trailer_service import queue_movie_trailer_lookup
+
+        queued = 0
+        for movie_id in queryset.values_list('id', flat=True):
+            queued += int(queue_movie_trailer_lookup(movie_id, force=True))
+        self.message_user(
+            request,
+            f'Queued trailer lookup for {queued} movie(s). Existing trailers will be replaced only when a verified match is found.',
+            level=messages.SUCCESS,
+        )
 
     def get_urls(self):
         from django.urls import path
@@ -111,21 +180,31 @@ class MovieAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         from django.urls import reverse
+        from django.db.models import Max
         extra_context = extra_context or {}
         extra_context['sync_all_tmdb_url'] = reverse('admin:movies_movie_sync_all_tmdb')
         extra_context['import_tmdb_url'] = reverse('admin:movies_movie_import_tmdb')
+        tmdb_movies = Movie.objects.filter(tmdb_id__isnull=False)
+        extra_context['latest_tmdb_movie_update'] = tmdb_movies.aggregate(value=Max('updated_at'))['value']
+        extra_context['tmdb_missing_poster_count'] = (
+            tmdb_movies.filter(poster_url='').count() + tmdb_movies.filter(poster_url__isnull=True).count()
+        )
+        extra_context['tmdb_catalog_count'] = tmdb_movies.count()
         return super().changelist_view(request, extra_context=extra_context)
 
     def sync_all_tmdb_view(self, request):
-        """Admin view: trigger full TMDB sync for now-playing + upcoming movies."""
+        """Admin view: run the verified regional theatrical catalogue refresh."""
         from django.contrib import messages
         from django.core.management import call_command
         from django.shortcuts import redirect
+        from io import StringIO
         try:
-            call_command('sync_tmdb_movies', '--all', '--pages=2')
+            output = StringIO()
+            call_command('refresh_theatrical_movies', '--regions=IN,US,GB,AU', '--pages=3', stdout=output)
+            summary = output.getvalue().split('Refresh summary:', 1)[-1].strip()
             messages.success(
                 request,
-                "✅ TMDB sync completed! Now-playing and upcoming movies have been updated from TMDB."
+                'TMDB theatrical refresh completed. ' + summary[:900]
             )
         except Exception as e:
             messages.error(request, f"❌ TMDB sync failed: {e}")
@@ -304,13 +383,13 @@ class ScreenAdmin(admin.ModelAdmin):
 
 @admin.register(Theater)
 class TheaterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'screen_info', 'movie_title', 'formatted_time', 'city', 'geo_coordinates', 'active_status', 'available_seats', 'theater_actions']
-    list_filter = ['active', 'city', 'screen__screen_type', 'time', 'movie']
+    list_display = ['name', 'screen_info', 'movie_title', 'formatted_time', 'city', 'admin_verified', 'active_status', 'available_seats', 'theater_actions']
+    list_filter = ['admin_verified', 'active', 'city', 'screen__screen_type', 'time', 'movie']
     search_fields = ['name', 'location', 'city', 'address', 'movie__title', 'movie__name', 'screen__name']
     inlines = [SeatInline]
     fieldsets = (
         ("Showtime & Screening", {
-            'fields': (('name', 'screen'), ('movie', 'time'), ('price', 'active'))
+            'fields': (('name', 'screen'), ('movie', 'time'), ('price', 'admin_verified', 'active'))
         }),
         ("THEATER LOCATION", {
             'fields': ('address', ('city', 'state'), 'pincode', ('latitude', 'longitude'), 'location'),

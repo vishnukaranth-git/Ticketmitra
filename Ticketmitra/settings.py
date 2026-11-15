@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -36,7 +37,14 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://localhost:8000',
+    'https://*.vercel.app',
 ]
+extra_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+if extra_origins:
+    for origin in extra_origins.split(','):
+        o = origin.strip()
+        if o and o not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(o)
 
 
 # Application definition
@@ -54,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -93,6 +102,10 @@ DATABASES = {
     }
 }
 
+database_url = os.environ.get('DATABASE_URL', '').strip()
+if database_url:
+    DATABASES['default'] = dj_database_url.parse(database_url, conn_max_age=600)
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -118,7 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -128,8 +141,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -143,6 +158,7 @@ LOGOUT_REDIRECT_URL = 'login'
 # TMDB Configuration
 # Token is a JWT Bearer token or v3 API Key. Never expose in frontend JS or templates.
 TMDB_API_KEY = os.environ.get('TMDB_API_KEY', '').strip()
+TMDB_ACCESS_TOKEN = os.environ.get('TMDB_ACCESS_TOKEN', '').strip()
 TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/'
 TMDB_POSTER_SIZE = 'w500'
@@ -168,7 +184,7 @@ CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'rpc://')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
+CELERY_TIMEZONE = 'Asia/Kolkata'
 
 # Celery Beat Periodic Task Schedule
 # Production: run `celery -A Ticketmitra beat -l info` (requires Redis/RabbitMQ broker)
@@ -176,12 +192,12 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    # Automatic Friday weekly movie refresh (runs every Friday at 00:00 UTC / midnight)
-    'weekly-friday-movie-refresh': {
+    # Automatic weekly movie refresh (runs every Thursday and Friday at 00:00 Asia/Kolkata)
+    'weekly-thursday-friday-movie-refresh': {
         'task': 'movies.tasks.weekly_friday_movie_refresh_task',
-        'schedule': crontab(hour=0, minute=0, day_of_week='friday'),
+        'schedule': crontab(hour=0, minute=0, day_of_week='thursday,friday'),
     },
-    # Sync now-playing and upcoming movies from TMDB every day at 2 AM UTC
+    # Sync now-playing and upcoming movies from TMDB every day at 2 AM
     'sync-tmdb-movies-daily': {
         'task': 'movies.tasks.sync_tmdb_movies_task',
         'schedule': crontab(hour=2, minute=0),
