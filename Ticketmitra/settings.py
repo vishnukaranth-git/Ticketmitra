@@ -27,10 +27,10 @@ load_dotenv(BASE_DIR / '.env', override=True)
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xw-c5fw*v05==426^))s0lo=2%5fl*3c2oa^6hv_z6yl8b(cww'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-xw-c5fw*v05==426^))s0lo=2%5fl*3c2oa^6hv_z6yl8b(cww')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DEBUG from environment; defaults to True if not explicitly False
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = ['*']
 
@@ -94,17 +94,34 @@ WSGI_APPLICATION = 'Ticketmitra.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+import shutil
 
 database_url = os.environ.get('DATABASE_URL', '').strip()
 if database_url:
-    DATABASES['default'] = dj_database_url.parse(database_url, conn_max_age=600)
+    DATABASES = {
+        'default': dj_database_url.parse(database_url, conn_max_age=600)
+    }
+else:
+    # If running on Vercel / serverless (read-only filesystem) without external DB,
+    # copy db.sqlite3 to /tmp so SQLite is writable and doesn't crash on locks/sessions.
+    if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+        tmp_db = Path('/tmp/db.sqlite3')
+        orig_db = BASE_DIR / 'db.sqlite3'
+        if orig_db.exists() and not tmp_db.exists():
+            try:
+                shutil.copy2(orig_db, tmp_db)
+            except Exception:
+                pass
+        sqlite_file = tmp_db if tmp_db.exists() else orig_db
+    else:
+        sqlite_file = BASE_DIR / 'db.sqlite3'
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': sqlite_file,
+        }
+    }
 
 
 # Password validation
