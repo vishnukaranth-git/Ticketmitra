@@ -13,7 +13,8 @@ __pycache__/
 # Media uploaded files (optional, keeping db.sqlite3 intact)
 # media/
 *.log
-staticfiles/
+.venv/
+venv/
 
 # Scratch and temporary test scripts
 scratch/

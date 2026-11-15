@@ -1,0 +1,159 @@
+/* TicketMitra customer experience polish. Presentation only; existing forms,
+   links, data attributes and booking controls keep their current behavior. */
+:root {
+  --tm-glass: rgba(16, 24, 39, .82);
+  --tm-glass-raised: rgba(23, 32, 51, .92);
+  --tm-line: rgba(226, 211, 193, .13);
+  --tm-glow: 0 18px 48px rgba(0, 0, 0, .34);
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at 82% 3%, rgba(117, 24, 48, .19), transparent 34rem),
+    linear-gradient(180deg, rgba(7, 11, 20, .68), rgba(16, 24, 39, .58)),
+    url('/static/images/midnight_paper_texture.png');
+}
+
+.cinematic-navbar {
+  border-color: rgba(238, 224, 207, .18) !important;
+  background: rgba(10, 15, 26, .72) !important;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, .34) !important;
+  backdrop-filter: blur(22px) saturate(130%);
+}
+.cinematic-navbar.scrolled { background: rgba(10, 15, 26, .92) !important; }
+.brand-emblem { border-radius: 9px !important; }
+.nav-link-custom { letter-spacing: .08em !important; }
+.main-content { flex: 1 0 auto; }
+
+.movie-discovery-container { padding-top: 20px !important; }
+.discovery-intro {
+  position: relative;
+  overflow: hidden;
+  padding: 30px 34px 25px;
+  margin: 0 0 18px;
+  border: 1px solid rgba(226, 211, 193, .10);
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 82% 0%, rgba(214, 31, 69, .21), transparent 28rem),
+    linear-gradient(110deg, rgba(19, 28, 46, .96), rgba(13, 19, 32, .78));
+  box-shadow: var(--tm-glow);
+}
+.discovery-intro::after {
+  content: "";
+  position: absolute;
+  right: 8%; top: -95px;
+  width: 290px; height: 290px;
+  border: 1px solid rgba(242, 233, 220, .06);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(242, 233, 220, .018), 0 0 0 58px rgba(242, 233, 220, .014);
+  pointer-events: none;
+}
+.discovery-kicker {
+  display: flex; align-items: center; gap: 9px;
+  color: #dcae91; font-size: 10px; font-weight: 800;
+  letter-spacing: .2em; margin-bottom: 9px;
+}
+.discovery-kicker span { width: 20px; height: 2px; background: var(--crimson); }
+.discovery-intro-row { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.discovery-intro h1 { margin: 0; color: var(--warm-ivory); font-size: clamp(28px, 3vw, 43px); line-height: 1.1; font-weight: 700; }
+.discovery-intro h1 em { color: #e8b9a5; font-weight: 500; }
+.discovery-intro p { margin: 9px 0 0; color: #b7b5b2; font-size: 13px; }
+.discovery-count { display: flex; align-items: baseline; gap: 9px; white-space: nowrap; color: #a9a6a2; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.discovery-count strong { color: var(--warm-ivory); font: 700 24px 'Playfair Display', Georgia, serif; }
+
+.filter-panel {
+  padding: 19px 22px !important;
+  margin-bottom: 24px !important;
+  border-radius: 15px !important;
+  border-color: var(--tm-line) !important;
+  background: linear-gradient(145deg, rgba(22, 31, 50, .88), rgba(14, 21, 35, .88)) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .2) !important;
+}
+.filter-panel h2 { letter-spacing: -.01em; }
+.form-control-cinematic { border-radius: 8px !important; }
+.filter-panel .input-group .form-control-lg { height: 48px; }
+.filter-panel .btn { border-radius: 8px !important; }
+.filter-panel label { letter-spacing: .035em; }
+.match-badge { border-radius: 999px !important; }
+
+.movies-css-grid { gap: 20px !important; }
+.grid-movie-card {
+  border-radius: 13px !important;
+  border-color: rgba(226, 211, 193, .13) !important;
+  background: #101827 !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .29) !important;
+  transform-style: preserve-3d;
+}
+.grid-movie-card:hover {
+  transform: translateY(-7px) scale(1.012) !important;
+  border-color: rgba(225, 86, 111, .62) !important;
+  box-shadow: 0 22px 44px rgba(0, 0, 0, .52), 0 0 25px rgba(214, 31, 69, .17) !important;
+}
+.grid-poster-wrap { aspect-ratio: 2 / 3 !important; }
+.grid-poster-img { filter: saturate(.91); }
+.grid-movie-card:hover .grid-poster-img { transform: scale(1.055) !important; filter: saturate(1.08); }
+.grid-card-overlay {
+  padding: 15px 13px !important;
+  background: linear-gradient(180deg, transparent 20%, rgba(6, 10, 18, .25) 48%, rgba(6, 10, 18, .97) 100%) !important;
+}
+.movie-card-title { font-size: 15px !important; }
+.movie-card-meta { color: #c2b7ab !important; }
+.card-rating-badge { border-radius: 999px !important; padding: 5px 9px !important; }
+.poster-trailer-play-badge { width: 50px !important; height: 50px !important; border-radius: 50% !important; }
+.grid-card-overlay .btn { border-radius: 7px !important; }
+.tm-page-link { border-radius: 9px !important; }
+
+.cinematic-surface-card, .seat-header-card, .theaters-page-header, .auth-card,
+.recommend-section, .section-container, .editorial-crimson-section {
+  border-color: var(--tm-line) !important;
+  box-shadow: var(--tm-glow) !important;
+}
+.seat-header-card, .cinematic-surface-card, .auth-card, .theaters-page-header {
+  background: linear-gradient(145deg, rgba(23, 32, 51, .93), rgba(13, 20, 34, .94)) !important;
+  border-radius: 16px !important;
+}
+.cinema-screen {
+  height: 55px !important;
+  max-width: 690px !important;
+  color: #f7e8da !important;
+  letter-spacing: .3em !important;
+  border-top-width: 4px !important;
+  border-top-color: #e04762 !important;
+  background: linear-gradient(180deg, rgba(230, 65, 91, .22), rgba(230, 65, 91, .015)) !important;
+  box-shadow: 0 -12px 42px rgba(214, 31, 69, .24) !important;
+}
+.seat-grid-wrap { max-width: 760px !important; gap: 11px !important; }
+.seat { border-radius: 11px 11px 8px 8px !important; }
+.seat.seat-available { background: linear-gradient(145deg, #1b2b38, #111c2b) !important; }
+.seat.seat-selected { background: linear-gradient(145deg, #f04462, #a91535) !important; }
+.legend-strip, .booking-summary-bar, .reservation-timer-banner {
+  border-radius: 14px !important;
+  background: rgba(8, 13, 23, .55) !important;
+  border-color: var(--tm-line) !important;
+}
+.legend-item:nth-child(2) .legend-swatch {
+  background: var(--crimson) !important;
+  border-color: #f04462 !important;
+  box-shadow: 0 0 9px rgba(214, 31, 69, .4) !important;
+}
+.view-mode-tabs, .view-mode-btn, .preset-pill-btn, .three-d-ctrl-btn { border-radius: 999px !important; }
+.modal-content-cinematic { border-radius: 16px !important; }
+.cinematic-footer { margin-top: 54px !important; }
+
+@media (max-width: 768px) {
+  .discovery-intro { padding: 23px 20px 20px; border-radius: 14px; }
+  .discovery-intro-row { align-items: start; }
+  .discovery-intro p { max-width: 38ch; line-height: 1.55; }
+  .discovery-count { display: none; }
+  .filter-panel { padding: 16px !important; }
+  .movies-css-grid { gap: 12px !important; }
+  .grid-card-overlay { padding: 11px 9px !important; }
+  .movie-card-title { font-size: 13px !important; }
+  .movie-card-meta { font-size: 10px !important; }
+  .seat { width: 37px !important; height: 37px !important; font-size: 11px !important; }
+  .seat-grid-wrap { gap: 7px !important; }
+  .booking-summary-bar { padding: 15px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
